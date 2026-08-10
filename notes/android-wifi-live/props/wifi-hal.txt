@@ -1,0 +1,35 @@
+-rwxr-xr-x 1 root shell 499792 2009-01-01 03:00 /vendor/bin/hw/android.hardware.wifi-service
+
+/vendor/etc/wifi:
+total 1684
+drwxr-xr-x  2 root shell   4096 2009-01-01 03:00 .
+drwxr-xr-x 20 root shell   4096 2009-01-01 03:00 ..
+-rw-r--r--  1 root root   12847 2009-01-01 03:00 WCNSS_qcom_cfg.ini
+-rw-r--r--  1 root root  839856 2009-01-01 03:00 aoa_cldb_falcon.bin
+-rw-r--r--  1 root root  839856 2009-01-01 03:00 aoa_cldb_swl14.bin
+-rw-r--r--  1 root root      85 2009-01-01 03:00 p2p_supplicant_overlay.conf
+-rw-r--r--  1 root root     171 2009-01-01 03:00 wpa_supplicant.conf
+-rw-r--r--  1 root root     229 2009-01-01 03:00 wpa_supplicant_overlay.conf
+disable_scan_offload=1
+p2p_no_group_iface=1
+persistent_reconnect=1
+bss_max_count=400
+update_config=1
+eapol_version=1
+ap_scan=1
+fast_reauth=1
+pmf=1
+p2p_add_cli_chan=1
+oce=1
+sae_pwe=2
+p2p_optimize_listen_chan=1
+wowlan_disconnect_on_deinit=1
+rsn_overriding=1
+disable_scan_offload=1
+p2p_disabled=1
+tdls_external_control=1
+wowlan_triggers=magic_pkt
+bss_max_count=400
+interworking=1
+config_methods=virtual_display virtual_push_button keypad
+driver_param="use_p2p_group_interface=1 no_rrm=1"

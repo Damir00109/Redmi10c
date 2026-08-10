@@ -1,0 +1,40 @@
+    5: fts_ts
+      Classes: KEYBOARD | TOUCH | TOUCH_MT
+      AbsState: ABS_MT_SLOT=0, ABS_MT_TOUCH_MAJOR=0, ABS_MT_POSITION_X=0, ABS_MT_POSITION_Y=0, ABS_MT_TRACKING_ID=0, ABS_MT_PRESSURE=0
+    EventHub Devices: [ 7 4 ] 
+    EventHub Devices: [ 8 ] 
+  Device 5: fts_ts
+    EventHub Devices: [ 5 ] 
+    Sources: KEYBOARD | TOUCHSCREEN
+    Touch Input Mapper (mode - DISABLED):
+        DeviceType: TOUCH_SCREEN
+      Raw Touch Axes:
+        TouchMajor: min=0, max=255, flat=0, fuzz=0, resolution=0
+        TouchMinor: unknown range
+        touch.size.calibration: GEOMETRIC
+        touch.pressure.calibration: physical
+        touch.orientation.calibration: none
+        touch.distance.calibration: none
+      Last Raw Touch:
+          ID bits: hovering = 0x00000000, touching = 0x00000000, canceled = 0x00000000
+      Last Cooked Touch: pointerCount=0
+    EventHub Devices: [ 3 2 ] 
+    EventHub Devices: [ 6 ] 
+    EventHub Devices: [ -1 ] 
+  mPreferStylusOverTouchBlocker:
+    mLastTouchEvents: 
+  Show Touches Enabled: false
+  TouchPointerControllers:
+  TouchStatesByDisplay: <no displays touched>
+  CursorStatesByDisplay: <no displays touched by cursor>
+      0: name=821d6af ScreenDecorOverlayBottom, id=63, displayId=0, inputConfig=NOT_FOCUSABLE | NOT_TOUCHABLE | TRUSTED_OVERLAY | SLIPPERY, alpha=1, frame=[0,1582][720,1650], globalScale=1, applicationInfo.name=, applicationInfo.token=<null>, touchableRegion=<empty>, ownerPid=2717, ownerUid=10097, dispatchingTimeout=5000ms, token=0xb40000752e311240, touchOcclusionMode=BLOCK_UNTRUSTED
+      1: name=7c37fbf ScreenDecorOverlay, id=62, displayId=0, inputConfig=NOT_FOCUSABLE | NOT_TOUCHABLE | TRUSTED_OVERLAY | SLIPPERY, alpha=1, frame=[0,0][720,68], globalScale=1, applicationInfo.name=, applicationInfo.token=<null>, touchableRegion=<empty>, ownerPid=2717, ownerUid=10097, dispatchingTimeout=5000ms, token=0xb40000752e311000, touchOcclusionMode=BLOCK_UNTRUSTED
+      2: name=ColorFade BLAST#98, id=98, displayId=0, inputConfig=NO_INPUT_CHANNEL | NOT_TOUCHABLE, alpha=1, frame=[0,0][720,1650], globalScale=1, applicationInfo.name=, applicationInfo.token=<null>, touchableRegion=<empty>, ownerPid=2145, ownerUid=1000, dispatchingTimeout=5000ms, token=0x0, touchOcclusionMode=BLOCK_UNTRUSTED
+      3: name=PointerEventDispatcherOverlay0, id=42, displayId=0, inputConfig=NOT_FOCUSABLE | NOT_TOUCHABLE | TRUSTED_OVERLAY | SPY | DO_NOT_PILFER, alpha=1, frame=[0,0][0,0], globalScale=1, applicationInfo.name=PointerEventDispatcherOverlay0, applicationInfo.token=<null>, touchableRegion=[-7200,-16500][7200,16500], ownerPid=2145, ownerUid=1000, dispatchingTimeout=5000ms, token=0xb40000752e468fb0, touchOcclusionMode=BLOCK_UNTRUSTED
+      4: name=[Gesture Monitor] swipe-up, id=88, displayId=0, inputConfig=NOT_FOCUSABLE | NOT_TOUCHABLE | TRUSTED_OVERLAY | SPY, alpha=1, frame=[0,0][0,0], globalScale=1, applicationInfo.name=[Gesture Monitor] swipe-up, applicationInfo.token=<null>, touchableRegion=[-7200,-16500][7200,16500], ownerPid=3156, ownerUid=10107, dispatchingTimeout=5000ms, token=0xb40000763fa90900, touchOcclusionMode=BLOCK_UNTRUSTED
+      5: name=[Gesture Monitor] edge-swipe, id=67, displayId=0, inputConfig=NOT_FOCUSABLE | NOT_TOUCHABLE | TRUSTED_OVERLAY | SPY, alpha=1, frame=[0,0][0,0], globalScale=1, applicationInfo.name=[Gesture Monitor] edge-swipe, applicationInfo.token=<null>, touchableRegion=[-7200,-16500][7200,16500], ownerPid=2717, ownerUid=10097, dispatchingTimeout=5000ms, token=0xb40000752e312620, touchOcclusionMode=BLOCK_UNTRUSTED
+      6: name=97e3d2c Taskbar, id=71, displayId=0, inputConfig=NOT_FOCUSABLE | NOT_TOUCHABLE | TRUSTED_OVERLAY | SLIPPERY, alpha=1, frame=[0,1650][0,1650], globalScale=1, applicationInfo.name=, applicationInfo.token=<null>, touchableRegion=<empty>, ownerPid=3156, ownerUid=10107, dispatchingTimeout=5000ms, token=0xb40000752e313490, touchOcclusionMode=BLOCK_UNTRUSTED
+      7: name=cb0dadc NotificationShade, id=85, displayId=0, inputConfig=NOT_TOUCHABLE | TRUSTED_OVERLAY | WATCH_OUTSIDE_TOUCH | DISABLE_USER_ACTIVITY, alpha=1, frame=[0,0][720,1650], globalScale=1, applicationInfo.name=, applicationInfo.token=<null>, touchableRegion=[-720,-1650][1440,3300], ownerPid=2717, ownerUid=10097, dispatchingTimeout=5000ms, token=0xb40000752e364470, touchOcclusionMode=BLOCK_UNTRUSTED
+      8: name=b0fda4c StatusBar, id=84, displayId=0, inputConfig=NOT_FOCUSABLE | NOT_TOUCHABLE | TRUSTED_OVERLAY, alpha=1, frame=[0,0][720,68], globalScale=1, applicationInfo.name=, applicationInfo.token=<null>, touchableRegion=[0,0][720,68], ownerPid=2717, ownerUid=10097, dispatchingTimeout=5000ms, token=0xb40000752e34ced0, touchOcclusionMode=BLOCK_UNTRUSTED
+      9: name=Dim layer#55, id=55, displayId=0, inputConfig=NO_INPUT_CHANNEL | NOT_VISIBLE | NOT_TOUCHABLE, alpha=1, frame=[0,0][0,0], globalScale=1, applicationInfo.name=, applicationInfo.token=<null>, touchableRegion=<empty>, ownerPid=2717, ownerUid=10097, dispatchingTimeout=5000ms, token=0x0, touchOcclusionMode=BLOCK_UNTRUSTED
+      10: name=Dim layer#54, id=54, displayId=0, inputConfig=NO_INPUT_CHANNEL | NOT_VISIBLE | NOT_TOUCHABLE, alpha=1, frame=[0,0][0,0], globalScale=1, applicationInfo.name=, applicationInfo.token=<null>, touchableRegion=<empty>, ownerPid=2717, ownerUid=10097, dispatchingTimeout=5000ms, token=0x0, touchOcclusionMode=BLOCK_UNTRUSTED

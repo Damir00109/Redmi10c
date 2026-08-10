@@ -1,0 +1,10 @@
+root           104     2          0      0 diag_socket_read    0 S [kworker/u16:2+WCNSS_CNTL]
+root           245     2          0      0 rescuer_thread      0 I [WCNSS_CNTL]
+root           246     2          0      0 rescuer_thread      0 I [WCNSS_DATA]
+root           247     2          0      0 rescuer_thread      0 I [WCNSS_CMD]
+root           248     2          0      0 rescuer_thread      0 I [WCNSS_DCI]
+root           249     2          0      0 rescuer_thread      0 I [WCNSS_DCI_CMD]
+wifi          1469     1    2367008   7356 binder_ioctl_write_read 0 S android.hardware.wifi-service
+wifi          1794     1    2264528   6340 do_epoll_wait       0 S wificond
+system        1838     1    2260764   5168 do_sys_poll         0 S cnss-daemon
+wifi          2758     1    2230056   8652 do_select           0 S wpa_supplicant

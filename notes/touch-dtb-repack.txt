@@ -1,0 +1,4 @@
+dtb rc 2
+Traceback (most recent call last):
+  File "<stdin>", line 14, in <module>
+IndexError: string index out of range

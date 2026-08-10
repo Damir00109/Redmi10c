@@ -1,0 +1,14 @@
+ 34:          5          0          0          0          0          0          0          0   mpm-gic 390 Edge      WLAN_CE_0
+ 35:         33          0          0          0          0          0          0          0   mpm-gic 391 Edge      WLAN_CE_1
+ 36:        419          0          0          0          0          0          0          0   mpm-gic 392 Edge      WLAN_CE_2
+ 37:        265          0          0          0          0          0          0          0   mpm-gic 393 Edge      WLAN_CE_3
+ 38:          0          0          0          0          0          0          0          0   mpm-gic 394 Edge      WLAN_CE_4
+ 39:          0          0          0          0          0          0          0          0   mpm-gic 395 Edge      WLAN_CE_5
+ 40:          0          0          0          0          0          0          0          0   mpm-gic 396 Edge      WLAN_CE_6
+ 41:          0          0          0          0          0          0          0          0   mpm-gic 397 Edge      WLAN_CE_7
+ 42:          0          0          0          0          0          0          0          0   mpm-gic 398 Edge      WLAN_CE_8
+ 43:         13          0          0          0          0          0          0          0   mpm-gic 399 Edge      WLAN_CE_9
+ 44:          7          0          0          0          0          0          0          0   mpm-gic 400 Edge      WLAN_CE_10
+ 45:          0          0          0          0          0          0          0          0   mpm-gic 401 Edge      WLAN_CE_11
+229:          0          0          0          0          0          0          0          0     smp2p   0 Edge      wlanfw-err
+230:          0          0          0          0          0          0          0          0     smp2p   1 Edge      wlanfw-early-crash-ind

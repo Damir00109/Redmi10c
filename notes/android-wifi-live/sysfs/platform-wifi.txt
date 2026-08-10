@@ -1,0 +1,8 @@
+lrwxrwxrwx 1 root root 0 2026-07-29 14:00 a5c0000.slim:wcn3990 -> ../../../devices/platform/soc/a5c0000.slim/a5c0000.slim:wcn3990
+lrwxrwxrwx 1 root root 0 2026-07-29 14:00 c800000.qcom,icnss -> ../../../devices/platform/soc/c800000.qcom,icnss
+lrwxrwxrwx 1 root root 0 2026-07-29 14:00 soc:bt_wcn3990 -> ../../../devices/platform/soc/soc:bt_wcn3990
+lrwxrwxrwx 1 root root 0 2026-07-29 14:00 soc:ipa_smmu_wlan -> ../../../devices/platform/soc/soc:ipa_smmu_wlan
+---
+/sys/bus/platform/devices/soc:bt_wcn3990
+/sys/bus/platform/devices/a5c0000.slim:wcn3990
+/sys/bus/platform/devices/c800000.qcom,icnss

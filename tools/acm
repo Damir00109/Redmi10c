@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Talk to rain mainline USB ACM shell (/dev/ttyACM0)."""
+import argparse, array, fcntl, os, select, sys, termios, time
+
+def open_acm(path="/dev/ttyACM0"):
+    fd = os.open(path, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+    a = termios.tcgetattr(fd)
+    a[0] = 0
+    a[1] = 0
+    a[2] = termios.CS8 | termios.CREAD | termios.CLOCAL
+    a[3] = 0
+    a[4] = a[5] = termios.B115200
+    a[6][termios.VMIN] = 0
+    a[6][termios.VTIME] = 0
+    termios.tcsetattr(fd, termios.TCSANOW, a)
+    fcntl.ioctl(fd, 0x5416, array.array("i", [6]))  # DTR|RTS
+    return fd
+
+def drain(fd, sec=0.3):
+    t = time.time()
+    while time.time() - t < sec:
+        r, _, _ = select.select([fd], [], [], 0.05)
+        if r:
+            try:
+                os.read(fd, 8192)
+            except BlockingIOError:
+                pass
+
+def cmd(fd, command, wait=3.0):
+    drain(fd, 0.2)
+    # Avoid "export PATH=..." — can confuse ash when the line is mangled.
+    os.write(fd, f"PATH=/bin:/sbin {command}\n".encode())
+    buf = b""
+    t = time.time()
+    while time.time() - t < wait:
+        r, _, _ = select.select([fd], [], [], 0.2)
+        if r:
+            try:
+                c = os.read(fd, 4096)
+            except BlockingIOError:
+                c = b""
+            if c:
+                buf += c
+    return buf
+
+def raw_write(fd, text: str):
+    drain(fd, 0.2)
+    os.write(fd, text.encode())
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("-d", "--device", default="/dev/ttyACM0")
+    p.add_argument("-w", "--wait", type=float, default=3.0)
+    p.add_argument("command", nargs="*", help="shell command, or: reboot / reboot-bootloader")
+    args = p.parse_args()
+    if not os.path.exists(args.device):
+        print(f"no {args.device}", file=sys.stderr)
+        sys.exit(2)
+    fd = open_acm(args.device)
+    try:
+        if not args.command:
+            sys.stdout.buffer.write(cmd(fd, "busybox uname -a", args.wait))
+            return
+        c0 = args.command[0]
+        if c0 in ("reboot", "reboot-bootloader"):
+            lines = ["export PATH=/bin:/sbin"]
+            if c0 == "reboot-bootloader":
+                # Khaje IMEM restart_reason — ABL on rain may ignore; best-effort
+                lines.append("busybox devmem 0x0c12565c 32 0x77665500")
+            lines += [
+                "busybox echo 1 >/proc/sys/kernel/sysrq",
+                "busybox sync",
+                "busybox echo b >/proc/sysrq-trigger",
+            ]
+            raw_write(fd, "\n".join(lines) + "\n")
+            print(c0, "requested", flush=True)
+            return
+        sys.stdout.buffer.write(cmd(fd, " ".join(args.command), args.wait))
+    finally:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+if __name__ == "__main__":
+    main()

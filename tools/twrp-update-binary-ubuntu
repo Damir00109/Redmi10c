@@ -1,0 +1,95 @@
+#!/sbin/sh
+# TWRP update-binary — flash Ubuntu dual-boot for rain/fog
+# Installs: boot_b ← boot-linux.img, cust ← linux_rootfs.img
+OUTFD=$2
+ZIP=$3
+
+ui_print() {
+  echo -e "ui_print $1\nui_print" > /proc/self/fd/$OUTFD
+}
+
+ui_print "========================================"
+ui_print " rain Ubuntu dual-boot (slot B + cust)"
+ui_print "========================================"
+
+TMP=/tmp/rain-ubuntu
+rm -rf "$TMP"
+mkdir -p "$TMP"
+cd "$TMP"
+ui_print "-> unzipping"
+unzip -o "$ZIP" -d "$TMP" >/dev/null
+
+BOOTIMG="$TMP/images/boot-linux.img"
+ROOTIMG="$TMP/images/linux_rootfs.img"
+[ -f "$ROOTIMG" ] || ROOTIMG="$TMP/images/linux_rootfs.sparse.img"
+
+if [ ! -f "$BOOTIMG" ]; then
+  ui_print "ERROR: boot-linux.img missing"
+  exit 1
+fi
+if [ ! -f "$ROOTIMG" ]; then
+  ui_print "ERROR: linux_rootfs.img missing"
+  exit 1
+fi
+
+# Prefer boot_b for dual-boot with Android on A
+BOOTDEV=
+for p in /dev/block/by-name/boot_b /dev/block/bootdevice/by-name/boot_b \
+         /dev/block/by-name/boot /dev/block/bootdevice/by-name/boot; do
+  if [ -b "$p" ] || [ -L "$p" ]; then BOOTDEV=$p; break; fi
+done
+CUSTDEV=
+for p in /dev/block/by-name/cust /dev/block/bootdevice/by-name/cust; do
+  if [ -b "$p" ] || [ -L "$p" ]; then CUSTDEV=$p; break; fi
+done
+
+ui_print "boot=$BOOTDEV"
+ui_print "cust=$CUSTDEV"
+
+if [ -z "$BOOTDEV" ] || [ -z "$CUSTDEV" ]; then
+  ui_print "ERROR: required partitions not found"
+  exit 1
+fi
+
+ui_print "-> flashing boot image"
+dd if="$BOOTIMG" of="$BOOTDEV" bs=4M status=none
+sync
+
+ui_print "-> flashing Ubuntu rootfs to cust (wipes cust only)"
+# Android sparse magic little-endian: ed 26 ff 3a
+magic=$(dd if="$ROOTIMG" bs=4 count=1 2>/dev/null | od -An -tx1 | tr -d ' \n')
+SIMG2IMG=
+command -v simg2img >/dev/null 2>&1 && SIMG2IMG=$(command -v simg2img)
+[ -x "$TMP/bin/simg2img" ] && SIMG2IMG="$TMP/bin/simg2img"
+
+if [ "$magic" = "3aff26ed" ] || [ "$magic" = "ed26ff3a" ]; then
+  ui_print "-> unsparse+flash (simg2img → cust)"
+  if [ -z "$SIMG2IMG" ]; then
+    ui_print "ERROR: sparse image needs simg2img"
+    exit 1
+  fi
+  # Stream directly to partition — avoid 1.8GiB temp in /tmp
+  "$SIMG2IMG" "$ROOTIMG" "$CUSTDEV" || { ui_print "ERROR: simg2img failed"; exit 1; }
+else
+  ui_print "-> raw dd to cust"
+  dd if="$ROOTIMG" of="$CUSTDEV" bs=4M
+fi
+sync
+
+# Switch active slot to B if available
+if command -v bootctl >/dev/null 2>&1; then
+  bootctl set-active-boot-slot 1 2>/dev/null || true
+fi
+# Also try slot symlink via misc — best-effort
+ui_print "-> set active slot B (if tool exists)"
+if [ -x /system/bin/bootctl ]; then
+  /system/bin/bootctl set-active-boot-slot 1 || true
+fi
+
+ui_print "========================================"
+ui_print " DONE. Reboot system."
+ui_print " login: rain / rain"
+ui_print " root:  root / rain"
+ui_print " Android remains on slot A (boot_a)."
+ui_print "========================================"
+exit 0

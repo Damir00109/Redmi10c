@@ -1,0 +1,5 @@
+# Android Wi-Fi live dump
+date: 2026-07-29T14:00:37+03:00
+device: rain
+build: BP4A.251205.006 release-keys
+slot: _b

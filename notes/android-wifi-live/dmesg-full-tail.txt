@@ -1,0 +1,200 @@
+[   16.719587] qcom,eeprom 5c1b000.qcom,cci0:qcom,eeprom1: Linked as a consumer to regulator.2
+[   16.730640] qcom,eeprom 5c1b000.qcom,cci0:qcom,eeprom1: Dropping the link to regulator.2
+[   16.734304] wl2866d_read_reg 04@0e
+[   16.734307] wl2866d pwr_ctrl: WL2866D_AVDD1
+[   16.734460] wl2866d pwr_ctrl: power off, set reg 00
+[   17.582132] USB cable not connected
+[   17.611496] init: Control message: Could not find 'android.hardware.secure_element@1.2::ISecureElement/eSE1' for ctl.interface_start from pid: 962 (/system/system_ext/bin/hwservicemanager)
+[   18.612447] init: Control message: Could not find 'android.hardware.secure_element@1.2::ISecureElement/eSE1' for ctl.interface_start from pid: 962 (/system/system_ext/bin/hwservicemanager)
+[   19.168241] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=08000001
+[   19.176913] [sh366101] fg_get_device_id(1459): device_id = 0x6101
+[   19.176960] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=08000000
+[   19.184871] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000006
+[   19.185767] [sh366101] fg_read_status(496): cntl=0x2383, bat_flags=0x0409
+[   19.185792] [sh366101] fg_refresh_status(1279): batt_present=1
+[   19.205019] [sh366101] fg_read_gaugeinfo_block(567): SH366101_GaugeLog: CMD_CALIINFO is Elasp=10, Voltage=4393, Current=69, TS1Temp=289, IntTemper=295, 
+[   19.224928] [sh366101] fg_read_gaugeinfo_block(594): SH366101_GaugeLog: CMD_GAUGEINFO is RunState=0x00000429, GaugeState=0x00001922, GaugeS2=0x2414, WorkState=0x0000, TimeInc=1, MainTick=28, SysTick=28, ClockH=1301, RamCheckT=24, AutoCaliT=0, LTHour=2, LTTimer=255, FlashT=15, LTFlag=0x55, RSTS=0x60, 
+[   19.245156] [sh366101] fg_read_gaugeinfo_block(623): SH366101_GaugeLog: GAUGEBLOCK2 is QF1=0x02, QF2=0x00, PackQmax=5093, CycleCount=26, QmaxCount=6, QmaxCycle=16, VatEOC=4408, IatEOC=180, ChgVEOC=4450, AVILR=-200, AVPLR=-871, ModelCount=44, ModelCycle=21, VCTCount=0, VCTCycle=0, RelaxCycle=26, RatioCycle=26, 
+[   19.265332] [sh366101] fg_read_gaugeinfo_block(651): SH366101_GaugeLog: GAUGEBLOCK3 is SFR_RC=4633, SFR_DCC=26279, SFR_ICC=-68, RCOffset=-11, C0DOD1=-23510, PasCol=23, PasEgy=100, Qstart=37, Estart=311, FastTim=0, FILFLG=0x00, StateTime=47, StateHour=0, StateSec=47, OCVTim=0, RaCalT1=30, 
+[   19.284718] [sh366101] fg_read_gaugeinfo_block(679): SH366101_GaugeLog: GAUGEBLOCK4 is GUInx=0x05, GULoad=0x02, GUStatus=0x0000010A, EodLoad=-556, CRatio=1065, C0DOD0=-15341, C0EOC=-15358, C0EOD=9214, C0ACV=-7272, ThemT=285, Told=285, Tout=234, RCRaw=4637, FCCRaw=4704, RERaw=18967, FCERaw=19408, 
+[   19.304966] [sh366101] fg_read_gaugeinfo_block(709): SH366101_GaugeLog: GAUGEBLOCK5 is IdealFCC=4768, IdealFCE=19405, FilRC=4667, FilFCC=4755, FSOC=99, TrueRC=4644, TrueFCC=4704, RSOC=99, FilRE=19165, FilFCE=19577, FSOCW=98, TrueRE=18997, TrueFCE=19408, RSOCW=98, EquRC=0, EquFCC=0, EquRE=4647, EquFCE=4735, 
+[   19.324886] [sh366101] fg_read_gaugeinfo_block(742): SH366101_GaugeLog: GAUGEBLOCK6 is GaugeS3=0x0000, CCON1=0x85, CCON2=0x47, ModelS=0x04, FGUpdate=0x10, FMGrid=0xFF, ToggleCnt=0, ORUpdate=0x00, UpState=0x13, ChgVol=4450, TapCur=200, ChgCur=3600, ChgRes=0, PrevI=-95, DeltaC=95, SOCJmpCnt=0, SOWJmpCnt=0, OcvVcell=4394, FGMeas=100, FGPrid=104, FastTime=0, 
+[   19.344858] [sh366101] fg_read_gaugeinfo_block(758): SH366101_GaugeLog: FusionModel is FusionModel=0x4322 0x432F 0x43D7 0x43F4 0x4392 0x43C2 0x43E9 0x43D0 0x43D3 0x43E8 0x4326 0x43D5 0x438A 0x422F 0x41F3 
+[   19.344885] [sh366101] fg_read_gaugeinfo_block(759): SH366101_GaugeLog: max len=270
+[   19.344908] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=0000001C
+[   19.345694] [sh366101] fg_read_soc(779): fg_read_soc soc=99
+[   19.345729] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000064
+[   19.346467] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000004
+[   19.347325] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000010
+[   19.348072] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000000
+[   19.348937] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=88000041
+[   19.349673] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000002
+[   19.350463] [sh366101] fg_read_temperature(821): fg_read_temperature temp=289
+[   19.350824] smb1351_read_reg: Reading 0x3a=0x05
+[   19.350849] smb1351_get_prop_batt_status: STATUS_4_REG(0x3A)=5
+[   19.350878] [sh366101] fg_refresh_status(1313): RSOC:99, Volt:4393000, Current:69000, Temperature:289
+[   19.350903] [sh366101] fg_refresh_status(1314): RM:17186000,FC:26000,FAST:0
+[   19.350990] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000004
+[   19.351734] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000010
+[   19.352606] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=0000001C
+[   19.353351] [sh366101] fg_read_soc(779): fg_read_soc soc=99
+[   19.353397] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000002
+[   19.354276] [sh366101] fg_read_temperature(821): fg_read_temperature temp=289
+[   19.354318] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=0000001A
+[   19.356999] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=0000001C
+[   19.357790] [sh366101] fg_read_soc(779): fg_read_soc soc=99
+[   19.358278] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000004
+[   19.359565] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000010
+[   19.361310] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000002
+[   19.362233] [sh366101] fg_read_temperature(821): fg_read_temperature temp=289
+[   19.363605] smb1351_read_reg: Reading 0x3a=0x05
+[   19.363656] smb1351_get_prop_batt_status: STATUS_4_REG(0x3A)=5
+[   19.370568] smb1351_ac_get_property: smb1351_ac_get_property:ac_online=0
+[   19.370795] smb1351_usb_get_property: smb1351_usb_get_property:usb_online=1
+[   19.372127] [FTS_TS/I]lct_fts_set_charger_mode:enter charger mode
+[   19.372360] healthd: battery l=99 v=4393 t=28.0 h=2 st=2 c=-69000 chg=u
+[   19.372774] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=0000001C
+[   19.373036] [FTS_TS/I]lct_fts_set_charger_mode:charger mode:0
+[   19.373510] [sh366101] fg_read_soc(779): fg_read_soc soc=99
+[   19.373647] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000004
+[   19.374448] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000010
+[   19.375326] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000002
+[   19.376069] [sh366101] fg_read_temperature(821): fg_read_temperature temp=289
+[   19.376318] smb1351_read_reg: Reading 0x3a=0x05
+[   19.376324] smb1351_get_prop_batt_status: STATUS_4_REG(0x3A)=5
+[   19.376734] smb1351_ac_get_property: smb1351_ac_get_property:ac_online=0
+[   19.376773] smb1351_usb_get_property: smb1351_usb_get_property:usb_online=1
+[   19.377272] [FTS_TS/I]lct_fts_set_charger_mode:enter charger mode
+[   19.377548] [FTS_TS/I]lct_fts_set_charger_mode:charger mode:0
+[   19.433666] init: Service 'bootanim' (pid 976) exited with status 0 oneshot service took 15.944000 seconds in background
+[   19.433727] init: Sending SIGKILL to service 'bootanim' (pid 976) process group...
+[   19.434501] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_1003/pid_976
+[   19.448003] servicemanager: Caller(pid=979,uid=0,sid=u:r:vold:s0) Found android.hardware.boot.IBootControl/default in device VINTF manifest.
+[   19.503678] F2FS-fs (dm-46): Preserve previous reserve_root=32768
+[   19.585924] init: processing action (vold.checkpoint_committed=1) from (/system/etc/init/hw/init.rc:1124)
+[   19.614191] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   19.618702] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   19.621700] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IAdaptiveBacklight/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.622176] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IColorEnhancement/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.622522] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IAutoContrast/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.622851] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IDisplayColorCalibration/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.623782] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IDisplayModes/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.624189] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IReadingEnhancement/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.624910] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IAntiFlicker/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.625967] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IColorBalance/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.626571] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.ISunlightEnhancement/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.627023] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IPictureAdjustment/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.628747] init: Control message: Could not find 'android.hardware.secure_element@1.2::ISecureElement/eSE1' for ctl.interface_start from pid: 962 (/system/system_ext/bin/hwservicemanager)
+[   19.629495] servicemanager: Notifying apexservice they do (previously: don't) have clients when service is guaranteed to be in use
+[   19.629636] libbinder.AidlLazyServiceRegistrar: Process has 1 (of 1 available) client(s) in use after notification apexservice has clients: 1
+[   19.629642] libbinder.AidlLazyServiceRegistrar: Shutdown prevented by forcePersist override flag.
+[   19.631498] apexd: markBootCompleted() received by ApexService
+[   19.641625] init: processing action (sys.boot_completed=1) from (/system/etc/init/hw/init.rc:1298)
+[   19.642064] init: starting service 'exec 37 (/bin/rm -rf /data/per_boot)'...
+[   19.643873] init: Activation of cgroup controller +memory failed in path /sys/fs/cgroup/system/uid_1000: Invalid argument
+[   19.644955] init: ... started service 'exec 37 (/bin/rm -rf /data/per_boot)' has pid 3407
+[   19.644985] init: SVC_EXEC service 'exec 37 (/bin/rm -rf /data/per_boot)' pid 3407 (uid 1000 gid 1000+0 context default) started; waiting...
+[   19.645036] init: Service 'lmkd' (pid 960) exited with status 1
+[   19.645045] init: Sending SIGKILL to service 'lmkd' (pid 960) process group...
+[   19.645270] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_1069/pid_960
+[   19.646068] init: starting service 'lmkd'...
+[   19.646387] init: Created socket '/dev/socket/lmkd', mode 660, user 1000, group 1000
+[   19.647839] init: Activation of cgroup controller +memory failed in path /sys/fs/cgroup/system/uid_1069: Invalid argument
+[   19.649888] init: ... started service 'lmkd' has pid 3408
+[   19.654560] servicemanager: Caller(pid=975,uid=1000,sid=u:r:surfaceflinger:s0) Found android.hardware.power.IPower/default in device VINTF manifest.
+[   19.674675] init: Service 'exec 37 (/bin/rm -rf /data/per_boot)' (pid 3407) exited with status 0 waiting took 0.030000 seconds
+[   19.674734] init: Sending SIGKILL to service 'exec 37 (/bin/rm -rf /data/per_boot)' (pid 3407) process group...
+[   19.675734] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_1000/pid_3407
+[   19.679323] init: Encryption policy of /data/per_boot set to 630d4e582b2e7f1281ec6529113c1865 v2 modes 1/4 flags 0xa
+[   19.679448] init: processing action (sys.boot_completed=1) from (/system/etc/init/hw/init.rc:1405)
+[   19.679585] init: starting service 'exec 38 (/debug_ramdisk/magisk --boot-complete)'...
+[   19.682319] init: Activation of cgroup controller +memory failed in path /sys/fs/cgroup/system/uid_0: Invalid argument
+[   19.684285] init: ... started service 'exec 38 (/debug_ramdisk/magisk --boot-complete)' has pid 3415
+[   19.684378] init: SVC_EXEC service 'exec 38 (/debug_ramdisk/magisk --boot-complete)' pid 3415 (uid 0 gid 0+0 context u:r:magisk:s0) started; waiting...
+[   19.703477] init: Service 'exec 38 (/debug_ramdisk/magisk --boot-complete)' (pid 3415) exited with status 0 waiting took 0.021000 seconds
+[   19.703500] init: Sending SIGKILL to service 'exec 38 (/debug_ramdisk/magisk --boot-complete)' (pid 3415) process group...
+[   19.703774] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_0/pid_3415
+[   19.703954] init: processing action (sys.boot_completed=1) from (/vendor/etc/init/hw/init.qcom.rc:430)
+[   19.704941] Boot completed 
+[   19.711925] init: processing action (sys.boot_completed=1) from (/vendor/etc/init/hw/init.qcom.power.rc:32)
+[   19.719296] init: Command 'write /sys/devices/system/cpu/cpu0/cpufreq/schedutil/up_rate_limit_us 500' action=sys.boot_completed=1 (/vendor/etc/init/hw/init.qcom.power.rc:47) took 1ms and failed: Unable to write to file '/sys/devices/system/cpu/cpu0/cpufreq/schedutil/up_rate_limit_us': open() failed: Permission denied
+[   19.721068] init: Command 'write /sys/devices/system/cpu/cpu4/cpufreq/schedutil/up_rate_limit_us 500' action=sys.boot_completed=1 (/vendor/etc/init/hw/init.qcom.power.rc:48) took 1ms and failed: Unable to write to file '/sys/devices/system/cpu/cpu4/cpufreq/schedutil/up_rate_limit_us': open() failed: Permission denied
+[   19.722634] init: Command 'write /sys/module/lpm_levels/parameters/sleep_disabled 0' action=sys.boot_completed=1 (/vendor/etc/init/hw/init.qcom.power.rc:51) took 1ms and failed: Unable to write to file '/sys/module/lpm_levels/parameters/sleep_disabled': open() failed: Permission denied
+[   19.723171] servicemanager: Caller(pid=2813,uid=10106,sid=u:r:vendor_qtelephony:s0:c106,c256,c512,c768) Could not find vendor.qti.hardware.radio.qcrilhook.IQtiOemHook/oemhook0 in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.734145] servicemanager: Caller(pid=2813,uid=10106,sid=u:r:vendor_qtelephony:s0:c106,c256,c512,c768) Could not find vendor.qti.hardware.radio.qcrilhook.IQtiOemHook/oemhook1 in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.747325] servicemanager: Caller(pid=2813,uid=10106,sid=u:r:vendor_qtelephony:s0:c106,c256,c512,c768) Could not find vendor.qti.hardware.radio.am.IQcRilAudio/slot1 in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.749967] init: processing action (sys.boot_completed=1) from (/vendor/etc/init/hw/init.target.rc:239)
+[   19.751042] servicemanager: Caller(pid=2813,uid=10106,sid=u:r:vendor_qtelephony:s0:c106,c256,c512,c768) Could not find vendor.qti.hardware.radio.am.IQcRilAudio/slot2 in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.752520] init: [libfs_mgr] mmd is recommended to set up zram over swapon_all command with fstab entry.
+[   19.757061] zram0: detected capacity change from 0 to 2373148672
+[   19.772796] mkswap: Swapspace size: 2317524k, UUID=f1c909f9-553b-4659-8d57-89e18f386ab8
+[   19.773649] Adding 2317524k swap on /dev/block/zram0.  Priority:-2 extents:1 across:2317524k SS
+[   19.778341] init: processing action (sys.boot_completed=1) from (/system/etc/init/atrace.rc:560)
+[   19.778753] init: processing action (sys.boot_completed=1 && sys.bootstat.first_boot_completed=0) from (/system/etc/init/bootstat.rc:67)
+[   19.779464] init: starting service 'exec 39 (/system/bin/bootstat --record_boot_complete --record_boot_reason --record_time_since_factory_reset -l)'...
+[   19.781908] init: Activation of cgroup controller +memory failed in path /sys/fs/cgroup/system/uid_1000: Invalid argument
+[   19.783178] init: ... started service 'exec 39 (/system/bin/bootstat --record_boot_complete --record_boot_reason --record_time_since_factory_reset -l)' has pid 3452
+[   19.783996] init: processing action (sys.boot_completed=1) from (/system/etc/init/dmesgd.rc:4)
+[   19.784844] init: processing action (sys.boot_completed=1) from (/system/etc/init/flags_health_check.rc:7)
+[   19.788627] init: processing action (sys.boot_completed=1) from (/system/etc/init/init-mmd-prop.rc:1)
+[   19.789438] init: processing action (sys.boot_completed=1) from (/system/etc/init/lmkd.rc:13)
+[   19.790000] init: starting service 'exec 40 (/system/bin/lmkd --boot_completed)'...
+[   19.792868] init: Activation of cgroup controller +memory failed in path /sys/fs/cgroup/system/uid_0: Invalid argument
+[   19.794340] init: ... started service 'exec 40 (/system/bin/lmkd --boot_completed)' has pid 3453
+[   19.794520] init: processing action (sys.boot_completed=1) from (/system/etc/init/logd.rc:34)
+[   19.795027] init: starting service 'logd-auditctl'...
+[   19.797351] init: Activation of cgroup controller +memory failed in path /sys/fs/cgroup/system/uid_1036: Invalid argument
+[   19.799652] init: ... started service 'logd-auditctl' has pid 3455
+[   19.799757] init: processing action (sys.boot_completed=1 && sys.wifitracing.started=0) from (/system/etc/init/wifi.rc:28)
+[   19.800313] init: Service 'exec 39 (/system/bin/bootstat --record_boot_complete --record_boot_reason --record_time_since_factory_reset -l)' (pid 3452) exited with status 0 oneshot service took 0.018000 seconds in background
+[   19.800333] init: Sending SIGKILL to service 'exec 39 (/system/bin/bootstat --record_boot_complete --record_boot_reason --record_time_since_factory_reset -l)' (pid 3452) process group...
+[   19.800692] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_1000/pid_3452
+[   19.800882] selinux: SELinux: Could not get canonical path for /sys/kernel/tracing/instances/wifi restorecon: No such file or directory.
+[   19.805006] init: Service 'exec 40 (/system/bin/lmkd --boot_completed)' (pid 3453) exited with status 0 oneshot service took 0.012000 seconds in background
+[   19.805023] init: Sending SIGKILL to service 'exec 40 (/system/bin/lmkd --boot_completed)' (pid 3453) process group...
+[   19.805270] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_0/pid_3453
+[   19.806645] init: processing action (sys.boot_completed=1) from (/vendor/etc/init/init.batterysecret.rc:1)
+[   19.808036] init: processing action (sys.boot_completed=1) from (/vendor/etc/init/init.batterysecret.rc:14)
+[   19.808265] init: starting service 'batterysecret'...
+[   19.809503] init: Activation of cgroup controller +memory failed in path /sys/fs/cgroup/system/uid_0: Invalid argument
+[   19.811340] init: ... started service 'batterysecret' has pid 3457
+[   19.811751] init: processing action (lmkd.reinit=1) from (/system/etc/init/lmkd.rc:10)
+[   19.811974] init: starting service 'exec 41 (/system/bin/lmkd --reinit)'...
+[   19.813861] init: Activation of cgroup controller +memory failed in path /sys/fs/cgroup/system/uid_0: Invalid argument
+[   19.814540] init: ... started service 'exec 41 (/system/bin/lmkd --reinit)' has pid 3458
+[   19.814654] init: processing action (enable-low-power) from (/vendor/etc/init/hw/init.qcom.power.rc:28)
+[   19.816707] servicemanager: Caller(pid=1050,uid=0,sid=u:r:hal_power_default:s0) Found android.frameworks.stats.IStats/default in framework VINTF manifest.
+[   19.818481] init: Unable to set property 'sys.cameratest.cameralevel' from uid:1047 gid:1005 pid:1431: SELinux permission check failed
+[   19.818925] type=1107 audit(1785322829.374:68): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=sys.cameratest.cameralevel pid=1431 uid=1047 gid=1005 scontext=u:r:hal_camera_default:s0 tcontext=u:object_r:system_prop:s0 tclass=property_service permissive=0'
+[   19.820350] init: Unable to set property 'sys.cameratest.cameralevel' from uid:1047 gid:1005 pid:1431: SELinux permission check failed
+[   19.820522] init: Service 'logd-auditctl' (pid 3455) exited with status 0 oneshot service took 0.023000 seconds in background
+[   19.820539] init: Sending SIGKILL to service 'logd-auditctl' (pid 3455) process group...
+[   19.820810] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_1036/pid_3455
+[   19.823918] type=1107 audit(1785322829.378:69): uid=0 auid=4294967295 ses=4294967295 subj=u:r:init:s0 msg='avc:  denied  { set } for property=sys.cameratest.cameralevel pid=1431 uid=1047 gid=1005 scontext=u:r:hal_camera_default:s0 tcontext=u:object_r:system_prop:s0 tclass=property_service permissive=0'
+[   19.824882] SELinux: avc:  denied  { find } for pid=1050 uid=0 name=android.hardware.thermal.IThermal/default scontext=u:r:hal_power_default:s0 tcontext=u:object_r:hal_thermal_service:s0 tclass=service_manager permissive=0
+[   19.828133] init: processing action (sys.boot_completed=1 && sys.wifitracing.started=1 && wifi.interface=*) from (/system/etc/init/wifi.rc:70)
+[   19.830027] batterysecret: Unable to open: '/sys/class/power_supply/bms/authentic'
+[   19.830295] batterysecret: get charge type /sys/class/power_supply/usb/real_type = USB
+[   19.830309] batterysecret: chg_type: '4'
+[   19.833639] init: Service 'exec 41 (/system/bin/lmkd --reinit)' (pid 3458) exited with status 0 oneshot service took 0.020000 seconds in background
+[   19.833656] init: Sending SIGKILL to service 'exec 41 (/system/bin/lmkd --reinit)' (pid 3458) process group...
+[   19.833897] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_0/pid_3458
+[   20.016747] servicemanager: Caller(pid=1862,uid=0,sid=u:r:update_engine:s0) Found android.hardware.boot.IBootControl/default in device VINTF manifest.
+[   20.021426] bootcontrolhal: set_snapshot_merge_status: MergeStatus = 0, current_slot = 1, returning: true 
+[   20.021430] bootcontrolhal: 
+[   20.627945] init: Control message: Could not find 'android.hardware.secure_element@1.2::ISecureElement/eSE1' for ctl.interface_start from pid: 962 (/system/system_ext/bin/hwservicemanager)
+[   21.138639] init: Untracked process (pid: 3499 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) exited with status 0
+[   21.138668] init: Untracked process (pid: 3499 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) did not have an associated service entry and will not be reaped
+[   21.250554] init: Untracked process (pid: 3505 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) exited with status 0
+[   21.250576] init: Untracked process (pid: 3505 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) did not have an associated service entry and will not be reaped
+[   21.274462] init: Untracked process (pid: 3513 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) exited with status 0
+[   21.274485] init: Untracked process (pid: 3513 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) did not have an associated service entry and will not be reaped
+[   21.481421] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   21.492146] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   21.628877] init: Control message: Could not find 'android.hardware.secure_element@1.2::ISecureElement/eSE1' for ctl.interface_start from pid: 962 (/system/system_ext/bin/hwservicemanager)
+[   21.661552] init: Untracked process (pid: 3555 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) exited with status 0
+[   21.661575] init: Untracked process (pid: 3555 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) did not have an associated service entry and will not be reaped
+[   21.792305] init: Untracked process (pid: 3534 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) exited with status 0
+[   21.792318] init: Untracked process (pid: 3534 name: (magiskd) ppid: 1 pgrp: 1282 state: Z) did not have an associated service entry and will not be reaped
+[   21.936960] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   21.939674] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.

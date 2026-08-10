@@ -1,0 +1,108 @@
+total 8
+drwxr-xr-x 2 root shell 4096 2009-01-01 03:00 .
+drwxr-xr-x 3 root shell 4096 2009-01-01 03:00 ..
+lrw-r--r-- 1 root root    35 2009-01-01 03:00 WCNSS_qcom_cfg.ini -> /vendor/etc/wifi/WCNSS_qcom_cfg.ini
+lrw-r--r-- 1 root root    32 2009-01-01 03:00 wlan_mac.bin -> /mnt/vendor/persist/wlan_mac.bin
+---
+---
+---
+# This file allows user to override the factory
+# defaults for the WLAN Driver
+
+# Enable IMPS or not
+gEnableImps=1
+
+# Enable BMPS or not
+gEnableBmps=1
+
+# Phy Mode (auto, b, g, n, etc)
+# Valid values are 0-9, with 0 = Auto, 4 = 11n, 9 = 11ac
+# 1 = 11abg, 2 = 11b, 3 = 11g, 5 = 11g only, 6 = 11n only
+# 7 = 11b only 8 = 11ac only.
+gDot11Mode=0
+
+# Assigned MAC Addresses - This will be used until NV items are in place
+# Each byte of MAC address is represented in Hex format as XX
+Intf0MacAddress=000AF58989FF
+Intf1MacAddress=000AF58989FE
+Intf2MacAddress=000AF58989FD
+Intf3MacAddress=000AF58989FC
+
+# UAPSD service interval for VO,VI, BE, BK traffic
+InfraUapsdVoSrvIntv=0
+InfraUapsdViSrvIntv=0
+InfraUapsdBeSrvIntv=0
+InfraUapsdBkSrvIntv=0
+
+# Flag to allow STA send AddTspec even when ACM is Off
+gAddTSWhenACMIsOff=1
+
+# Flags to filter Mcast and Bcast RX packets.
+# Value 0: No filtering, 1: Filter all Multicast.
+# 2: Filter all Broadcast. 3: Filter all Mcast abd Bcast
+McastBcastFilter=3
+
+#Flag to enable HostARPOffload feature or not
+hostArpOffload=1
+
+#Flag to enable HostNSOffload feature or not
+hostNSOffload=1
+
+# 802.11n Protection flag
+gEnableApProt=1
+
+#Enable OBSS protection
+gEnableApOBSSProt=1
+
+#Enable/Disable UAPSD for SoftAP
+gEnableApUapsd=1
+
+# Fixed Rate
+gFixedRate=0
+
+# Maximum Tx power
+# gTxPowerCap=30
+
+# Fragmentation Threshold
+# gFragmentationThreshold=2346
+
+# RTS threshold
+RTSThreshold=1048576
+
+# Intra-BSS forward
+gDisableIntraBssFwd=0
+
+# WMM Enable/Disable
+WmmIsEnabled=0
+
+# 802.11d support
+g11dSupportEnabled=0
+
+# 802.11h support
+g11hSupportEnabled=1
+
+# DFS Master Capability
+gEnableDFSMasterCap=1
+
+# ESE Support and fast transition
+EseEnabled=0
+
+ImplicitQosIsEnabled=0
+
+gNeighborScanTimerPeriod=200
+gNeighborLookupThreshold=85
+gNeighborScanChannelMinTime=20
+gNeighborScanChannelMaxTime=30
+gMaxNeighborReqTries=3
+
+# Legacy (non-ESE, non-802.11r) Fast Roaming Support
+# To enable, set FastRoamEnabled=1
+# To disable, set FastRoamEnabled=0
+FastRoamEnabled=1
+
+# Check if the AP to which we are roaming is better than current AP in
+# terms of RSSI.  Checking is disabled if set to Zero.Otherwise it will
+# use this value as to how better the RSSI of the new/roamable AP should
+# be for roaming
+RoamRssiDiff=5
+

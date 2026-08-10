@@ -1,0 +1,16 @@
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/fts_spi.ko 349528
+--- /home/damir00109/Desktop/Redmi10c/out/linux-7.1.5/drivers/input/touchscreen/fts_spi
+--- /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi
+.Module.symvers.cmd 220
+.module-common.o 12776
+Module.symvers 0
+focaltech_core.o 91408
+focaltech_ex_fun.o 70312
+focaltech_ex_mode.o 28672
+focaltech_flash.o 74368
+focaltech_gesture.o 32264
+focaltech_spi.o 33408
+focaltech_stubs.o 15008
+fts_spi.ko 349528
+fts_spi.mod.o 14080
+fts_spi.o 326424

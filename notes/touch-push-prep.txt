@@ -1,0 +1,46 @@
+spi-geni []
+spi_geni []
+qcom-geni-spi []
+fts_spi [('/home/damir00109/Desktop/Redmi10c/tools/rain-overlay/lib/modules/fts_spi.ko', 349528), ('/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5/drivers/input/touchscreen/fts_spi/fts_spi.ko', 349528), ('/home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs-24.04.bak/usr/lib/modules/fts_spi.ko', 349528), ('/home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs-24.04.bak/usr/lib/modules/7.1.5-dirty/extra/fts_spi.ko', 349528), ('/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/fts_spi.ko', 349528)]
+CONFIG_SPI_QCOM_GENI=m
+CONFIG_TOUCHSCREEN_FTS_SPI=m
+CONFIG_SPI=y
+ko count in out 1554
+  out/linux-7.1.5/sound/soc/codecs/snd-soc-rt5514-spi.ko 79696
+  out/linux-7.1.5/drivers/spi/spi-sh-msiof.ko 167176
+  out/linux-7.1.5/drivers/spi/spi-bcm2835.ko 134888
+  out/linux-7.1.5/drivers/spi/spi-tegra210-quad.ko 185008
+  out/linux-7.1.5/drivers/spi/spi-apple.ko 95008
+  out/linux-7.1.5/drivers/spi/spi-rockchip-sfc.ko 117560
+  out/linux-7.1.5/drivers/spi/spi-rzv2m-csi.ko 109192
+  out/linux-7.1.5/drivers/spi/spi-meson-spicc.ko 131152
+  out/linux-7.1.5/drivers/spi/spi-rzv2h-rspi.ko 102104
+  out/linux-7.1.5/drivers/spi/spi-mtk-nor.ko 131488
+  out/linux-7.1.5/drivers/spi/spi-meson-spifc.ko 83624
+  out/linux-7.1.5/drivers/spi/spi-dw.ko 176232
+  out/linux-7.1.5/drivers/spi/spi-bcm2835aux.ko 86800
+  out/linux-7.1.5/drivers/spi/spi-geni-qcom.ko 116936
+  out/linux-7.1.5/drivers/spi/spi-omap2-mcspi.ko 154728
+  out/linux-7.1.5/drivers/spi/spi-zynqmp-gqspi.ko 127056
+  out/linux-7.1.5/drivers/spi/spi-imx.ko 195664
+  out/linux-7.1.5/drivers/spi/spi-stm32-ospi.ko 138656
+  out/linux-7.1.5/drivers/spi/spi-dw-mmio.ko 74528
+  out/linux-7.1.5/drivers/spi/spi-tegra114.ko 159168
+  out/linux-7.1.5/drivers/spi/spidev.ko 142000
+  out/linux-7.1.5/drivers/spi/spi-xilinx.ko 77528
+  out/linux-7.1.5/drivers/spi/spi-rspi.ko 157960
+  out/linux-7.1.5/drivers/spi/spi-rpc-if.ko 54472
+  out/linux-7.1.5/drivers/spi/spi-qcom-qspi.ko 99096
+  out/linux-7.1.5/drivers/spi/spi-bitbang.ko 71488
+  out/linux-7.1.5/drivers/hwspinlock/omap_hwspinlock.ko 59536
+  out/linux-7.1.5/drivers/iio/magnetometer/st_magn_spi.ko 48544
+  out/linux-7.1.5/drivers/iio/imu/st_lsm6dsx/st_lsm6dsx_spi.ko 63456
+  out/linux-7.1.5/drivers/iio/common/st_sensors/st_sensors_spi.ko 65184
+  out/linux-7.1.5/drivers/mtd/nand/spi/spinand.ko 652112
+  out/linux-7.1.5/drivers/char/tpm/tpm_tis_spi.ko 106936
+  out/linux-7.1.5/drivers/input/touchscreen/goodix_berlin_spi.ko 60080
+  out/linux-7.1.5/drivers/input/touchscreen/fts_spi/fts_spi.ko 349528
+  out/linux-7.1.5/drivers/media/rc/keymaps/rc-genius-tvgo-a11mce.ko 40584
+  out/linux-7.1.5/drivers/platform/arm64/acer-aspire1-ec.ko 92008
+fw True 131072
+fts 349528

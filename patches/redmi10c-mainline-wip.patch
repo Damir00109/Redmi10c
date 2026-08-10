@@ -1,0 +1,1201 @@
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 4ba8e7306..0b76ae3c2 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -330,6 +330,9 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sdx75-idp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm4250-oneplus-billie2.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm4450-qrd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm6115-fxtec-pro1x.dtb
++dtb-$(CONFIG_ARCH_QCOM) += sm6225-xiaomi-fog.dtb
++dtb-$(CONFIG_ARCH_QCOM) += sm6225-xiaomi-fog-sm6115.dtb
++dtb-$(CONFIG_ARCH_QCOM) += sm6225-xiaomi-rain.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm6115p-lenovo-j606f.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm6125-sony-xperia-seine-pdx201.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm6125-xiaomi-ginkgo.dtb
+diff --git a/drivers/clk/qcom/Kconfig b/drivers/clk/qcom/Kconfig
+index df21ef5ff..f24440a91 100644
+--- a/drivers/clk/qcom/Kconfig
++++ b/drivers/clk/qcom/Kconfig
+@@ -1266,7 +1266,7 @@ config SM_DISPCC_6350
+ config SM_DISPCC_6375
+ 	tristate "SM6375 Display Clock Controller"
+ 	depends on ARM64 || COMPILE_TEST
+-	depends on SM_GCC_6375
++	depends on SM_GCC_6375 || SM_GCC_6115
+ 	help
+ 	  Support for the display clock controller on Qualcomm Technologies, Inc
+ 	  SM6375 devices.
+diff --git a/drivers/clk/qcom/dispcc-sm6375.c b/drivers/clk/qcom/dispcc-sm6375.c
+index ec9dbb1f4..506145d7b 100644
+--- a/drivers/clk/qcom/dispcc-sm6375.c
++++ b/drivers/clk/qcom/dispcc-sm6375.c
+@@ -568,8 +568,19 @@ static const struct qcom_cc_desc disp_cc_sm6375_desc = {
+ 	.num_gdscs = ARRAY_SIZE(disp_cc_sm6375_gdscs),
+ };
+ 
++/* Khaje Android dispcc has no GDSC object; GDSCR@0x1004 is HW-managed. */
++static const struct qcom_cc_desc disp_cc_sm6225_desc = {
++	.config = &disp_cc_sm6375_regmap_config,
++	.clks = disp_cc_sm6375_clocks,
++	.num_clks = ARRAY_SIZE(disp_cc_sm6375_clocks),
++	.resets = disp_cc_sm6375_resets,
++	.num_resets = ARRAY_SIZE(disp_cc_sm6375_resets),
++};
++
+ static const struct of_device_id disp_cc_sm6375_match_table[] = {
+ 	{ .compatible = "qcom,sm6375-dispcc" },
++	/* Khaje/SM6225: same Lucid map as SM6375 (Android dispcc-khaje) */
++	{ .compatible = "qcom,sm6225-dispcc" },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, disp_cc_sm6375_match_table);
+@@ -577,14 +588,25 @@ MODULE_DEVICE_TABLE(of, disp_cc_sm6375_match_table);
+ static int disp_cc_sm6375_probe(struct platform_device *pdev)
+ {
+ 	struct regmap *regmap;
++	const struct qcom_cc_desc *desc = &disp_cc_sm6375_desc;
+ 
+-	regmap = qcom_cc_map(pdev, &disp_cc_sm6375_desc);
++	if (of_device_is_compatible(pdev->dev.of_node, "qcom,sm6225-dispcc"))
++		desc = &disp_cc_sm6225_desc;
++
++	regmap = qcom_cc_map(pdev, desc);
+ 	if (IS_ERR(regmap))
+ 		return PTR_ERR(regmap);
+ 
++	/* Skip reconfig if ABL already left Lucid PLL enabled (trion helper). */
+ 	clk_lucid_pll_configure(&disp_cc_pll0, regmap, &disp_cc_pll0_config);
+ 
+-	return qcom_cc_really_probe(&pdev->dev, &disp_cc_sm6375_desc, regmap);
++	/* Khaje vendor: keep XO/SLEEP always-on */
++	if (desc == &disp_cc_sm6225_desc) {
++		regmap_update_bits(regmap, 0x5004, BIT(0), BIT(0));
++		regmap_update_bits(regmap, 0x5008, BIT(0), BIT(0));
++	}
++
++	return qcom_cc_really_probe(&pdev->dev, desc, regmap);
+ }
+ 
+ static struct platform_driver disp_cc_sm6375_driver = {
+diff --git a/drivers/clk/qcom/gcc-sm6115.c b/drivers/clk/qcom/gcc-sm6115.c
+index 4c3804701..a9d26ecc7 100644
+--- a/drivers/clk/qcom/gcc-sm6115.c
++++ b/drivers/clk/qcom/gcc-sm6115.c
+@@ -1521,6 +1521,8 @@ static struct clk_branch gcc_ahb2phy_usb_clk = {
+ 		.enable_mask = BIT(0),
+ 		.hw.init = &(struct clk_init_data){
+ 			.name = "gcc_ahb2phy_usb_clk",
++			/* rain: MMIO enables this before gcc probe; keep on for ACM */
++			.flags = CLK_IS_CRITICAL,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -2971,7 +2973,8 @@ static struct clk_branch gcc_usb30_prim_master_clk = {
+ 				&gcc_usb30_prim_master_clk_src.clkr.hw,
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT,
++			/* rain: keep DWC3 data path after gcc binds */
++			.flags = CLK_SET_RATE_PARENT | CLK_IS_CRITICAL,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -2989,7 +2992,7 @@ static struct clk_branch gcc_usb30_prim_mock_utmi_clk = {
+ 				&gcc_usb30_prim_mock_utmi_postdiv_clk_src.clkr.hw,
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT,
++			.flags = CLK_SET_RATE_PARENT | CLK_IS_CRITICAL,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -3003,6 +3006,7 @@ static struct clk_branch gcc_usb30_prim_sleep_clk = {
+ 		.enable_mask = BIT(0),
+ 		.hw.init = &(struct clk_init_data){
+ 			.name = "gcc_usb30_prim_sleep_clk",
++			.flags = CLK_IS_CRITICAL,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -3211,6 +3215,12 @@ static struct gdsc gcc_usb30_prim_gdsc = {
+ 		.name = "gcc_usb30_prim",
+ 	},
+ 	.pwrsts = PWRSTS_OFF_ON,
++	/*
++	 * Keep USB GDSC on — otherwise DWC3 gadget hits:
++	 *   dwc3 ...: failed to enable ep0out
++	 * (same workaround as gcc-msm8953 usb30_gdsc).
++	 */
++	.flags = ALWAYS_ON,
+ };
+ 
+ static struct gdsc gcc_vcodec0_gdsc = {
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+index 35f7af474..e417b757e 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+@@ -10,6 +10,7 @@
+ #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+ 
+ #include <linux/debugfs.h>
++#include <linux/delay.h>
+ #include <linux/dma-buf.h>
+ #include <linux/of_irq.h>
+ #include <linux/pm_opp.h>
+@@ -1135,6 +1136,26 @@ unsigned long dpu_kms_get_clk_rate(struct dpu_kms *dpu_kms, char *clock_name)
+ 
+ #define	DPU_PERF_DEFAULT_MAX_CORE_CLK_RATE	412500000
+ 
++/*
++ * Bootloader may leave INTF scanning the splash FB. Attaching the kernel
++ * IOMMU domain then causes SMMU faults that wedge CTL_SW_RESET forever.
++ * Stop scanout before the domain swap (video panels have no GRAM).
++ */
++static void dpu_kms_stop_boot_scanout(struct dpu_kms *dpu_kms)
++{
++	const struct dpu_mdss_cfg *catalog = dpu_kms->catalog;
++	unsigned int i;
++
++	for (i = 0; i < catalog->intf_count; i++) {
++		if (readl_relaxed(dpu_kms->mmio + catalog->intf[i].base)) {
++			DPU_DEBUG("stopping bootloader scanout on intf %u\n", i);
++			writel_relaxed(0, dpu_kms->mmio + catalog->intf[i].base);
++		}
++	}
++	wmb();
++	usleep_range(20000, 25000);
++}
++
+ static int dpu_kms_hw_init(struct msm_kms *kms)
+ {
+ 	struct dpu_kms *dpu_kms;
+@@ -1178,6 +1199,8 @@ static int dpu_kms_hw_init(struct msm_kms *kms)
+ 	 * Now we need to read the HW catalog and initialize resources such as
+ 	 * clocks, regulators, GDSC/MMAGIC, ioremap the register ranges etc
+ 	 */
++	dpu_kms_stop_boot_scanout(dpu_kms);
++
+ 	rc = _dpu_kms_mmu_init(dpu_kms);
+ 	if (rc) {
+ 		DPU_ERROR("dpu_kms_mmu_init failed: %d\n", rc);
+diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
+index c59375aaa..cecc699d0 100644
+--- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
++++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
+@@ -567,6 +567,9 @@ static const struct of_device_id dsi_phy_dt_match[] = {
+ 	  .data = &dsi_phy_7nm_7280_cfgs },
+ 	{ .compatible = "qcom,sm6375-dsi-phy-7nm",
+ 	  .data = &dsi_phy_7nm_6375_cfgs },
++	/* Khaje/sm6225: same 7nm V4.1 PHY map as sm6375 */
++	{ .compatible = "qcom,sm6225-dsi-phy-7nm",
++	  .data = &dsi_phy_7nm_6375_cfgs },
+ 	{ .compatible = "qcom,sm8350-dsi-phy-5nm",
+ 	  .data = &dsi_phy_5nm_8350_cfgs },
+ 	{ .compatible = "qcom,sm8450-dsi-phy-5nm",
+diff --git a/drivers/gpu/drm/msm/msm_fbdev.c b/drivers/gpu/drm/msm/msm_fbdev.c
+index fd19995b1..90cc069d7 100644
+--- a/drivers/gpu/drm/msm/msm_fbdev.c
++++ b/drivers/gpu/drm/msm/msm_fbdev.c
+@@ -4,7 +4,11 @@
+  * Author: Rob Clark <robdclark@gmail.com>
+  */
+ 
++#include <linux/console.h>
++#include <linux/delay.h>
+ #include <linux/fb.h>
++#include <linux/module.h>
++#include <linux/workqueue.h>
+ 
+ #include <drm/drm_drv.h>
+ #include <drm/drm_crtc_helper.h>
+@@ -21,6 +25,22 @@ static bool fbdev = true;
+ MODULE_PARM_DESC(fbdev, "Enable fbdev compat layer");
+ module_param(fbdev, bool, 0600);
+ 
++/* Bringup: something powers the CRTC down after the logo; force it back. */
++static struct fb_info *msm_fbdev_info;
++
++static void msm_fbdev_unblank_workfn(struct work_struct *work)
++{
++	struct fb_info *info = READ_ONCE(msm_fbdev_info);
++
++	if (!info || !info->fbops || !info->fbops->fb_blank)
++		return;
++
++	console_lock();
++	info->fbops->fb_blank(FB_BLANK_UNBLANK, info);
++	console_unlock();
++}
++static DECLARE_DELAYED_WORK(msm_fbdev_unblank_work, msm_fbdev_unblank_workfn);
++
+ /*
+  * fbdev funcs, to implement legacy fbdev interface on top of drm driver
+  */
+@@ -45,6 +65,9 @@ static void msm_fbdev_fb_destroy(struct fb_info *info)
+ 
+ 	DBG();
+ 
++	cancel_delayed_work_sync(&msm_fbdev_unblank_work);
++	WRITE_ONCE(msm_fbdev_info, NULL);
++
+ 	drm_fb_helper_fini(helper);
+ 
+ 	/* this will free the backing object */
+@@ -140,6 +163,7 @@ int msm_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
+ 		ret = PTR_ERR(fbi->screen_buffer);
+ 		goto fail;
+ 	}
++	fbi->flags |= FBINFO_VIRTFB;
+ 	fbi->screen_size = bo->size;
+ 	fbi->fix.smem_start = paddr;
+ 	fbi->fix.smem_len = bo->size;
+@@ -147,6 +171,9 @@ int msm_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
+ 	DBG("par=%p, %dx%d", fbi->par, fbi->var.xres, fbi->var.yres);
+ 	DBG("allocated %dx%d fb", fb->width, fb->height);
+ 
++	WRITE_ONCE(msm_fbdev_info, fbi);
++	schedule_delayed_work(&msm_fbdev_unblank_work, msecs_to_jiffies(1500));
++
+ 	return 0;
+ 
+ fail:
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+index b2153e04a..0b5f0cba6 100644
+--- a/drivers/gpu/drm/panel/Kconfig
++++ b/drivers/gpu/drm/panel/Kconfig
+@@ -1295,6 +1295,14 @@ config DRM_PANEL_WIDECHIPS_WS2401
+ 	  480x800 display controller used in panels such as Samsung LMS380KF01.
+ 	  This display is used in the Samsung Galaxy Ace 2 GT-I8160 (Codina).
+ 
++config DRM_PANEL_XINLI_FT8006S
++	tristate "Xinli FT8006S panel (Xiaomi rain/fog)"
++	depends on OF
++	depends on DRM_MIPI_DSI
++	help
++	  Say Y here for the Xinli FT8006S 720x1650 video-mode DSI panel
++	  used on Xiaomi Redmi 10C (rain, c3q_43_03_0b).
++
+ config DRM_PANEL_XINPENG_XPP055C272
+ 	tristate "Xinpeng XPP055C272 panel driver"
+ 	depends on OF
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+index a4291dc39..09488480d 100644
+--- a/drivers/gpu/drm/panel/Makefile
++++ b/drivers/gpu/drm/panel/Makefile
+@@ -127,4 +127,5 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_RM692E5) += panel-visionox-rm692e5.o
+ obj-$(CONFIG_DRM_PANEL_VISIONOX_VTDR6130) += panel-visionox-vtdr6130.o
+ obj-$(CONFIG_DRM_PANEL_VISIONOX_R66451) += panel-visionox-r66451.o
+ obj-$(CONFIG_DRM_PANEL_WIDECHIPS_WS2401) += panel-widechips-ws2401.o
++obj-$(CONFIG_DRM_PANEL_XINLI_FT8006S) += panel-xinli-ft8006s.o
+ obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
+diff --git a/drivers/input/touchscreen/Kconfig b/drivers/input/touchscreen/Kconfig
+index aeaf9a9cb..176bca0be 100644
+--- a/drivers/input/touchscreen/Kconfig
++++ b/drivers/input/touchscreen/Kconfig
+@@ -1412,4 +1412,10 @@ config TOUCHSCREEN_HIMAX_HX83112B
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called himax_hx83112b.
+ 
++config TOUCHSCREEN_FTS_SPI
++	tristate "Focaltech FT8006S SPI touchscreen (Xiaomi rain/fog)"
++	depends on SPI
++	help
++	  Focaltech FT8006S SPI for Xiaomi Redmi 10C (fog/rain).
++
+ endif
+diff --git a/drivers/input/touchscreen/Makefile b/drivers/input/touchscreen/Makefile
+index f2b002abe..a1157d61c 100644
+--- a/drivers/input/touchscreen/Makefile
++++ b/drivers/input/touchscreen/Makefile
+@@ -119,3 +119,4 @@ obj-$(CONFIG_TOUCHSCREEN_IQS5XX)	+= iqs5xx.o
+ obj-$(CONFIG_TOUCHSCREEN_IQS7211)	+= iqs7211.o
+ obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix.o
+ obj-$(CONFIG_TOUCHSCREEN_HIMAX_HX83112B)	+= himax_hx83112b.o
++obj-$(CONFIG_TOUCHSCREEN_FTS_SPI)	+= fts_spi/
+diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
+index 25ab945fe..e0e1c0b5d 100644
+--- a/drivers/net/wireless/ath/ath10k/htt_rx.c
++++ b/drivers/net/wireless/ath/ath10k/htt_rx.c
+@@ -239,7 +239,13 @@ static void ath10k_htt_rx_msdu_buff_replenish(struct ath10k_htt *htt)
+ 	 */
+ 	spin_lock_bh(&htt->rx_ring.lock);
+ 	num_deficit = htt->rx_ring.fill_level - htt->rx_ring.fill_cnt;
+-	num_to_fill = min(ATH10K_HTT_MAX_NUM_REFILL, num_deficit);
++	/* Cap refill batch on WCN3990 — long hold of rx_ring.lock + dma_map
++	 * soft-locks NAPI/RCU on Xiaomi fog during associate.
++	 */
++	if (htt->ar->hw_rev == ATH10K_HW_WCN3990)
++		num_to_fill = min(16, num_deficit);
++	else
++		num_to_fill = min(ATH10K_HTT_MAX_NUM_REFILL, num_deficit);
+ 	num_deficit -= num_to_fill;
+ 	ret = ath10k_htt_rx_ring_fill_n(htt, num_to_fill);
+ 	if (ret == -ENOMEM) {
+diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
+index 8e604697d..44fcf182a 100644
+--- a/drivers/net/wireless/ath/ath10k/mac.c
++++ b/drivers/net/wireless/ath/ath10k/mac.c
+@@ -1962,6 +1962,13 @@ static int ath10k_mac_vif_setup_ps(struct ath10k_vif *arvif)
+ 
+ 	enable_ps = arvif->ps;
+ 
++	/* WCN3990 on Xiaomi fog: STA PS after associate soft-locks the
++	 * host (NAPI/RCU on RX replenish). Keep firmware awake once started.
++	 * Still force-enable PS on non-started vdevs — FW misbehaves otherwise.
++	 */
++	if (ar->hw_rev == ATH10K_HW_WCN3990 && arvif->is_started)
++		enable_ps = false;
++
+ 	if (enable_ps && ath10k_mac_num_vifs_started(ar) > 1 &&
+ 	    !test_bit(ATH10K_FW_FEATURE_MULTI_VIF_PS_SUPPORT,
+ 		      ar->running_fw->fw_file.fw_features)) {
+@@ -10069,7 +10076,8 @@ int ath10k_mac_register(struct ath10k *ar)
+ 	ieee80211_hw_set(ar->hw, SIGNAL_DBM);
+ 
+ 	if (!test_bit(ATH10K_FW_FEATURE_NO_PS,
+-		      ar->running_fw->fw_file.fw_features)) {
++		      ar->running_fw->fw_file.fw_features) &&
++	    ar->hw_rev != ATH10K_HW_WCN3990) {
+ 		ieee80211_hw_set(ar->hw, SUPPORTS_PS);
+ 		ieee80211_hw_set(ar->hw, SUPPORTS_DYNAMIC_PS);
+ 	}
+diff --git a/drivers/net/wireless/ath/ath10k/snoc.c b/drivers/net/wireless/ath/ath10k/snoc.c
+index 310650227..e85306f5e 100644
+--- a/drivers/net/wireless/ath/ath10k/snoc.c
++++ b/drivers/net/wireless/ath/ath10k/snoc.c
+@@ -938,7 +938,9 @@ static int ath10k_snoc_hif_start(struct ath10k *ar)
+ 
+ 	bitmap_clear(ar_snoc->pending_ce_irqs, 0, CE_COUNT_MAX);
+ 
+-	netif_threaded_enable(ar->napi_dev);
++	/* Xiaomi fog/WCN3990: threaded NAPI soft-locks between firmware-ver
++	 * and htt-ver (CE/WMI path). Keep NAPI on softirq.
++	 */
+ 	ath10k_core_napi_enable(ar);
+ 	/* IRQs are left enabled when we restart due to a firmware crash */
+ 	if (!test_bit(ATH10K_SNOC_FLAG_RECOVERY, &ar_snoc->flags))
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c b/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
+index b87314c83..6819911e7 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
+@@ -319,96 +319,100 @@ static const struct qmp_phy_init_tbl sc7280_ufsphy_hs_g4_rx[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V4_RX_GM_CAL, 0x0f),
+ };
+ 
++/* Khaje/spes Android qmp-v4 rate-A no-G4 (phy-qcom-ufs-qmp-v4.h). */
+ static const struct qmp_phy_init_tbl sm6115_ufsphy_serdes[] = {
+-	QMP_PHY_INIT_CFG(QSERDES_COM_CMN_CONFIG, 0x0e),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_SYSCLK_EN_SEL, 0x14),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_CLK_SELECT, 0x30),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_SYS_CLK_CTRL, 0x02),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x08),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_BG_TIMER, 0x0a),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_HSCLK_SEL, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_CORECLK_DIV, 0x0a),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_CORECLK_DIV_MODE1, 0x0a),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP_EN, 0x01),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_CTRL, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_RESETSM_CNTRL, 0x20),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_CORE_CLK_EN, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP_CFG, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_TIMER1, 0xff),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_TIMER2, 0x3f),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_MAP, 0x04),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_SVS_MODE_CLK_SEL, 0x05),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_DEC_START_MODE0, 0x82),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START1_MODE0, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START2_MODE0, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START3_MODE0, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_CP_CTRL_MODE0, 0x0b),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_RCTRL_MODE0, 0x16),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_CCTRL_MODE0, 0x28),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_INTEGLOOP_GAIN0_MODE0, 0x80),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_INTEGLOOP_GAIN1_MODE0, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE1_MODE0, 0x28),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE2_MODE0, 0x02),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP1_MODE0, 0xff),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP2_MODE0, 0x0c),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP3_MODE0, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_DEC_START_MODE1, 0x98),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START1_MODE1, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START2_MODE1, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START3_MODE1, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_CP_CTRL_MODE1, 0x0b),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_RCTRL_MODE1, 0x16),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_CCTRL_MODE1, 0x28),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_INTEGLOOP_GAIN0_MODE1, 0x80),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_INTEGLOOP_GAIN1_MODE1, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE1_MODE1, 0xd6),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE2_MODE1, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP1_MODE1, 0x32),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP2_MODE1, 0x0f),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP3_MODE1, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_IVCO, 0x0f),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_BG_TRIM, 0x0f),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_INITVAL1, 0xff),
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_INITVAL2, 0x00),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_SYSCLK_EN_SEL, 0xd9),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_HSCLK_SEL, 0x11),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_HSCLK_HS_SWITCH_SEL, 0x00),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP_EN, 0x01),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_VCO_TUNE_MAP, 0x02),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_IVCO, 0x0f),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_VCO_TUNE_INITVAL2, 0x00),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_HSCLK_SEL, 0x11),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_DEC_START_MODE0, 0x82),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_CP_CTRL_MODE0, 0x06),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_RCTRL_MODE0, 0x16),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_CCTRL_MODE0, 0x36),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP1_MODE0, 0xff),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP2_MODE0, 0x0c),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_CMP_CODE1_MODE0, 0xac),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_CMP_CODE2_MODE0, 0x1e),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_DEC_START_MODE1, 0x98),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_CP_CTRL_MODE1, 0x06),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_RCTRL_MODE1, 0x16),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_CCTRL_MODE1, 0x36),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP1_MODE1, 0x32),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP2_MODE1, 0x0f),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_CMP_CODE1_MODE1, 0xdd),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_CMP_CODE2_MODE1, 0x23),
+ };
+ 
+ static const struct qmp_phy_init_tbl sm6115_ufsphy_hs_b_serdes[] = {
+-	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_MAP, 0x44),
++	QMP_PHY_INIT_CFG(QSERDES_V4_COM_VCO_TUNE_MAP, 0x06),
+ };
+ 
+ static const struct qmp_phy_init_tbl sm6115_ufsphy_tx[] = {
+-	QMP_PHY_INIT_CFG(QSERDES_TX_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN, 0x45),
+-	QMP_PHY_INIT_CFG(QSERDES_TX_LANE_MODE, 0x06),
++	QMP_PHY_INIT_CFG(QSERDES_V4_TX_PWM_GEAR_1_DIVIDER_BAND0_1, 0x06),
++	QMP_PHY_INIT_CFG(QSERDES_V4_TX_PWM_GEAR_2_DIVIDER_BAND0_1, 0x03),
++	QMP_PHY_INIT_CFG(QSERDES_V4_TX_PWM_GEAR_3_DIVIDER_BAND0_1, 0x01),
++	QMP_PHY_INIT_CFG(QSERDES_V4_TX_PWM_GEAR_4_DIVIDER_BAND0_1, 0x00),
++	QMP_PHY_INIT_CFG(QSERDES_V4_TX_LANE_MODE_1, 0x35),
++	QMP_PHY_INIT_CFG(QSERDES_V4_TX_TRAN_DRVR_EMP_EN, 0x0c),
+ };
+ 
+ static const struct qmp_phy_init_tbl sm6115_ufsphy_rx[] = {
+-	QMP_PHY_INIT_CFG(QSERDES_RX_SIGDET_LVL, 0x24),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_SIGDET_CNTRL, 0x0F),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_RX_INTERFACE_MODE, 0x40),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_SIGDET_DEGLITCH_CNTRL, 0x1E),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_FASTLOCK_FO_GAIN, 0x0B),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_RX_TERM_BW, 0x5B),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQ_GAIN1_LSB, 0xFF),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQ_GAIN1_MSB, 0x3F),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQ_GAIN2_LSB, 0xFF),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQ_GAIN2_MSB, 0x3F),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2, 0x0D),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_SVS_SO_GAIN_HALF, 0x04),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_SVS_SO_GAIN_QUARTER, 0x04),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_SVS_SO_GAIN, 0x04),
+-	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_SO_SATURATION_AND_ENABLE, 0x5B),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_SIGDET_LVL, 0x24),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_SIGDET_CNTRL, 0x0f),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_SIGDET_DEGLITCH_CNTRL, 0x1e),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_BAND, 0x18),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_FASTLOCK_FO_GAIN, 0x0a),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_SO_SATURATION_AND_ENABLE, 0x5a),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_PI_CONTROLS, 0xf1),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_FASTLOCK_COUNT_LOW, 0x80),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_PI_CTRL2, 0x80),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_FO_GAIN, 0x0e),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_SO_GAIN, 0x04),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_TERM_BW, 0x1b),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_EQU_ADAPTOR_CNTRL2, 0x06),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_EQU_ADAPTOR_CNTRL3, 0x04),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_EQU_ADAPTOR_CNTRL4, 0x1d),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_OFFSET_ADAPTOR_CNTRL2, 0x00),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_IDAC_MEASURE_TIME, 0x10),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_IDAC_TSETTLE_LOW, 0xc0),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_IDAC_TSETTLE_HIGH, 0x00),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_LOW, 0x6d),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_HIGH, 0x6d),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_HIGH2, 0xed),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_HIGH3, 0x3b),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_HIGH4, 0x3c),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_LOW, 0x6d),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_HIGH, 0x6d),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_HIGH2, 0xed),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_HIGH3, 0x3b),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_HIGH4, 0x3c),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_LOW, 0xe0),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_HIGH, 0xc8),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_HIGH2, 0xc8),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_HIGH3, 0x3b),
++	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_HIGH4, 0xb1),
+ };
+ 
+ static const struct qmp_phy_init_tbl sm6115_ufsphy_pcs[] = {
+-	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_PWM_GEAR_BAND, 0x15),
+-	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_SIGDET_CTRL2, 0x6d),
+-	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_TX_LARGE_AMP_DRV_LVL, 0x0f),
+-	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_TX_SMALL_AMP_DRV_LVL, 0x02),
+-	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_MIN_STALL_NOCONFIG_TIME_CAP, 0x28),
+-	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_SYM_RESYNC_CTRL, 0x03),
+-	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_TX_LARGE_AMP_POST_EMP_LVL, 0x12),
+-	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_TX_SMALL_AMP_POST_EMP_LVL, 0x0f),
+-	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_MIN_HIBERN8_TIME, 0x9a), /* 8 us */
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_RX_SIGDET_CTRL2, 0x6d),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_LARGE_AMP_DRV_LVL, 0x0a),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_SMALL_AMP_DRV_LVL, 0x02),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_MID_TERM_CTRL1, 0x43),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_DEBUG_BUS_CLKSEL, 0x1f),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_RX_MIN_HIBERN8_TIME, 0xff),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_PLL_CNTL, 0x03),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TIMER_20US_CORECLK_STEPS_MSB, 0x16),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TIMER_20US_CORECLK_STEPS_LSB, 0xd8),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_PWM_GEAR_BAND, 0xaa),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_HS_GEAR_BAND, 0x06),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_HSGEAR_CAPABILITY, 0x03),
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_RX_HSGEAR_CAPABILITY, 0x03),
++	/* Android phy_cal_table_2nd_lane_no_g4 */
++	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_MULTI_LANE_CTRL1, 0x02),
+ };
+ 
+ static const struct qmp_phy_init_tbl sdm845_ufsphy_serdes[] = {
+@@ -1503,8 +1507,15 @@ static const struct qmp_phy_cfg sdm845_ufsphy_cfg = {
+ 	.no_pcs_sw_reset	= true,
+ };
+ 
++/*
++ * Khaje/SM6225 Android uses qcom,ufs-phy-qmp-v4. Mainline previously bound
++ * sm6115 to UFS PCS v2 (READY @ 0x168). On v4 that offset is TX_HS_GEAR_BAND,
++ * so phy_calibrate() can false-succeed while real PCS_READY (@ 0x180) is never
++ * polled — then ufshcd HCE fails. Use v4 PCS register layout (+ SW_RESET).
++ * Init tables still sm6115 for now; if PCS times out, port spes v4 tables next.
++ */
+ static const struct qmp_phy_cfg sm6115_ufsphy_cfg = {
+-	.lanes			= 1,
++	.lanes			= 2,
+ 
+ 	.offsets		= &qmp_ufs_offsets,
+ 	.max_supported_gear	= UFS_HS_G3,
+@@ -1525,9 +1536,9 @@ static const struct qmp_phy_cfg sm6115_ufsphy_cfg = {
+ 	},
+ 	.vreg_list		= sm6115_ufsphy_vreg_l,
+ 	.num_vregs		= ARRAY_SIZE(sm6115_ufsphy_vreg_l),
+-	.regs			= ufsphy_v2_regs_layout,
++	.regs			= ufsphy_v4_regs_layout,
+ 
+-	.no_pcs_sw_reset	= true,
++	.no_pcs_sw_reset	= false,
+ };
+ 
+ static const struct qmp_phy_cfg sm7150_ufsphy_cfg = {
+diff --git a/drivers/phy/qualcomm/phy-qcom-qusb2.c b/drivers/phy/qualcomm/phy-qcom-qusb2.c
+index eb93015be..5583382db 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qusb2.c
++++ b/drivers/phy/qualcomm/phy-qcom-qusb2.c
+@@ -232,10 +232,11 @@ static const struct qusb2_phy_init_tbl msm8998_init_tbl[] = {
+ };
+ 
+ static const struct qusb2_phy_init_tbl sm6115_init_tbl[] = {
++	/* Match bengal-usb.dtsi / Konrad Dybcio SM6115 fix */
+ 	QUSB2_PHY_INIT_CFG_L(QUSB2PHY_PORT_TUNE1, 0xf8),
+-	QUSB2_PHY_INIT_CFG_L(QUSB2PHY_PORT_TUNE2, 0x53),
++	QUSB2_PHY_INIT_CFG_L(QUSB2PHY_PORT_TUNE2, 0xb3),
+ 	QUSB2_PHY_INIT_CFG_L(QUSB2PHY_PORT_TUNE3, 0x81),
+-	QUSB2_PHY_INIT_CFG_L(QUSB2PHY_PORT_TUNE4, 0x17),
++	QUSB2_PHY_INIT_CFG_L(QUSB2PHY_PORT_TUNE4, 0xc0),
+ 
+ 	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_TUNE, 0x30),
+ 	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_USER_CTL1, 0x79),
+diff --git a/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c b/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c
+index eb0b0f61d..dc5eaf5c3 100644
+--- a/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c
++++ b/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c
+@@ -383,6 +383,43 @@ static const struct override_param_map sc7280_snps_7nm_phy[] = {
+ 	{},
+ };
+ 
++/*
++ * Thin DT has no qcom,gcc-sm6115 — enable USB30 GDSC + AHB2PHY via MMIO
++ * before Femto register poke (otherwise power_on writes go nowhere and
++ * DWC3 later hits "failed to enable ep0out").
++ */
++static void qcom_snps_hsphy_force_usb_clks(struct device *dev)
++{
++	void __iomem *gcc;
++	u32 v;
++	int i;
++
++	gcc = ioremap(0x01400000, 0x20000);
++	if (!gcc) {
++		dev_err(dev, "rain: cannot map GCC for USB clocks\n");
++		return;
++	}
++
++	/* USB30_PRIM_GDSC @ 0x1a004: clear SW_COLLAPSE, wait PWR_ON */
++	v = readl(gcc + 0x1a004);
++	writel(v & ~BIT(0), gcc + 0x1a004);
++	for (i = 0; i < 200; i++) {
++		if (readl(gcc + 0x1a004) & BIT(31))
++			break;
++		udelay(50);
++	}
++
++	writel(1, gcc + 0x1a014);	/* GCC_USB30_PRIM_SLEEP_CLK */
++	writel(1, gcc + 0x1a010);	/* GCC_USB30_PRIM_MASTER_CLK */
++	writel(1, gcc + 0x1a018);	/* GCC_USB30_PRIM_MOCK_UTMI_CLK */
++	writel(0, gcc + 0x1d000);	/* GCC_USB_PHY_CFG_AHB2PHY_BCR deassert */
++	writel(3, gcc + 0x1d008);	/* GCC_AHB2PHY_USB_CLK */
++
++	dev_info(dev, "rain: usb gdsc=0x%08x ahb2phy=0x%08x\n",
++		 readl(gcc + 0x1a004), readl(gcc + 0x1d008));
++	iounmap(gcc);
++}
++
+ static int qcom_snps_hsphy_init(struct phy *phy)
+ {
+ 	struct qcom_snps_hsphy *hsphy = phy_get_drvdata(phy);
+@@ -390,6 +427,8 @@ static int qcom_snps_hsphy_init(struct phy *phy)
+ 
+ 	dev_vdbg(&phy->dev, "%s(): Initializing SNPS HS phy\n", __func__);
+ 
++	qcom_snps_hsphy_force_usb_clks(&phy->dev);
++
+ 	ret = regulator_bulk_enable(ARRAY_SIZE(hsphy->vregs), hsphy->vregs);
+ 	if (ret)
+ 		return ret;
+@@ -584,7 +623,8 @@ static int qcom_snps_hsphy_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "failed to initialize clocks\n");
+ 
+-	hsphy->phy_reset = devm_reset_control_get_exclusive(&pdev->dev, NULL);
++	/* Optional: ABL/fastboot may leave PHY out of reset already (bring-up). */
++	hsphy->phy_reset = devm_reset_control_get_optional_exclusive(&pdev->dev, NULL);
+ 	if (IS_ERR(hsphy->phy_reset)) {
+ 		dev_err(dev, "failed to get phy core reset\n");
+ 		return PTR_ERR(hsphy->phy_reset);
+diff --git a/drivers/pinctrl/qcom/Kconfig.msm b/drivers/pinctrl/qcom/Kconfig.msm
+index 836cdeca1..3e36f33c5 100644
+--- a/drivers/pinctrl/qcom/Kconfig.msm
++++ b/drivers/pinctrl/qcom/Kconfig.msm
+@@ -385,6 +385,13 @@ config PINCTRL_SM6115
+ 	 Qualcomm Technologies Inc TLMM block found on the Qualcomm
+ 	 Technologies Inc SM6115 and SM4250 platforms.
+ 
++config PINCTRL_KHAJE
++	tristate "Qualcomm Technologies Inc Khaje (SM6225) pin controller driver"
++	depends on ARM64 || COMPILE_TEST
++	help
++	 TLMM for Khaje/SM6225 — flat reg @0x400000 (qcom,khaje-pinctrl),
++	 as used on Xiaomi rain/fog. Prefer this over sm6115 tiled TLMM.
++
+ config PINCTRL_SM6125
+ 	tristate "Qualcomm Technologies Inc SM6125 pin controller driver"
+ 	depends on ARM64 || COMPILE_TEST
+diff --git a/drivers/pinctrl/qcom/Makefile b/drivers/pinctrl/qcom/Makefile
+index 84bda3ada..938079923 100644
+--- a/drivers/pinctrl/qcom/Makefile
++++ b/drivers/pinctrl/qcom/Makefile
+@@ -60,6 +60,7 @@ obj-$(CONFIG_PINCTRL_SDX75) += pinctrl-sdx75.o
+ obj-$(CONFIG_PINCTRL_SM4250_LPASS_LPI) += pinctrl-sm4250-lpass-lpi.o
+ obj-$(CONFIG_PINCTRL_SM4450) += pinctrl-sm4450.o
+ obj-$(CONFIG_PINCTRL_SM6115) += pinctrl-sm6115.o
++obj-$(CONFIG_PINCTRL_KHAJE) += pinctrl-khaje.o
+ obj-$(CONFIG_PINCTRL_SM6115_LPASS_LPI) += pinctrl-sm6115-lpass-lpi.o
+ obj-$(CONFIG_PINCTRL_SM6125) += pinctrl-sm6125.o
+ obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
+diff --git a/drivers/pinctrl/qcom/pinctrl-msm.c b/drivers/pinctrl/qcom/pinctrl-msm.c
+index 45b3a2763..8a378a449 100644
+--- a/drivers/pinctrl/qcom/pinctrl-msm.c
++++ b/drivers/pinctrl/qcom/pinctrl-msm.c
+@@ -1045,6 +1045,9 @@ static void msm_gpio_irq_init_valid_mask(struct gpio_chip *gc,
+ 		if (g->intr_detection_width != 1 &&
+ 		    g->intr_detection_width != 2)
+ 			clear_bit(i, valid_mask);
++		/* Khaje: skip EAST/SOUTH reserved lines (MMIO hang). */
++		if (!gpiochip_line_is_valid(gc, i))
++			clear_bit(i, valid_mask);
+ 	}
+ }
+ 
+@@ -1400,6 +1403,52 @@ static const struct irq_chip msm_gpio_irq_chip = {
+ 				   IRQCHIP_IMMUTABLE),
+ };
+ 
++static bool msm_gpio_is_reserved(struct msm_pinctrl *pctrl, unsigned int gpio)
++{
++	const int *reserved = pctrl->soc->reserved_gpios;
++	int i;
++
++	if (!reserved)
++		return false;
++
++	for (i = 0; reserved[i] >= 0; i++) {
++		if ((unsigned int)reserved[i] == gpio)
++			return true;
++	}
++
++	return false;
++}
++
++/*
++ * Mask+ack IRQs on safe GPIOs before gpiochip_add enables the summary IRQ.
++ * Do not touch reserved tiles (khaje EAST/SOUTH MMIO hangs).
++ */
++static void msm_gpio_irq_quiesce(struct msm_pinctrl *pctrl)
++{
++	const struct msm_pingroup *g;
++	unsigned int i, ngpio = pctrl->soc->ngpios;
++	unsigned long flags;
++	u32 val;
++
++	for (i = 0; i < ngpio; i++) {
++		if (msm_gpio_is_reserved(pctrl, i))
++			continue;
++
++		g = &pctrl->soc->groups[i];
++		if (g->intr_detection_width != 1 &&
++		    g->intr_detection_width != 2)
++			continue;
++
++		raw_spin_lock_irqsave(&pctrl->lock, flags);
++		val = msm_readl_intr_cfg(pctrl, g);
++		val &= ~BIT(g->intr_enable_bit);
++		val &= ~BIT(g->intr_raw_status_bit);
++		msm_writel_intr_cfg(val, pctrl, g);
++		msm_ack_intr_status(pctrl, g);
++		raw_spin_unlock_irqrestore(&pctrl->lock, flags);
++	}
++}
++
+ static int msm_gpio_init(struct msm_pinctrl *pctrl)
+ {
+ 	struct gpio_chip *chip;
+@@ -1440,19 +1489,23 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
+ 		}
+ 	}
+ 
+-	girq = &chip->irq;
+-	gpio_irq_chip_set_chip(girq, &msm_gpio_irq_chip);
+-	girq->parent_handler = msm_gpio_irq_handler;
+-	girq->fwnode = dev_fwnode(pctrl->dev);
+-	girq->num_parents = 1;
+-	girq->parents = devm_kcalloc(pctrl->dev, 1, sizeof(*girq->parents),
+-				     GFP_KERNEL);
+-	if (!girq->parents)
+-		return -ENOMEM;
+-	girq->default_type = IRQ_TYPE_NONE;
+-	girq->handler = handle_bad_irq;
+-	girq->parents[0] = pctrl->irq;
+-	girq->init_valid_mask = msm_gpio_irq_init_valid_mask;
++	if (pctrl->irq >= 0) {
++		msm_gpio_irq_quiesce(pctrl);
++
++		girq = &chip->irq;
++		gpio_irq_chip_set_chip(girq, &msm_gpio_irq_chip);
++		girq->parent_handler = msm_gpio_irq_handler;
++		girq->fwnode = dev_fwnode(pctrl->dev);
++		girq->num_parents = 1;
++		girq->parents = devm_kcalloc(pctrl->dev, 1, sizeof(*girq->parents),
++					     GFP_KERNEL);
++		if (!girq->parents)
++			return -ENOMEM;
++		girq->default_type = IRQ_TYPE_NONE;
++		girq->handler = handle_bad_irq;
++		girq->parents[0] = pctrl->irq;
++		girq->init_valid_mask = msm_gpio_irq_init_valid_mask;
++	}
+ 
+ 	ret = devm_gpiochip_add_data(pctrl->dev, &pctrl->chip, pctrl);
+ 	if (ret) {
+@@ -1581,9 +1634,10 @@ int msm_pinctrl_probe(struct platform_device *pdev,
+ 
+ 	msm_pinctrl_setup_pm_reset(pctrl);
+ 
+-	pctrl->irq = platform_get_irq(pdev, 0);
+-	if (pctrl->irq < 0)
+-		return pctrl->irq;
++	/* Optional: rain/khaje bisect — pinmux without summary IRQ (irq storm / BACK_FB). */
++	pctrl->irq = platform_get_irq_optional(pdev, 0);
++	if (pctrl->irq == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
+ 
+ 	pctrl->desc.owner = THIS_MODULE;
+ 	pctrl->desc.pctlops = &msm_pinctrl_ops;
+@@ -1607,13 +1661,17 @@ int msm_pinctrl_probe(struct platform_device *pdev,
+ 			return ret;
+ 	}
+ 
+-	ret = msm_gpio_init(pctrl);
+-	if (ret)
+-		return ret;
++	ret = 0;
++	if (soc_data->ngpios) {
++		ret = msm_gpio_init(pctrl);
++		if (ret)
++			return ret;
++	}
+ 
+ 	platform_set_drvdata(pdev, pctrl);
+ 
+-	dev_dbg(&pdev->dev, "Probed Qualcomm pinctrl driver\n");
++	dev_info(&pdev->dev, "Probed Qualcomm pinctrl (irq=%d ngpios=%u)\n",
++		 pctrl->irq, soc_data->ngpios);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
+index 83392ed6a..21745468e 100644
+--- a/drivers/power/supply/Kconfig
++++ b/drivers/power/supply/Kconfig
+@@ -865,6 +865,20 @@ config CHARGER_SMB347
+ 	  Say Y to include support for Summit Microelectronics SMB345,
+ 	  SMB347 or SMB358 Battery Charger.
+ 
++config CHARGER_SMB1351_BRINGUP
++	tristate "Qualcomm smb1351 USB charger (minimal bringup)"
++	depends on I2C
++	help
++	  Minimal I2C driver for smb1351 on Xiaomi rain/fog (SM6225).
++	  Enables USB input charging without full CLO Jeita/BMS stack.
++
++config FUEL_GAUGE_SH366101_BRINGUP
++	tristate "SinoWealth sh366101 fuel gauge (minimal bringup)"
++	depends on I2C
++	help
++	  Minimal I2C driver for sh366101 on Xiaomi rain (SM6225).
++	  Exposes power_supply "bms" (SOC/voltage/current/temp).
++
+ config CHARGER_TPS65090
+ 	tristate "TPS65090 battery charger driver"
+ 	depends on MFD_TPS65090
+diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
+index 7ee839dca..62c158870 100644
+--- a/drivers/power/supply/Makefile
++++ b/drivers/power/supply/Makefile
+@@ -108,6 +108,8 @@ obj-$(CONFIG_CHARGER_BQ25980)	+= bq25980_charger.o
+ obj-$(CONFIG_CHARGER_BQ256XX)	+= bq256xx_charger.o
+ obj-$(CONFIG_CHARGER_RK817)	+= rk817_charger.o
+ obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
++obj-$(CONFIG_CHARGER_SMB1351_BRINGUP)	+= smb1351_charger_bringup.o
++obj-$(CONFIG_FUEL_GAUGE_SH366101_BRINGUP) += sh366101_fg_bringup.o
+ obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o
+ obj-$(CONFIG_CHARGER_TPS65217)	+= tps65217_charger.o
+ obj-$(CONFIG_AXP288_FUEL_GAUGE) += axp288_fuel_gauge.o
+diff --git a/drivers/soc/qcom/qcom-geni-se.c b/drivers/soc/qcom/qcom-geni-se.c
+index cd1779b6a..a85194173 100644
+--- a/drivers/soc/qcom/qcom-geni-se.c
++++ b/drivers/soc/qcom/qcom-geni-se.c
+@@ -905,6 +905,12 @@ int geni_icc_get(struct geni_se *se, const char *icc_ddr)
+ 	if (has_acpi_companion(se->dev))
+ 		return 0;
+ 
++	/* Thin bringup DTs may omit interconnects; FIFO I2C still works. */
++	if (!device_property_present(se->dev, "interconnects")) {
++		dev_info(se->dev, "GENI ICC skipped (no interconnects)\n");
++		return 0;
++	}
++
+ 	for (i = 0; i < ARRAY_SIZE(se->icc_paths); i++) {
+ 		if (!icc_names[i])
+ 			continue;
+diff --git a/drivers/soc/qcom/qcom_pd_mapper.c b/drivers/soc/qcom/qcom_pd_mapper.c
+index 7bb14c20a..4e216d8f4 100644
+--- a/drivers/soc/qcom/qcom_pd_mapper.c
++++ b/drivers/soc/qcom/qcom_pd_mapper.c
+@@ -607,6 +607,14 @@ static const struct of_device_id qcom_pdm_domains[] __maybe_unused = {
+ 	{ .compatible = "qcom,sdm845", .data = sdm845_domains, },
+ 	{ .compatible = "qcom,sm4250", .data = sm6115_domains, },
+ 	{ .compatible = "qcom,sm6115", .data = sm6115_domains, },
++	/*
++	 * sm6225 (rain/fog, e.g. Redmi 10C) isn't upstream in this table yet.
++	 * It shares the sm6115 WLAN/ADSP/CDSP protection-domain layout
++	 * (WCN3990 wlan_pd via mpss, same instance id 180) - reuse it so the
++	 * kernel PD mapper actually answers the modem's servreg locator
++	 * queries instead of leaving wlan_pd unresolved forever.
++	 */
++	{ .compatible = "qcom,sm6225", .data = sm6115_domains, },
+ 	{ .compatible = "qcom,sm6350", .data = sm6350_domains, },
+ 	{ .compatible = "qcom,sm7150", .data = sm7150_domains, },
+ 	{ .compatible = "qcom,sm7225", .data = sm6350_domains, },
+diff --git a/drivers/soc/qcom/ubwc_config.c b/drivers/soc/qcom/ubwc_config.c
+index 3fe47d8f0..cc82ac77a 100644
+--- a/drivers/soc/qcom/ubwc_config.c
++++ b/drivers/soc/qcom/ubwc_config.c
+@@ -280,6 +280,7 @@ static const struct of_device_id qcom_ubwc_configs[] __maybe_unused = {
+ 	{ .compatible = "qcom,sdm845", .data = &sdm845_data, },
+ 	{ .compatible = "qcom,sm4250", .data = &sm6115_data, },
+ 	{ .compatible = "qcom,sm6115", .data = &sm6115_data, },
++	{ .compatible = "qcom,sm6225", .data = &sm6115_data, },
+ 	{ .compatible = "qcom,sm6125", .data = &sm6125_data, },
+ 	{ .compatible = "qcom,sm6150", .data = &sm6150_data, },
+ 	{ .compatible = "qcom,sm6350", .data = &sm6350_data, },
+diff --git a/drivers/ufs/host/ufs-qcom.c b/drivers/ufs/host/ufs-qcom.c
+index 9c0973a7f..0cb832a1c 100644
+--- a/drivers/ufs/host/ufs-qcom.c
++++ b/drivers/ufs/host/ufs-qcom.c
+@@ -15,6 +15,7 @@
+ #include <linux/phy/phy.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
++#include <linux/regulator/consumer.h>
+ #include <linux/reset-controller.h>
+ #include <linux/time.h>
+ #include <linux/unaligned.h>
+@@ -129,6 +130,7 @@ static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
+ static unsigned long ufs_qcom_opp_freq_to_clk_freq(struct ufs_hba *hba,
+ 						   unsigned long freq, char *name);
+ static int ufs_qcom_set_core_clk_ctrl(struct ufs_hba *hba, bool is_scale_up, unsigned long freq);
++static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable);
+ 
+ static struct ufs_qcom_host *rcdev_to_ufs_host(struct reset_controller_dev *rcd)
+ {
+@@ -708,6 +710,7 @@ static int ufs_qcom_cfg_timers(struct ufs_hba *hba, bool is_pre_scale_up, unsign
+ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
+ 					enum ufs_notify_change_status status)
+ {
++	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+ 	int err = 0;
+ 
+ 	switch (status) {
+@@ -721,6 +724,14 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
+ 		err = ufs_qcom_set_core_clk_ctrl(hba, true, ULONG_MAX);
+ 		if (err)
+ 			dev_err(hba->dev, "cfg core clk ctrl failed\n");
++		/*
++		 * Rain/khaje: force device ref_clk on before DME_LINKSTARTUP.
++		 * Mainline only enables it for HS pwr_info; cold boot is still
++		 * PWM and UIC 0x16 then times out with a silent device.
++		 */
++		ufs_qcom_dev_ref_clk_ctrl(host, true);
++		usleep_range(1000, 1100);
++		dev_info(hba->dev, "forced device ref_clk before link startup\n");
+ 		/*
+ 		 * Some UFS devices (and may be host) have issues if LCC is
+ 		 * enabled. So we are setting PA_Local_TX_LCC_Enable to 0
+@@ -742,11 +753,23 @@ static void ufs_qcom_device_reset_ctrl(struct ufs_hba *hba, bool asserted)
+ {
+ 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+ 
+-	/* reset gpio is optional */
+-	if (!host->device_reset)
++	if (host->device_reset) {
++		gpiod_set_value_cansleep(host->device_reset, asserted);
+ 		return;
++	}
+ 
+-	gpiod_set_value_cansleep(host->device_reset, asserted);
++	/* Active-low: assert → drive 0, deassert → drive 1 (out_bit 0) */
++	if (host->device_reset_io) {
++		u32 val = readl(host->device_reset_io);
++
++		if (asserted)
++			val &= ~BIT(0);
++		else
++			val |= BIT(0);
++		writel(val, host->device_reset_io);
++		/* Ensure write lands before delay / next UIC cmd */
++		readl(host->device_reset_io);
++	}
+ }
+ 
+ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
+@@ -1305,6 +1328,15 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
+ 	if (host->hw_ver.major > 0x3)
+ 		hba->quirks |= UFSHCD_QUIRK_REINIT_AFTER_MAX_GEAR_SWITCH;
+ 
++	/*
++	 * Some khaje/bengal downstream trees force legacy DME timing quirks
++	 * to stabilize early link startup on specific boards.
++	 */
++	if (of_property_read_bool(hba->dev->of_node, "qcom,force-legacy-dme-quirks"))
++		hba->quirks |= UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS |
++			       UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE |
++			       UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP;
++
+ 	if (drvdata && drvdata->quirks)
+ 		hba->quirks |= drvdata->quirks;
+ }
+@@ -1393,6 +1425,13 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
+ 	hba->caps |= UFSHCD_CAP_AGGR_POWER_COLLAPSE;
+ 	hba->caps |= UFSHCD_CAP_RPM_AUTOSUSPEND;
+ 
++	/* Thin bringup boards: broken scale-down → UNIPRO 10 MHz / dvfs -22 */
++	if (device_property_read_bool(hba->dev, "qcom,disable-devfreq")) {
++		hba->caps &= ~(UFSHCD_CAP_CLK_SCALING |
++			       UFSHCD_CAP_WB_WITH_CLK_SCALING);
++		dev_info(hba->dev, "UFS clk scaling disabled (qcom,disable-devfreq)\n");
++	}
++
+ 	if (host->hw_ver.major >= 0x7)
+ 		hba->caps |= UFSHCD_CAP_TX_EQUALIZATION;
+ 
+@@ -1600,6 +1639,75 @@ static int ufs_qcom_init(struct ufs_hba *hba)
+ 		goto out_variant_clear;
+ 	}
+ 
++	/*
++	 * Optional direct TLMM UFS_RESET (avoids full pinctrl probe).
++	 * Phys 0x578000 on sm6115/khaje (= west tile + 0x78000).
++	 */
++	if (!host->device_reset) {
++		u32 rst_phys = 0;
++
++		if (!of_property_read_u32(dev->of_node,
++					  "qcom,device-reset-mmio",
++					  &rst_phys) && rst_phys) {
++			host->device_reset_ctl = devm_ioremap(dev, rst_phys, 8);
++			if (!host->device_reset_ctl) {
++				dev_err(dev, "ioremap device-reset-mmio failed\n");
++				err = -ENOMEM;
++				goto out_variant_clear;
++			}
++			host->device_reset_io = host->device_reset_ctl + 4;
++			/* Leave ctl (pull/drive) as bootloader left it; only pulse IO. */
++			writel(readl(host->device_reset_io) | BIT(0),
++			       host->device_reset_io);
++			dev_info(dev, "UFS_RESET MMIO @ %#x (ctl=%#x io=%#x)\n",
++				 rst_phys, readl(host->device_reset_ctl),
++				 readl(host->device_reset_io));
++		}
++	}
++
++	/*
++	 * Optional VDDP_REF_CLK rail from Android DT (qcom,vddp-ref-clk-supply).
++	 * Rain/khaje ties this to pm6125 L18 @ 1.232V; without it link startup
++	 * can fail after HCE with UIC cmd 0x16 timeout.
++	 */
++	host->vddp_ref_clk = devm_regulator_get_optional(dev, "qcom,vddp-ref-clk");
++	if (IS_ERR(host->vddp_ref_clk)) {
++		err = PTR_ERR(host->vddp_ref_clk);
++		if (err != -ENODEV) {
++			err = dev_err_probe(dev, err,
++					    "Failed to get qcom,vddp-ref-clk\n");
++			goto out_variant_clear;
++		}
++		host->vddp_ref_clk = NULL;
++	} else if (host->vddp_ref_clk) {
++		u32 min_uV = 1232000, max_uV = 1232000;
++		u32 max_uA = 0;
++
++		of_property_read_u32(dev->of_node, "qcom,vddp-ref-clk-min-uV",
++				     &min_uV);
++		of_property_read_u32(dev->of_node, "qcom,vddp-ref-clk-max-uV",
++				     &max_uV);
++		of_property_read_u32(dev->of_node, "qcom,vddp-ref-clk-max-microamp",
++				     &max_uA);
++		err = regulator_set_voltage(host->vddp_ref_clk, min_uV, max_uV);
++		if (err)
++			dev_warn(dev, "vddp-ref-clk set_voltage failed: %d\n",
++				 err);
++		if (max_uA) {
++			err = regulator_set_load(host->vddp_ref_clk, max_uA);
++			if (err)
++				dev_warn(dev, "vddp-ref-clk set_load failed: %d\n",
++					 err);
++		}
++		err = regulator_enable(host->vddp_ref_clk);
++		if (err) {
++			dev_err(dev, "vddp-ref-clk enable failed: %d\n", err);
++			goto out_variant_clear;
++		}
++		dev_info(dev, "enabled qcom,vddp-ref-clk (%u-%u uV)\n",
++			 min_uV, max_uV);
++	}
++
+ 	ufs_qcom_get_controller_revision(hba, &host->hw_ver.major,
+ 		&host->hw_ver.minor, &host->hw_ver.step);
+ 
+@@ -1652,6 +1760,8 @@ static void ufs_qcom_exit(struct ufs_hba *hba)
+ 	ufs_qcom_disable_lane_clks(host);
+ 	phy_power_off(host->generic_phy);
+ 	phy_exit(host->generic_phy);
++	if (host->vddp_ref_clk)
++		regulator_disable(host->vddp_ref_clk);
+ }
+ 
+ static int ufs_qcom_fw_managed_init(struct ufs_hba *hba)
+@@ -2214,19 +2324,22 @@ static int ufs_qcom_device_reset(struct ufs_hba *hba)
+ {
+ 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+ 
+-	/* reset gpio is optional */
+-	if (!host->device_reset)
++	/* reset gpio / MMIO are optional */
++	if (!host->device_reset && !host->device_reset_io)
+ 		return -EOPNOTSUPP;
+ 
+ 	/*
+ 	 * The UFS device shall detect reset pulses of 1us, sleep for 10us to
+-	 * be on the safe side.
++	 * be on the safe side. Use a longer pulse for cold bringup.
+ 	 */
+ 	ufs_qcom_device_reset_ctrl(hba, true);
+-	usleep_range(10, 15);
++	usleep_range(100, 150);
+ 
+ 	ufs_qcom_device_reset_ctrl(hba, false);
+-	usleep_range(10, 15);
++	usleep_range(1000, 1100);
++
++	dev_info(hba->dev, "device reset toggled (%s)\n",
++		 host->device_reset ? "gpio" : "mmio");
+ 
+ 	return 0;
+ }
+diff --git a/drivers/ufs/host/ufs-qcom.h b/drivers/ufs/host/ufs-qcom.h
+index 5d083331a..6efe2e8ef 100644
+--- a/drivers/ufs/host/ufs-qcom.h
++++ b/drivers/ufs/host/ufs-qcom.h
+@@ -343,6 +343,14 @@ struct ufs_qcom_host {
+ 	struct reset_controller_dev rcdev;
+ 
+ 	struct gpio_desc *device_reset;
++	/*
++	 * Optional MMIO UFS_RESET (TLMM west+0x78000 / khaje 0x400000+0x178000
++	 * → phys 0x578000). Avoids probing full TLMM. io at ctl+4, out_bit=0.
++	 */
++	void __iomem *device_reset_ctl;
++	void __iomem *device_reset_io;
++	/* Android/CLO: qcom,vddp-ref-clk-supply (often L18 @ 1.232V on khaje) */
++	struct regulator *vddp_ref_clk;
+ 
+ 	struct ufs_host_params host_params;
+ 	u32 phy_gear;
+diff --git a/drivers/usb/dwc3/gadget.c b/drivers/usb/dwc3/gadget.c
+index 1082e9c9a..459ee267b 100644
+--- a/drivers/usb/dwc3/gadget.c
++++ b/drivers/usb/dwc3/gadget.c
+@@ -2427,13 +2427,13 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
+ 	int			ret;
+ 
+ 	if (!dwc->wakeup_configured) {
+-		dev_err(dwc->dev, "remote wakeup not configured\n");
++		dev_dbg_ratelimited(dwc->dev, "remote wakeup not configured\n");
+ 		return -EINVAL;
+ 	}
+ 
+ 	spin_lock_irqsave(&dwc->lock, flags);
+ 	if (!dwc->gadget->wakeup_armed) {
+-		dev_err(dwc->dev, "not armed for remote wakeup\n");
++		dev_dbg_ratelimited(dwc->dev, "not armed for remote wakeup\n");
+ 		spin_unlock_irqrestore(&dwc->lock, flags);
+ 		return -EINVAL;
+ 	}
+@@ -2454,7 +2454,7 @@ static int dwc3_gadget_func_wakeup(struct usb_gadget *g, int intf_id)
+ 	int			link_state;
+ 
+ 	if (!dwc->wakeup_configured) {
+-		dev_err(dwc->dev, "remote wakeup not configured\n");
++		dev_dbg_ratelimited(dwc->dev, "remote wakeup not configured\n");
+ 		return -EINVAL;
+ 	}
+ 
+diff --git a/drivers/usb/typec/wusb3801.c b/drivers/usb/typec/wusb3801.c
+index 6062875fb..0e4a57daa 100644
+--- a/drivers/usb/typec/wusb3801.c
++++ b/drivers/usb/typec/wusb3801.c
+@@ -415,6 +415,7 @@ static void wusb3801_remove(struct i2c_client *client)
+ 
+ static const struct of_device_id wusb3801_of_match[] = {
+ 	{ .compatible = "willsemi,wusb3801" },
++	{ .compatible = "WillSemi,wusb3801" },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, wusb3801_of_match);

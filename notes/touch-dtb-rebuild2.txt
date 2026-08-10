@@ -1,0 +1,13 @@
+touch /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/arm64/boot/dts/qcom/sm6225.dtsi
+touch /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
+rc 0
+  DTC     arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb
+  DTC     arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dtb
+mtime 1785569627.9937286 old 0 size 23870
+b'focaltech,fts' True
+b'focaltech' True
+b'geni-spi' True
+b'qcom,geni-spi' True
+b'touch' True
+pack 0 boot-linux.img 16.93 MiB OK
+DONE

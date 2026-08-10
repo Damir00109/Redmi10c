@@ -1,0 +1,28 @@
+gzip spi-geni-qcom.ko: 116936 -> 33397
+gzip fts_spi.ko: 349528 -> 92055
+gzip focaltech_ts_fw_xinli.bin: 131072 -> 83073
+REOPENED
+LOGIN_OK
+
+$ stty -echo cols 200; export TERM=linux
+[?2004l
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+$ printf 'rain\n' | sudo -S -v >/dev/null; echo SUDO_OK
+[?2004l
+SUDO_OK
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+### spi-geni-qcom.ko.gz -> /tmp/spi-geni-qcom.ko gz=33397 b64=44532 expect_md5=9f10ccf71b8df7e0ed7a9cd0a12afdb4
+
+$ rm -f /tmp/spi-geni-qcom.ko.gz /tmp/spi-geni-qcom.ko /tmp/spi-geni-qcom.ko.gz.b64
+[?2004l
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+  progress 0/248
+  progress 25/248
+  progress 50/248
+  progress 75/248
+  progress 100/248

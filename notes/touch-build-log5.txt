@@ -1,0 +1,43 @@
+RUN make O=/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5 -j 56 M=drivers/input/touchscreen/fts_spi modules
+rc 2
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+focaltech_stubs.c:13:5: warning: no previous prototype for ‘fts_point_report_check_exit’ [-Wmissing-prototypes]
+   13 | int fts_point_report_check_exit(struct fts_ts_data *ts_data) { return 0; }
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+focaltech_stubs.c:14:6: warning: no previous prototype for ‘fts_point_report_check_queue_work’ [-Wmissing-prototypes]
+   14 | void fts_point_report_check_queue_work(struct fts_ts_data *ts_data) {}
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+focaltech_stubs.c:18:5: warning: no previous prototype for ‘fts_test_init’ [-Wmissing-prototypes]
+   18 | int fts_test_init(struct fts_ts_data *ts_data) { return 0; }
+      |     ^~~~~~~~~~~~~
+focaltech_stubs.c:19:5: warning: no previous prototype for ‘fts_test_exit’ [-Wmissing-prototypes]
+   19 | int fts_test_exit(struct fts_ts_data *ts_data) { return 0; }
+      |     ^~~~~~~~~~~~~
+focaltech_stubs.c:26:6: warning: no previous prototype for ‘set_fts_ts_variant’ [-Wmissing-prototypes]
+   26 | void set_fts_ts_variant(bool en) {}
+      |      ^~~~~~~~~~~~~~~~~~
+focaltech_stubs.c:27:6: warning: no previous prototype for ‘set_lcd_reset_gpio_keep_high’ [-Wmissing-prototypes]
+   27 | void set_lcd_reset_gpio_keep_high(bool en) {}
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+focaltech_stubs.c:28:6: warning: no previous prototype for ‘set_lct_tp_gesture_status’ [-Wmissing-prototypes]
+   28 | void set_lct_tp_gesture_status(bool flag) {}
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~
+focaltech_gesture.c:410:5: warning: no previous prototype for ‘fts_gesture_switch’ [-Wmissing-prototypes]
+  410 | int fts_gesture_switch(struct input_dev *dev, unsigned int type, unsigned int code, int value)
+      |     ^~~~~~~~~~~~~~~~~~
+ERROR: modpost: "irq_to_desc" [fts_spi.ko] undefined!
+make[3]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.modpost:147: Module.symvers] Error 1
+make[2]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:2112: modpost] Error 2
+make[1]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:248: __sub-make] Error 2
+make: *** [Makefile:248: __sub-make] Error 2
+KO exists False 0
+FW staged /home/damir00109/Desktop/Redmi10c/tools/rain-overlay/lib/firmware/focaltech_ts_fw_xinli.bin 131072
+rootfs dir /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/lib/firmware
+rootfs dir /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/usr/lib/firmware
+rootfs dir /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/lib/modules
+copied fw to /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/lib/firmware
+pack rc 0
+boot-linux.img 16.93 MiB OK
+
+
+ALL_DONE

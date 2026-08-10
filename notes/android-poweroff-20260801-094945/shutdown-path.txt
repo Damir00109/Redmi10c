@@ -1,0 +1,43 @@
+-rwxr-xr-x 1 root shell 14480 2009-01-01 03:00 /system/bin/reboot
+toybox: Unknown command reboot (see "toybox --help")
+/system/bin/svc
+POWER MANAGER (dumpsys power)
+
+Power Manager State:
+  Settings power_manager_constants:
+    no_cached_wake_locks=true
+  mDirty=0x0
+  mWakefulness=Dozing
+  mWakefulnessChanging=false
+  mIsPowered=true
+  mPlugType=2
+  mBatteryLevel=72
+  mDreamsBatteryLevelDrain=0
+  mDockState=0
+  mStayOn=false
+  mProximityPositive=false
+  mBootCompleted=true
+  mSystemReady=true
+  mEnhancedDischargeTimeElapsed=0
+  mLastEnhancedDischargeTimeUpdatedElapsed=0
+  mEnhancedDischargePredictionIsPersonalized=false
+  mUseAutoSuspend=true
+  mHalAutoSuspendModeEnabled=true
+  mHalInteractiveModeEnabled=false
+  mWakeLockSummary=0x40
+  mNotifyLongScheduled=+4s197ms
+  mNotifyLongDispatched=(none)
+  mNotifyLongNextCheck=(none)
+  mRequestWaitForNegativeProximity=false
+  mInterceptedPowerKeyForProximity=false
+  mSandmanScheduled=false
+  mBatteryLevelLow=false
+  mLightDeviceIdleMode=false
+  mDeviceIdleMode=false
+  mDeviceIdleWhitelist=[2000, 10042, 10043, 10052, 10088, 10092, 10093, 10104, 10106, 10110, 10130, 10132, 10133, 10143, 10146]
+  mDeviceIdleTempWhitelist=[]
+  mLowPowerStandbyActive=false
+  mLastWakeTime=0 (68584 ms ago)
+  mLastSleepTime=29339 (39245 ms ago)
+  mLastSleepReason=timeout
+  mLastGlobalWakeTimeRealtime=0 (68584 ms ago)

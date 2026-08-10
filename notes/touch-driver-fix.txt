@@ -1,0 +1,31 @@
+Focaltech FT8006S SPI driver fixes (Linux 7.1) — 2026-08-01
+============================================================
+
+Trees (identical; out/.../source is a symlink to mainline/linux-7.1.y):
+  - out/linux-7.1.5/source/drivers/input/touchscreen/fts_spi/
+  - mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/
+
+1) GPIO for kernel 7.1 (of_gpio.h removed)
+   - focaltech_core.c: dropped of_gpio.h; added gpio/consumer.h (gpio.h via core.h).
+   - fts_parse_dt: of_get_named_gpio_flags → devm_gpiod_get_optional("reset"/"irq")
+     + desc_to_gpio; expects DT reset-gpios / irq-gpios (parent updates DT).
+   - fts_gpio_configure: no gpio_request/gpio_free; only gpio_direction_* when valid.
+   - probe error / remove: removed gpio_free of irq/reset (devm/gpiod owns them).
+
+2) Android / Longcheer stubs
+   - CHECK_TOUCH_VENDOR define commented out (no saved_command_line / panel string gate).
+   - lct_fts_tp_gesture_callback: set_lct_tp_gesture_status call wrapped in #if 0.
+   - focaltech_stubs.c: added set_fts_ts_variant / set_lcd_reset_gpio_keep_high /
+     set_lct_tp_gesture_status no-ops (lct_create/remove_procfs stubs already present).
+   - focaltech_ex_fun.c: lct_fts_get_tpfwver through lct_remove_procfs wrapped in #if 0
+     so only stubs provide those symbols (avoids init_lct_* / update_lct_* link errors).
+
+3) Config flags (focaltech_config.h) — verified already off:
+   FTS_GESTURE_EN=0, FTS_ESDCHECK_EN=0, FTS_TEST_EN=0,
+   LCT_TP_WORK_EN=0, LCT_TP_GRIP_AREA_EN=0, LCT_TP_USB_PLUGIN=0.
+
+4) Kconfig / Makefile
+   - Parent touchscreen/Kconfig: added TOUCHSCREEN_FTS_SPI before final endif.
+   - Makefile already had: obj-$(CONFIG_TOUCHSCREEN_FTS_SPI) += fts_spi/
+
+Not done (per request): no kernel build, no DT changes, rain-defconfig untouched.

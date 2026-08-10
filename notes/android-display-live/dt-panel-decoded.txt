@@ -1,0 +1,53 @@
+=== numeric ===
+width =     d0020000
+height =     72060000
+h-front-porch =     1a000000
+h-back-porch =     19000000
+h-pulse-width =     10000000
+v-front-porch =     87000000
+v-back-porch =     6e000000
+v-pulse-width =     0a000000
+framerate =     3c000000
+h-sync-skew =     00000000
+panel-width =     d0020000
+panel-height =     72060000
+panel-framerate =     3c000000
+    d0020000
+    72060000
+    3c000000
+=== phy ===
+00130504131e050506020400120a
+=== t-clk ===
+xxd: /sys/firmware/devicetree/base/soc/qcom,mdss_mdp/qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video/qcom,mdss-dsi-t-clk-post: No such file or directory
+xxd: /sys/firmware/devicetree/base/soc/qcom,mdss_mdp/qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video/qcom,mdss-dsi-t-clk-pre: No such file or directory
+=== flags present ===
+qcom,lcm-enn-gpio
+qcom,lcm-enp-gpio
+qcom,mdss-dsi-bl-inverted-dbv
+qcom,mdss-dsi-bllp-eof-power-mode
+qcom,mdss-dsi-bllp-power-mode
+qcom,mdss-dsi-focaltech-reset-sequence
+qcom,mdss-dsi-lane-0-state
+qcom,mdss-dsi-lane-1-state
+qcom,mdss-dsi-lane-2-state
+qcom,mdss-dsi-lane-3-state
+qcom,mdss-dsi-lane-map
+qcom,mdss-dsi-lp11-init
+qcom,mdss-dsi-panel-status-command-state
+qcom,mdss-dsi-reset-sequence
+qcom,mdss-dsi-tx-eot-append
+qcom,platform-reset-gpio
+qcom,platform-te-gpio
+=== bl flags ===
+/sys/firmware/devicetree/base/soc/qcom,mdss_mdp/qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video/qcom,mdss-dsi-bl-inverted-dbv: 
+/sys/firmware/devicetree/base/soc/qcom,mdss_mdp/qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video/qcom,mdss-dsi-bl-max-level: 000007ff
+
+/sys/firmware/devicetree/base/soc/qcom,mdss_mdp/qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video/qcom,mdss-dsi-bl-min-level: 00000001
+
+/sys/firmware/devicetree/base/soc/qcom,mdss_mdp/qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video/qcom,mdss-dsi-bl-move-high-8b: 
+/sys/firmware/devicetree/base/soc/qcom,mdss_mdp/qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video/qcom,mdss-dsi-bl-pmic-control-type: 626c5f6374726c5f64637300
+
+/sys/firmware/devicetree/base/soc/qcom,mdss_mdp/qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video/qcom,mdss-dsi-bllp-eof-power-mode: 
+/sys/firmware/devicetree/base/soc/qcom,mdss_mdp/qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video/qcom,mdss-dsi-bllp-power-mode: 
+=== on-command ===
+/system/bin/sh: fold: inaccessible or not found

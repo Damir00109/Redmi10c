@@ -1,0 +1,39 @@
+exists True size 321378
+lines 11962
+SPI_QCOM ['CONFIG_SPI_QCOM_QSPI=m', 'CONFIG_SPI_QCOM_GENI=m']
+TOUCHSCREEN ['CONFIG_INPUT_TOUCHSCREEN=y', '# CONFIG_TOUCHSCREEN_ADS7846 is not set', '# CONFIG_TOUCHSCREEN_AD7877 is not set', '# CONFIG_TOUCHSCREEN_AD7879 is not set', '# CONFIG_TOUCHSCREEN_ADC is not set', 'CONFIG_TOUCHSCREEN_APPLE_Z2=m', '# CONFIG_TOUCHSCREEN_AR1021_I2C is not set', 'CONFIG_TOUCHSCREEN_ATMEL_MXT=m', '# CONFIG_TOUCHSCREEN_ATMEL_MXT_T37 is not set', '# CONFIG_TOUCHSCREEN_AUO_PIXCIR is not set', '# CONFIG_TOUCHSCREEN_BU21013 is not set', '# CONFIG_TOUCHSCREEN_BU21029 is not set', '# CONFIG_TOUCHSCREEN_CHIPONE_ICN8318 is not set', '# CONFIG_TOUCHSCREEN_CHIPONE_ICN8505 is not set', '# CONFIG_TOUCHSCREEN_CY8CTMA140 is not set']
+git tracked: ''
+git show rc 128 len 0
+err fatal: not a git repository (or any of the parent directories): .git
+
+  321378 /home/damir00109/Desktop/Redmi10c/out/linux-7.1.5/.config
+  151046 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm64/configs/stock_defconfig
+   48532 /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/arm64/configs/defconfig
+   32279 /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/arm/configs/multi_v7_defconfig
+   29409 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/.config
+   28599 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/configs/TEST_noprintf_defconfig
+   28578 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/configs/android_502_defconfig
+   27743 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/configs/android_ndk_defconfig
+   27282 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/configs/android_defconfig
+   27274 /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/loongarch/configs/loongson64_defconfig
+   27109 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/powerpc/configs/ppc6xx_defconfig
+   26836 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/configs/android2_defconfig
+   26551 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/configs/freebsd_defconfig
+   26540 /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/loongarch/configs/loongson32_defconfig
+   25892 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/configs/cygwin_defconfig
+   24602 /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/powerpc/configs/ppc6xx_defconfig
+   23759 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm/configs/multi_v7_defconfig
+   23184 /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/s390/configs/debug_defconfig
+   22005 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/configs/TEST_rh9_defconfig
+   21149 /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/s390/configs/defconfig
+   20964 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/drivers/staging/qcacld-3.0/configs/default_defconfig
+   20881 /home/damir00109/Desktop/Redmi10c/tools/busybox-src/configs/TEST_nommu_defconfig
+   20835 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm64/configs/vendor/kona_defconfig
+   20601 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm64/configs/vendor/sdm660_defconfig
+   19793 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm64/configs/vendor/kona-iot_defconfig
+   19789 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm64/configs/vendor/lito_defconfig
+   19343 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm64/configs/vendor/bengal_defconfig
+   19325 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm64/configs/vendor/bengal-lite_defconfig
+   18932 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm/configs/vendor/msm8937_defconfig
+   18705 /home/damir00109/Desktop/Redmi10c/reference/sea_kernel_xiaomi_sm6225/arch/arm64/configs/vendor/msm8937_defconfig
+DONE

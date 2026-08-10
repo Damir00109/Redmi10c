@@ -1,0 +1,30 @@
+# Build artifacts and cache
+out/
+.ccache/
+*.img
+*.log
+*.deb
+
+# Large binary blobs
+adbd_*.deb
+twrp-*.img
+
+# Kernel source is managed inside mainline/linux-7.1.y separately
+mainline/
+
+# Runtime/backup data
+backup/
+logs/
+firmware/
+ref/
+reference/
+images/
+dt/
+src/
+
+# Large local sources/blobs
+notes/vendor-firmware-*
+notes/dt-adapt
+tools/mkbootimg
+tools/busybox-src
+tools/rain-overlay

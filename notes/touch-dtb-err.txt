@@ -1,0 +1,19 @@
+wrote 1823
+:
+make  -C /home/damir00109/Desktop/Redmi10c/out/linux-7.1.5 \
+-f /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb
+make[1]: Entering directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+make --no-print-directory -C /home/damir00109/Desktop/Redmi10c/out/linux-7.1.5 \
+-f /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb
+set -e; mkdir -p include/config/; trap "rm -f include/config/.tmp_kernel.release" EXIT; { /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/setlocalversion /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y; } > include/config/.tmp_kernel.release; if [ ! -r include/config/kernel.release ] || ! cmp -s include/config/kernel.release include/config/.tmp_kernel.release; then : '  UPD     include/config/kernel.release'; mv -f include/config/.tmp_kernel.release include/config/kernel.release; fi
+make -f /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build obj=scripts/basic
+make -f /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build obj=scripts/dtc
+make -f /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build obj=arch/arm64/boot/dts arch/arm64/boot/dts/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb
+make[1]: Leaving directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+
+STDERR:
+make[3]: *** No rule to make target 'arch/arm64/boot/dts/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb'.  Stop.
+make[2]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:1611: arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb] Error 2
+make[1]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:248: __sub-make] Error 2
+make: *** [Makefile:248: __sub-make] Error 2
+

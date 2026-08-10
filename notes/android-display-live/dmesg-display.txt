@@ -1,0 +1,156 @@
+[    0.000000] OF: reserved mem: initialized node pil_video_region@51400000, compatible id removed-dma-pool
+[    0.000000] Kernel command line: cgroup_disable=pressure rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off androidboot.hardware=qcom androidboot.memcg=1 androidboot.usbcontroller=4e00000.dwc3 loop.max_part=7 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237 service_locator.enable=1 swiotlb=2048 kpti=off kasan=off  androidboot.verifiedbootstate=orange androidboot.keymaster=1  androidboot.bootdevice=4804000.ufshc androidboot.fstab_suffix=default androidboot.boot_devices=soc/4804000.ufshc androidboot.serialno=82773a69 androidboot.cpuid=0x41e0cb8d androidboot.multisim_config=dsds androidboot.dp=0x0 androidboot.baseband=msm androidboot.lcmtype=dsi_panel_c3q_43_03_0b_fhdp_video_display msm_drm.dsi_display0=qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video: androidboot.fpsensor=fpc panel_info=1 androidboot.secureboot=1 androidboot.slot_suffix=_b rootwait ro init=/init androidboot.dtbo_idx=59 androidboot.dtb_idx=0 androidboot.force_normal_boot=1 androidboot.hwc=Global androidboot.hwversion=5.39.0 androi
+[    0.183813] platform 5ab0000.qcom,venus: assigned reserved memory node pil_video_region@51400000
+[    0.331130] videodev: Linux video capture interface: v2.00
+[    0.467395] mdss_pll_probe: MDSS pll label = MDSS DSI 0 PLL
+[    0.468200] dsi_pll_clock_register_7nm: Registered DSI PLL ndx=0, clocks successfully
+[    1.041430] panel_info 1
+[    1.054036] bkl_backlight_enable   enter.
+[    1.060245] bkl_backlight_enable   enter.
+[    1.147444] dsi_phy 5e94400.qcom,mdss_dsi_phy0: 5e94400.qcom,mdss_dsi_phy0 supply gdsc not found, using dummy regulator
+[    1.147454] dsi_phy 5e94400.qcom,mdss_dsi_phy0: Linked as a consumer to regulator.0
+[    1.147469] dsi_phy 5e94400.qcom,mdss_dsi_phy0: Linked as a consumer to regulator.26
+[    1.147481] [drm:dsi_phy_driver_probe] [msm-dsi-info]: DSI_0: Probe successful
+[    1.147819] drm_dsi_ctrl 5e94000.qcom,mdss_dsi0_ctrl: Linked as a consumer to regulator.1
+[    1.147833] drm_dsi_ctrl 5e94000.qcom,mdss_dsi0_ctrl: Linked as a consumer to regulator.40
+[    1.147847] [drm:dsi_ctrl_dev_probe] [msm-dsi-info]: dsi-ctrl-0: Probe successful
+[    1.148458] OF: graph: no port node found in /soc/qcom,dsi-display-primary
+[    1.148484] [drm] [msm-dsi-warn]: [ft8006s video mode dsi xinli panel] fallback to default te-pin-select
+[    1.149170] msm_drm 5e00000.qcom,mdss_mdp: Linked as a consumer to regulator.11
+[    1.149637] [drm:sde_dbg_init:4764] evtlog_status: enable:11, panic:1, dump:2
+[    1.149672] msm-dsi-display soc:qcom,dsi-display-primary: soc:qcom,dsi-display-primary supply vddio not found, using dummy regulator
+[    1.149680] msm-dsi-display soc:qcom,dsi-display-primary: Linked as a consumer to regulator.0
+[    1.149918] [drm:dsi_display_bind] [msm-dsi-info]: Successfully bind display panel 'qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video'
+[    1.150004] msm_drm 5e00000.qcom,mdss_mdp: bound soc:qcom,dsi-display-primary (ops 0xffffffa7f1a1b278)
+[    1.150621] [drm:_sde_kms_hw_init_blocks:3626] sde hardware revision:0x600a0000
+[    1.151244] msmdrm_smmu 5e00000.qcom,mdss_mdp:qcom,smmu_sde_unsec_cb: Linked as a consumer to c600000.apps-smmu
+[    1.151475] iommu: Adding device 5e00000.qcom,mdss_mdp:qcom,smmu_sde_unsec_cb to group 18
+[    1.151536] [drm] probing device qcom,smmu_sde_unsec
+[    1.151827] msmdrm_smmu 5e00000.qcom,mdss_mdp:qcom,smmu_sde_sec_cb: Linked as a consumer to c600000.apps-smmu
+[    1.152305] iommu: Adding device 5e00000.qcom,mdss_mdp:qcom,smmu_sde_sec_cb to group 19
+[    1.152428] [drm] probing device qcom,smmu_sde_sec
+[    1.153231] backlight_device_register+0x1ac/0x230
+[    1.153236] sde_connector_init+0x248/0xb3c
+[    1.153240] _sde_kms_hw_init_blocks+0x874/0x12c4
+[    1.153244] sde_kms_hw_init+0x120/0x2e4
+[    1.153379] [drm:dsi_panel_get_mode] [msm-dsi-info]: default topology: lm: 1 comp_enc:0 intf: 1
+[    1.154105] [drm] Initialized msm_drm 1.3.0 20130625 for 5e00000.qcom,mdss_mdp on minor 0
+[    1.154196] [drm:dsi_ctrl_isr_configure] [msm-dsi-info]: dsi-ctrl-0: IRQ 204 registered
+[    1.315888] sd 0:0:0:4: [sde] Write Protect is off
+[    1.315892] sd 0:0:0:4: [sde] Mode Sense: 00 32 00 10
+[    1.350442] [FTS_TS/I]fts_ts_init:TP info: [Vendor]xinli [IC]ft8006s
+[    1.392762] lpm_levels: Registered DRM panel notifier
+[    1.394135] sde_mdp_parse_dt_prop_len: <SDEROT_INFO> prop qcom,mdss-rot-vbif-memtype : doesn't exist in device tree
+[    1.394144] sde_mdp_parse_dt_prop_len: <SDEROT_INFO> prop qcom,mdss-inline-rot-qos-lut : doesn't exist in device tree
+[    1.394148] sde_mdp_parse_dt_prop_len: <SDEROT_INFO> prop qcom,mdss-inline-rot-danger-lut : doesn't exist in device tree
+[    1.394151] sde_mdp_parse_dt_prop_len: <SDEROT_INFO> prop qcom,mdss-inline-rot-safe-lut : doesn't exist in device tree
+[    1.394361] sde_smmu 5e00000.qcom,mdss_rotator:qcom,smmu_rot_unsec_cb: Linked as a consumer to c600000.apps-smmu
+[    1.394556] iommu: Adding device 5e00000.qcom,mdss_rotator:qcom,smmu_rot_unsec_cb to group 34
+[    1.394629] sde_smmu_probe: <SDEROT_INFO> iommu v2 domain[0] mapping and clk register successful!
+[    1.394746] sde_smmu 5e00000.qcom,mdss_rotator:qcom,smmu_rot_sec_cb: Linked as a consumer to c600000.apps-smmu
+[    1.395178] iommu: Adding device 5e00000.qcom,mdss_rotator:qcom,smmu_rot_sec_cb to group 35
+[    1.395244] sde_smmu_probe: <SDEROT_INFO> iommu v2 domain[1] mapping and clk register successful!
+[    1.396898] sde_rotator 5e00000.qcom,mdss_rotator: <SDEROT_INFO> SDE v4l2 rotator probe success
+[    1.404476] sde: sde1 sde2 sde3 sde4 sde5 sde6 sde7 sde8 sde9 sde10 sde11 sde12 sde13 sde14 sde15 sde16 sde17 sde18 sde19 sde20 sde21 sde22 sde23 sde24 sde25 sde26 sde27 sde28 sde29 sde30 sde31 sde32 sde33 sde34 sde35 sde36 sde37 sde38 sde39 sde40 sde41 sde42 sde43 sde44 sde45 sde46 sde47 sde48 sde49 sde50 sde51 sde52 sde53 sde54 sde55 sde56 sde57 sde58 sde59 sde60 sde61
+[    1.976004] init: Parsing file /system/etc/init/odsign.rc...
+[    3.687856] EXT4-fs (sde31): mounted filesystem with ordered data mode. Opts: barrier=1
+[    5.235795] init: starting service 'odsign'...
+[    5.237940] init: ... started service 'odsign' has pid 1296
+[    5.554991] init: Wait for property 'odsign.key.done=1' took 316ms
+[    5.558347] init: Sending SIGKILL to service 'odsign' (pid 1296) process group...
+[    5.561209] oom_reaper: reaped process 1296 (odsign), now anon-rss:0kB, file-rss:0kB, shmem-rss:0kB
+[    5.562575] init: Control message: Processed ctl.stop for 'odsign' from pid: 1296 (/system/bin/odsign)
+[    5.562736] init: Service 'odsign' (pid 1296) received SIGKILL
+[    5.562766] init: Sending SIGKILL to service 'odsign' (pid 1296) process group...
+[    5.808703] init: processing action (load-bpf-programs) from (/system/etc/init/hw/init.rc:1137)
+[    6.347721] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.347870] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.350100] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.350246] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.353480] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.353624] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.357201] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.357347] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.359426] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.359571] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.441895] init: processing action (sys.init.perf_lsm_hooks=1 && load-bpf-programs) from (/system/etc/init/init-perfetto.rc:9)
+[    6.442121] init: processing action (sys.init.perf_lsm_hooks=1 && load-bpf-programs) from (/system/etc/init/init-perfetto.rc:9)
+[    6.445819] init: start_waiting_for_property("odsign.verification.done", "1"): already set
+[    8.222479] [drm:dsi_display_set_mode] [msm-dsi-info]: mdp_transfer_time_us=0 us
+[    8.222482] [drm:dsi_display_set_mode] [msm-dsi-info]: hactive= 720,vactive= 1650,fps=60
+[   12.794272] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   12.948900] msm_vidc:   high: 00000001: h264d: Closed video instance: 0000000000000000
+[   12.960164] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   12.963606] msm_vidc:   high: 00000001: h265d: Closed video instance: 0000000000000000
+[   12.970284] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   12.978916] msm_vidc:   high: 00000001: h265d: Closed video instance: 0000000000000000
+[   12.987568] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   12.995359] msm_vidc:   high: 00000001:  vp9d: Closed video instance: 0000000000000000
+[   13.007562] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   13.014067] msm_vidc:   high: 00000001:  vp9d: Closed video instance: 0000000000000000
+[   13.026528] msm_vidc:   high: 00000001: ....e: Opening video instance: 0000000000000000, 0
+[   13.026736] msm_vidc:   err : 00000001: ....e: msm_vidc_comm_update_ctrl: failed: control name Video B Frames, min 0, max 0, step 0, default_value 0
+[   13.030974] msm_vidc:   high: 00000001: h264e: Closed video instance: 0000000000000000
+[   13.039958] msm_vidc:   high: 00000001: ....e: Opening video instance: 0000000000000000, 0
+[   13.040163] msm_vidc:   err : 00000001: ....e: msm_vidc_comm_update_ctrl: failed: control name Video B Frames, min 0, max 0, step 0, default_value 0
+[   13.044003] msm_vidc:   high: 00000001: h265e: Closed video instance: 0000000000000000
+[   13.052578] msm_vidc:   high: 00000001: ....e: Opening video instance: 0000000000000000, 0
+[   13.052744] msm_vidc:   err : 00000001: ....e: msm_vidc_comm_update_ctrl: failed: control name Video B Frames, min 0, max 0, step 0, default_value 0
+[   13.065443] msm_vidc:   high: 00000001: h265e: Closed video instance: 0000000000000000
+[   19.292431] servicemanager: Caller(pid=2151,uid=1000,sid=u:r:system_server:s0) Could not find vendor.lineage.livedisplay.IAdaptiveBacklight/default in the VINTF manifest. No alternative instances declared in VINTF.
+[   27.295198] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   27.322135] msm_vidc:   high: 00000001: h264d: Closed video instance: 0000000000000000
+[   27.338689] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   27.361519] msm_vidc:   high: 00000001: h265d: Closed video instance: 0000000000000000
+[   27.380542] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   27.413473] msm_vidc:   high: 00000001: h265d: Closed video instance: 0000000000000000
+[   27.428387] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   27.441629] msm_vidc:   high: 00000001:  vp9d: Closed video instance: 0000000000000000
+[   27.470078] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   27.487068] msm_vidc:   high: 00000001:  vp9d: Closed video instance: 0000000000000000
+[   27.495587] msm_vidc:   high: 00000001: ....e: Opening video instance: 0000000000000000, 0
+[   27.495776] msm_vidc:   err : 00000001: ....e: msm_vidc_comm_update_ctrl: failed: control name Video B Frames, min 0, max 0, step 0, default_value 0
+[   27.501547] msm_vidc:   high: 00000001: h264e: Closed video instance: 0000000000000000
+[   27.508714] msm_vidc:   high: 00000001: ....e: Opening video instance: 0000000000000000, 0
+[   27.508908] msm_vidc:   err : 00000001: ....e: msm_vidc_comm_update_ctrl: failed: control name Video B Frames, min 0, max 0, step 0, default_value 0
+[   27.517415] msm_vidc:   high: 00000001: h265e: Closed video instance: 0000000000000000
+[   27.534109] msm_vidc:   high: 00000001: ....e: Opening video instance: 0000000000000000, 0
+[   27.534279] msm_vidc:   err : 00000001: ....e: msm_vidc_comm_update_ctrl: failed: control name Video B Frames, min 0, max 0, step 0, default_value 0
+[   27.553579] msm_vidc:   high: 00000001: h265e: Closed video instance: 0000000000000000
+[   27.825226] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   27.867717] msm_vidc:   high: 00000001: h265d: Closed video instance: 0000000000000000
+[  325.509361] [drm:dsi_display_set_mode] [msm-dsi-info]: mdp_transfer_time_us=0 us
+[  325.509365] [drm:dsi_display_set_mode] [msm-dsi-info]: hactive= 720,vactive= 1650,fps=60
+[  325.509446] [drm:dsi_ctrl_isr_configure] [msm-dsi-info]: dsi-ctrl-0: IRQ 204 registered
+[  325.516665] [drm:dsi_panel_power_on] [msm-dsi-info]: lcm: [ft8006s video mode dsi xinli panel] enter
+[  327.078930] [drm:dsi_pwr_enable_regulator] *ERROR* [msm-dsi-error]: Unbalanced regulator off:vddio
+[  329.271258] [drm:dsi_display_set_mode] [msm-dsi-info]: mdp_transfer_time_us=0 us
+[  329.271262] [drm:dsi_display_set_mode] [msm-dsi-info]: hactive= 720,vactive= 1650,fps=60
+[  329.271342] [drm:dsi_ctrl_isr_configure] [msm-dsi-info]: dsi-ctrl-0: IRQ 204 registered
+[  329.276027] [drm:dsi_panel_power_on] [msm-dsi-info]: lcm: [ft8006s video mode dsi xinli panel] enter
+[  334.406581] [drm:dsi_pwr_enable_regulator] *ERROR* [msm-dsi-error]: Unbalanced regulator off:vddio
+[  360.699649] [drm:dsi_display_set_mode] [msm-dsi-info]: mdp_transfer_time_us=0 us
+[  360.699652] [drm:dsi_display_set_mode] [msm-dsi-info]: hactive= 720,vactive= 1650,fps=60
+[  360.699717] [drm:dsi_ctrl_isr_configure] [msm-dsi-info]: dsi-ctrl-0: IRQ 204 registered
+[  360.704995] [drm:dsi_panel_power_on] [msm-dsi-info]: lcm: [ft8006s video mode dsi xinli panel] enter
+[  412.965367] [drm:dsi_pwr_enable_regulator] *ERROR* [msm-dsi-error]: Unbalanced regulator off:vddio
+[  422.580038] [drm:dsi_display_set_mode] [msm-dsi-info]: mdp_transfer_time_us=0 us
+[  422.580040] [drm:dsi_display_set_mode] [msm-dsi-info]: hactive= 720,vactive= 1650,fps=60
+[  422.580081] [drm:dsi_ctrl_isr_configure] [msm-dsi-info]: dsi-ctrl-0: IRQ 204 registered
+[  422.583755] [drm:dsi_panel_power_on] [msm-dsi-info]: lcm: [ft8006s video mode dsi xinli panel] enter
+[  740.709280] [drm:dsi_pwr_enable_regulator] *ERROR* [msm-dsi-error]: Unbalanced regulator off:vddio
+[  750.393530] [drm:dsi_display_set_mode] [msm-dsi-info]: mdp_transfer_time_us=0 us
+[  750.393535] [drm:dsi_display_set_mode] [msm-dsi-info]: hactive= 720,vactive= 1650,fps=60
+[  750.393626] [drm:dsi_ctrl_isr_configure] [msm-dsi-info]: dsi-ctrl-0: IRQ 204 registered
+[  750.397403] [drm:dsi_panel_power_on] [msm-dsi-info]: lcm: [ft8006s video mode dsi xinli panel] enter
+[ 1008.125351] [drm:dsi_pwr_enable_regulator] *ERROR* [msm-dsi-error]: Unbalanced regulator off:vddio
+[ 1030.663300] [drm:dsi_display_set_mode] [msm-dsi-info]: mdp_transfer_time_us=0 us
+[ 1030.663303] [drm:dsi_display_set_mode] [msm-dsi-info]: hactive= 720,vactive= 1650,fps=60
+[ 1030.663354] [drm:dsi_ctrl_isr_configure] [msm-dsi-info]: dsi-ctrl-0: IRQ 204 registered
+[ 1030.668816] [drm:dsi_panel_power_on] [msm-dsi-info]: lcm: [ft8006s video mode dsi xinli panel] enter
+[ 1032.433040] [drm:dsi_pwr_enable_regulator] *ERROR* [msm-dsi-error]: Unbalanced regulator off:vddio
+[ 1035.648639] [drm:dsi_display_set_mode] [msm-dsi-info]: mdp_transfer_time_us=0 us
+[ 1035.648642] [drm:dsi_display_set_mode] [msm-dsi-info]: hactive= 720,vactive= 1650,fps=60
+[ 1035.648682] [drm:dsi_ctrl_isr_configure] [msm-dsi-info]: dsi-ctrl-0: IRQ 204 registered
+[ 1035.656174] [drm:dsi_panel_power_on] [msm-dsi-info]: lcm: [ft8006s video mode dsi xinli panel] enter
+[ 1047.389135] [drm:dsi_pwr_enable_regulator] *ERROR* [msm-dsi-error]: Unbalanced regulator off:vddio

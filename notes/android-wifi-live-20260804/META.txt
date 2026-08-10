@@ -1,0 +1,4 @@
+BP4A.251205.006 release-keys
+23.2-20260608-UNOFFICIAL-fog
+_b
+Linux localhost 4.19.325-cip133-st17-Motregen #41 SMP PREEMPT Sun Jun 7 12:31:30 WIB 2026 aarch64 Toybox

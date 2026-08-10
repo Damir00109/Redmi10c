@@ -1,0 +1,24 @@
+cabc
+driver
+driver_override
+hbm
+modalias
+of_node
+power
+subsystem
+uevent
+==== /sys/devices/platform/soc/soc:qcom,dsi-display-primary/cabc ====
+0
+==== /sys/devices/platform/soc/soc:qcom,dsi-display-primary/driver_override ====
+(null)
+==== /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm ====
+0
+==== /sys/devices/platform/soc/soc:qcom,dsi-display-primary/modalias ====
+of:Nqcom,dsi-display-primaryT<NULL>Cqcom,dsi-display
+==== /sys/devices/platform/soc/soc:qcom,dsi-display-primary/uevent ====
+DRIVER=msm-dsi-display
+OF_NAME=qcom,dsi-display-primary
+OF_FULLNAME=/soc/qcom,dsi-display-primary
+OF_COMPATIBLE_0=qcom,dsi-display
+OF_COMPATIBLE_N=1
+MODALIAS=of:Nqcom,dsi-display-primaryT<NULL>Cqcom,dsi-display

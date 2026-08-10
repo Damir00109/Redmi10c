@@ -1,0 +1,26 @@
+compatible
+iommus
+name
+phandle
+qcom,iommu-dma
+===== compatible
+00000000: 7163 6f6d 2c69 7061 2d73 6d6d 752d 776c  qcom,ipa-smmu-wl
+00000010: 616e 2d63 6200                           an-cb.
+qcom,ipa-smmu-wlan-cb
+===== iommus
+00000000: 0000 0018 0000 0141 0000 0000            .......A....
+
+
+
+
+
+A
+
+
+
+===== qcom,iommu-dma
+00000000: 6174 6f6d 6963 00                        atomic.
+atomic
+===== qcom,iommu-dma-addr-pool
+===== qcom,additional-devices
+===== status

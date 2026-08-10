@@ -1,0 +1,37 @@
+RUN make O=/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5 -j 56 drivers/input/touchscreen/fts_spi/ dtbs
+rc 2
+make[1]: Entering directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_core.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_flash.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_ex_fun.o
+make[1]: Leaving directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_flash.c: In function ‘fts_read_file’:
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_flash.c:728:5: error: unknown type name ‘mm_segment_t’
+  728 |     mm_segment_t old_fs;
+      |     ^~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_flash.c:758:14: error: implicit declaration of function ‘get_fs’; did you mean ‘sget_fc’? [-Wimplicit-function-declaration]
+  758 |     old_fs = get_fs();
+      |              ^~~~~~
+      |              sget_fc
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_flash.c:759:5: error: implicit declaration of function ‘set_fs’; did you mean ‘sget_fc’? [-Wimplicit-function-declaration]
+  759 |     set_fs(KERNEL_DS);
+      |     ^~~~~~
+      |     sget_fc
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_flash.c:759:12: error: ‘KERNEL_DS’ undeclared (first use in this function); did you mean ‘KERNFS_NS’?
+  759 |     set_fs(KERNEL_DS);
+      |            ^~~~~~~~~
+      |            KERNFS_NS
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_flash.c:759:12: note: each undeclared identifier is reported only once for each function it appears in
+make[8]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:289: drivers/input/touchscreen/fts_spi/focaltech_flash.o] Error 1
+make[8]: *** Waiting for unfinished jobs....
+make[7]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:548: drivers/input/touchscreen/fts_spi] Error 2
+make[6]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:548: drivers/input/touchscreen] Error 2
+make[5]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:548: drivers/input] Error 2
+make[4]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:548: drivers] Error 2
+make[3]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:2162: .] Error 2
+make[2]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:370: __build_one_by_one] Error 2
+make[1]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:248: __sub-make] Error 2
+make: *** [Makefile:248: __sub-make] Error 2
+DTB /home/damir00109/Desktop/Redmi10c/out/linux-7.1.5/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb True 22836
+DONE

@@ -1,0 +1,1 @@
+/sys/devices/platform/soc/4a80000.spi/spi_master/spi0/spi0.0/fts_fw_version

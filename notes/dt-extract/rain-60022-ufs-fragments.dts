@@ -1,0 +1,40 @@
+	fragment@35 {
+		target = <0xffffffff>;
+
+		__overlay__ {
+			compatible = "qcom,ufs-phy-qmp-v4";
+			vdda-phy-supply = <0xffffffff>;
+			vdda-pll-supply = <0xffffffff>;
+			vdda-phy-max-microamp = <0x14ec4>;
+			vdda-pll-max-microamp = <0x477c>;
+			status = "ok";
+		};
+	};
+
+	fragment@36 {
+		target = <0xffffffff>;
+
+		__overlay__ {
+			vdd-hba-supply = <0xffffffff>;
+			vdd-hba-fixed-regulator;
+			vcc-supply = <0xffffffff>;
+			vcc-voltage-level = <0x2d0370 0x2d2a80>;
+			vccq2-supply = <0xffffffff>;
+			vccq2-voltage-level = <0x1b7740 0x1b7740>;
+			vcc-max-microamp = "", "\f5";
+			vccq2-max-microamp = "", "\f5";
+			vccq2-pwr-collapse-sup;
+			qcom,vddp-ref-clk-supply = <0xffffffff>;
+			qcom,vddp-ref-clk-max-microamp = <0x64>;
+			qcom,vddp-ref-clk-min-uV = <0x12cc80>;
+			qcom,vddp-ref-clk-max-uV = <0x12cc80>;
+			status = "ok";
+		};
+	};
+		gcc_ufs_phy_gdsc = "/fragment@36/__overlay__:vdd-hba-supply:0";
+		L11A = "/fragment@33/__overlay__:vdd-io-supply:0", "/fragment@36/__overlay__:vccq2-supply:0";
+		L18A = "/fragment@35/__overlay__:vdda-pll-supply:0", "/fragment@36/__overlay__:qcom,vddp-ref-clk-supply:0";
+		L24A = "/fragment@33/__overlay__:vdd-supply:0", "/fragment@36/__overlay__:vcc-supply:0";
+		L4A = "/fragment@35/__overlay__:vdda-phy-supply:0";
+		ufshc_mem = "/fragment@36:target:0";
+		ufsphy_mem = "/fragment@35:target:0";

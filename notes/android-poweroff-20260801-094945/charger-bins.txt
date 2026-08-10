@@ -1,0 +1,4 @@
+/vendor/etc/charger_fstab.qti
+unknown
+bootloader
+bootloader

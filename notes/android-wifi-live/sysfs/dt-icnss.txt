@@ -1,0 +1,16 @@
+/sys/firmware/devicetree/base/soc/thermal-zones/wlan-usr
+/sys/firmware/devicetree/base/soc/qcom,msm-audio-apr/qcom,q6core-audio/sound/qcom,wcn-btfm
+/sys/firmware/devicetree/base/soc/qcom,icnss@C800000
+/sys/firmware/devicetree/base/soc/qcom,icnss@C800000/qcom,smp2p_map_wlan_1_in
+/sys/firmware/devicetree/base/soc/qcom,icnss@C800000/qcom,wlan-msa-fixed-region
+/sys/firmware/devicetree/base/soc/bt_wcn3990
+/sys/firmware/devicetree/base/soc/qcom,smp2p-modem/qcom,smp2p-wlan-1-in
+/sys/firmware/devicetree/base/soc/qmi-tmd-devices/modem/modem_wlan
+/sys/firmware/devicetree/base/soc/slim@a5c0000/wcn3990
+/sys/firmware/devicetree/base/soc/ipa_smmu_wlan
+/sys/firmware/devicetree/base/__symbols__/wlan_msa_mem
+/sys/firmware/devicetree/base/__symbols__/modem_wlan
+/sys/firmware/devicetree/base/__symbols__/smp2p_wlan_1_in
+/sys/firmware/devicetree/base/__symbols__/icnss
+/sys/firmware/devicetree/base/__symbols__/ipa_smmu_wlan
+/sys/firmware/devicetree/base/reserved-memory/wlan_msa_region@51900000

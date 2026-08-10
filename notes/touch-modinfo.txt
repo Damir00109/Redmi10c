@@ -1,0 +1,23 @@
+==== drivers/spi/spi-geni-qcom.ko
+filename:       /home/damir00109/Desktop/Redmi10c/out/linux-7.1.5/drivers/spi/spi-geni-qcom.ko
+license:        GPL v2
+description:    SPI driver for GENI based QUP cores
+alias:          of:N*T*Cqcom,geni-spiC*
+alias:          of:N*T*Cqcom,geni-spi
+depends:        
+intree:         Y
+name:           spi_geni_qcom
+vermagic:       7.1.5-dirty SMP preempt mod_unload aarch64
+
+==== drivers/input/touchscreen/fts_spi/fts_spi.ko
+filename:       /home/damir00109/Desktop/Redmi10c/out/linux-7.1.5/drivers/input/touchscreen/fts_spi/fts_spi.ko
+license:        GPL v2
+description:    FocalTech Touchscreen Driver
+author:         FocalTech Driver Team
+alias:          of:N*T*Cfocaltech,ftsC*
+alias:          of:N*T*Cfocaltech,fts
+depends:        
+name:           fts_spi
+vermagic:       7.1.5-dirty SMP preempt mod_unload aarch64
+
+drivers/spi/spi-geni-qcom.ko 116936
