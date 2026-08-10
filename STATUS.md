@@ -12,6 +12,36 @@
 - Thermal: `pm6125-thermal` works (`thermal_zone2` temp = ~38690 m°C); `bms`/`battery` zones also present. `xo-thermal` removed after it hit `Temperature check failed (-22)` — `pm6125-thermal` is enough for now.
 - USB RNDIS **works** on `out/boot-linux-final.img`: `usb0` = `10.0.0.2/24`, host can ping `10.0.0.2`, ADB and `acm` (`ttyACM0`) both still work.
 
+### Bringup progress table
+
+| Component | Status | % |
+|--|--|--|
+| Boot / kernel | works | OK |
+| CPU / SMP | works | OK |
+| UFS | works | OK |
+| simplefb display | works | OK |
+| Touch | works | OK |
+| Power key | works | OK |
+| Volume up | works | OK |
+| Vibrator | works | OK |
+| Charger `smb1351` | works | OK |
+| Fuel gauge `sh366101` | works | OK |
+| microSD | works | OK |
+| Type-C CC `wusb3801` | works | OK |
+| USB RNDIS | works | OK |
+| ACM serial (`ttyACM0`) | works | OK |
+| Thermal `pm6125-thermal` | works | OK |
+| Wi-Fi | assoc + ping OK, soft-hangs after 30–60 s | 60% |
+| Audio `fsa4480` | not populated on RAIN | 0% |
+| Audio codec / speakers | not started | 0% |
+| GPU Adreno | not started | 0% |
+| Display (DRM/DSI) | not started | 0% |
+| Bluetooth | not started | 0% |
+| GPS | not started | 0% |
+| Modem (voice/data) | not started | 0% |
+| Camera | not started | 0% |
+| Sensors | not started | 0% |
+
 
 ## Wi‑Fi: **works, but soft-hangs after ~30–60s**
 
