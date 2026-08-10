@@ -1,5 +1,15 @@
 # Status — 2026-08-05 (evening)
 
+## 2026-08-10
+
+- `wusb3801` (Type-C CC) on i2c2 working; `/sys/class/typec/port0` present.
+- `pm6125_l5` regulator range fixed to `1648000-3304000 uV`.
+- `fsa4480` tried on i2c1@0x42 with graph link to wusb3801 connector; probe failed with `error -ENODEV`.
+  Android DTB overlays show `fsa4480@42` with `status = "disable"` — not populated on this RAIN variant.
+- Reverted fsa4480/connector graph; `wusb3801` typec port still works.
+- Initial git repo created and pushed to `https://github.com/Damir00109/Redmi10c`.
+
+
 ## Wi‑Fi: **works, but soft-hangs after ~30–60s**
 
 Proven this session:
