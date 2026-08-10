@@ -9,10 +9,8 @@
 - Reverted fsa4480/connector graph; `wusb3801` typec port still works.
 - Initial git repo created and pushed to `https://github.com/Damir00109/Redmi10c`.
 - USB RNDIS + ACM added to `usb-adb-gadget.sh`; `usb-rndis-net.service` brings `usb0` up as `10.0.0.2/24`. Installed on phone, will take effect on next boot.
-- Thermal: `pm6125_adc_tm` enabled with `xo-therm`; `thermal-zones` added; `qcom-spmi-adc-tm5` built-in. Test image `out/boot-linux-thermal-test.img` is packed and booted.
-  - `pm6125-thermal` works (`thermal_zone3` temp = ~37652 m°C).
-  - `xo-thermal` currently fails `Temperature check failed (-22)`; needs further tuning.
-- USB RNDIS **works** on the same test image: `usb0` = `10.0.0.2/24`, host `enx...` can ping `10.0.0.2`, ADB and `acm` (ttyACM0) both still work.
+- Thermal: `pm6125-thermal` works (`thermal_zone2` temp = ~38690 m°C); `bms`/`battery` zones also present. `xo-thermal` removed after it hit `Temperature check failed (-22)` — `pm6125-thermal` is enough for now.
+- USB RNDIS **works** on `out/boot-linux-final.img`: `usb0` = `10.0.0.2/24`, host can ping `10.0.0.2`, ADB and `acm` (`ttyACM0`) both still work.
 
 
 ## Wi‑Fi: **works, but soft-hangs after ~30–60s**

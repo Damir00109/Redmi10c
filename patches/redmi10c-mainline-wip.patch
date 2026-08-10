@@ -14,10 +14,10 @@ index 4ba8e7306..0b76ae3c2 100644
  dtb-$(CONFIG_ARCH_QCOM)	+= sm6125-xiaomi-ginkgo.dtb
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..c2bb9622e
+index 000000000..9c477f23a
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,516 @@
+@@ -0,0 +1,485 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/* Thin fog/rain + SPMI/pm6125 + RPM regulators (no GCC yet). */
 +/dts-v1/;
@@ -503,37 +503,6 @@ index 000000000..c2bb9622e
 +};
 +
 +/* Exclusive with &wifi — same MMIO @ 0xc800000 */
-+&pm6125_adc_tm {
-+	status = "okay";
-+
-+	xo-therm@2 {
-+		reg = <2>;
-+		io-channels = <&pm6125_adc ADC5_XO_THERM_100K_PU>;
-+		qcom,ratiometric;
-+		qcom,hw-settle-time-us = <200>;
-+	};
-+};
-+
-+&icnss {
-+	status = "disabled";
-+};
-+
-+/ {
-+	thermal-zones {
-+		xo-thermal {
-+			polling-delay-passive = <250>;
-+			thermal-sensors = <&pm6125_adc_tm 2>;
-+
-+			trips {
-+				active-config0 {
-+					temperature = <125000>;
-+					hysteresis = <1000>;
-+					type = "critical";
-+				};
-+			};
-+		};
-+	};
-+};
 diff --git a/drivers/clk/qcom/Kconfig b/drivers/clk/qcom/Kconfig
 index df21ef5ff..f24440a91 100644
 --- a/drivers/clk/qcom/Kconfig
