@@ -2,8 +2,9 @@
 # Restore Lineage after mainline test (dtbo was erased).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DTBO="$ROOT/backup/ab-20260726-023543/active/dtbo.img"
-BOOT="$ROOT/backup/ab-20260726-023543/active/boot.img"
+DTBO="$ROOT/backup/lineage-23.2-a/dtbo_a.img"
+BOOT="$ROOT/backup/lineage-23.2-a/boot_a.img"
+VBMETA="$ROOT/backup/lineage-23.2-a/vbmeta_a.img"
 
 # Prefer: Android already up → adb reboot bootloader (reliable on this ABL).
 # Fallback: wait for manual Vol- + Power fastboot.
@@ -20,8 +21,11 @@ done
 fastboot devices | grep -q . || { echo "no fastboot device"; exit 1; }
 test -f "$DTBO"
 test -f "$BOOT"
-fastboot flash dtbo "$DTBO"
-fastboot flash boot "$BOOT"
+test -f "$VBMETA"
+fastboot set_active a
+fastboot flash dtbo_a "$DTBO"
+fastboot flash boot_a "$BOOT"
+fastboot flash vbmeta_a "$VBMETA"
 fastboot reboot
 echo "Waiting for adb..."
 adb wait-for-device
