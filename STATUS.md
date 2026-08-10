@@ -42,6 +42,24 @@
 | Camera | not started | 0% |
 | Sensors | not started | 0% |
 
+### Remaining blocks only
+
+| Блок | Статус | % |
+|--|--|--|
+| Wi-Fi | assoc + ping OK, soft-hang ~60s | 60% |
+| GPU Adreno 610 | DT есть, не проверено | 5% |
+| Display (DRM/DSI + panel) | disabled в DT | 0% |
+| Bluetooth | WCN3990 BTFM, не начато | 0% |
+| Audio codec / speakers | не начато | 0% |
+| Camera | не начато | 0% |
+| Sensors | не найдены в DT/I2C | 0% |
+| GPS | не начато | 0% |
+| Modem (voice/data) | не начато | 0% |
+| Fingerprint | проприетарный FPC/Silead | 0% |
+| NFC | conf есть, не начато | 0% |
+
+**Общий процент портирования (по блокам): ~60%** — но осталось самое сложное (Wi-Fi stability, GPU/Display, Audio, Modem/Camera). Реально пользовательская функциональность — скорее **40–45%**.
+
 
 ## Wi‑Fi: **works, but soft-hangs after ~30–60s**
 
