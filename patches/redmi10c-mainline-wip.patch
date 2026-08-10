@@ -12,6 +12,528 @@ index 4ba8e7306..0b76ae3c2 100644
  dtb-$(CONFIG_ARCH_QCOM)	+= sm6115p-lenovo-j606f.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= sm6125-sony-xperia-seine-pdx201.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= sm6125-xiaomi-ginkgo.dtb
+diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
+new file mode 100644
+index 000000000..c2bb9622e
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
+@@ -0,0 +1,516 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/* Thin fog/rain + SPMI/pm6125 + RPM regulators (no GCC yet). */
++/dts-v1/;
++#include "sm6225.dtsi"
++#include "pm6125.dtsi"
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/linux-event-codes.h>
++#include <dt-bindings/clock/qcom,rpmcc.h>
++#include <dt-bindings/interrupt-controller/irq.h>
++
++/ {
++	qcom,msm-id = <0x206 0x10000>;
++	qcom,board-id = <0x60022 0x00>;
++	model = "Xiaomi Redmi 10C fog/rain";
++	compatible = "xiaomi,fog", "qcom,sm6225";
++	chassis-type = "handset";
++
++	/* Bringup: exercise TLMM summary IRQ + gpio93 (Type-C INT) */
++	gpio-keys {
++		compatible = "gpio-keys";
++		pinctrl-names = "default";
++		pinctrl-0 = <&vol_up_default>;
++
++		vol_up {
++			label = "volume_up";
++			gpios = <&pm6125_gpios 5 GPIO_ACTIVE_LOW>;
++			linux,input-type = <EV_KEY>;
++			linux,code = <KEY_VOLUMEUP>;
++			debounce-interval = <10>;
++		};
++	};
++
++	chosen {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++		/* Panel is 720x1650 (Android 0x2d0 x 0x672); ABL leaves FB here. */
++		stdout-path = "framebuffer0";
++		bootargs = "console=tty0 consoleblank=0 earlycon clk_ignore_unused pd_ignore_unused";
++		framebuffer0: framebuffer@5c000000 {
++			compatible = "simple-framebuffer";
++			reg = <0 0x5c000000 0 (1650 * 720 * 4)>;
++			width = <720>;
++			height = <1650>;
++			stride = <(720 * 4)>;
++			format = "a8r8g8b8";
++		};
++	};
++
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++		framebuffer-region@5c000000 {
++			reg = <0 0x5c000000 0 0x1000000>;
++			no-map;
++		};
++	};
++};
++
++&usb_dwc3 {
++	status = "okay";
++	dr_mode = "peripheral";
++	maximum-speed = "high-speed";
++};
++
++&pon_pwrkey {
++	status = "okay";
++};
++
++&pon_resin {
++	linux,code = <KEY_VOLUMEDOWN>;
++	status = "okay";
++};
++
++/* Full pm6125 peripherals (were disabled while drivers were =m / no modules). */
++&pm6125_adc {
++	status = "okay";
++};
++
++&pm6125_temp {
++	status = "okay";
++};
++
++&pm6125_rtc {
++	status = "okay";
++};
++
++&pm6125_gpios {
++	status = "okay";
++
++	vol_up_default: vol-up-default-state {
++		pins = "gpio5";
++		function = "normal";
++		input-enable;
++		bias-pull-up;
++	};
++
++	/*
++	 * Android disp_lcd_bias_en = PMIC gpio9 (func1 / vin0 / out).
++	 * SPMI MODE_CTL/EN_CTL writes return -EPERM here — do not claim.
++	 */
++};
++
++/*
++ * LCM ENP (gpio98) / ENN (gpio101) pinctrl states live in sm6225.dtsi
++ * (lcm_enp_default / lcm_enn_default). Do NOT apply at boot: SOUTH TLMM
++ * MMIO can hang the SoC (same class as reserved_gpios get_direction).
++ * ABL splash usually leaves panel bias already enabled.
++ */
++
++/*
++ * RPM regulators — UFS rails keep proven fixed µV; other LDOs expose Android
++ * ranges so consumers (display/audio/…) can vote later without always-on.
++ */
++&rpm_requests {
++	regulators-0 {
++		compatible = "qcom,rpm-pm6125-regulators";
++
++		pm6125_s6a: s6 {
++			regulator-min-microvolt = <320000>;
++			regulator-max-microvolt = <1456000>;
++		};
++
++		pm6125_s7a: s7 {
++			regulator-min-microvolt = <1280000>;
++			regulator-max-microvolt = <2040000>;
++		};
++
++		pm6125_s8a: s8 {
++			regulator-min-microvolt = <1064000>;
++			regulator-max-microvolt = <1304000>;
++		};
++
++		pm6125_l1a: l1 {
++			regulator-min-microvolt = <952000>;
++			regulator-max-microvolt = <1152000>;
++		};
++
++		pm6125_l2a: l2 {
++			regulator-min-microvolt = <488000>;
++			regulator-max-microvolt = <1000000>;
++		};
++
++		pm6125_l3a: l3 {
++			regulator-min-microvolt = <488000>;
++			regulator-max-microvolt = <1000000>;
++		};
++
++		/* UFS PHY — live Lineage 0.88 V */
++		pm6125_l4a: l4 {
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <880000>;
++		};
++
++		pm6125_l5a: l5 {
++			regulator-min-microvolt = <1648000>;
++			regulator-max-microvolt = <3304000>;
++			regulator-allow-set-load;
++		};
++
++		pm6125_l6a: l6 {
++			regulator-min-microvolt = <576000>;
++			regulator-max-microvolt = <656000>;
++		};
++
++		pm6125_l7a: l7 {
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1304000>;
++		};
++
++		pm6125_l8a: l8 {
++			regulator-min-microvolt = <400000>;
++			regulator-max-microvolt = <728000>;
++		};
++
++		pm6125_l9a: l9 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <2000000>;
++			regulator-always-on;
++		};
++
++		pm6125_l10a: l10 {
++			regulator-min-microvolt = <1704000>;
++			regulator-max-microvolt = <1904000>;
++		};
++
++		/* UFS VCCQ2 — 1.8 V */
++		pm6125_l11a: l11 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-allow-set-load;
++		};
++
++		pm6125_l12a: l12 {
++			regulator-min-microvolt = <1624000>;
++			regulator-max-microvolt = <1984000>;
++		};
++
++		pm6125_l13a: l13 {
++			regulator-min-microvolt = <1504000>;
++			regulator-max-microvolt = <1952000>;
++		};
++
++		pm6125_l14a: l14 {
++			regulator-min-microvolt = <1704000>;
++			regulator-max-microvolt = <1904000>;
++		};
++
++		pm6125_l15a: l15 {
++			regulator-min-microvolt = <2920000>;
++			regulator-max-microvolt = <3232000>;
++		};
++
++		pm6125_l16a: l16 {
++			regulator-min-microvolt = <1704000>;
++			regulator-max-microvolt = <1904000>;
++		};
++
++		pm6125_l17a: l17 {
++			regulator-min-microvolt = <1152000>;
++			regulator-max-microvolt = <1304000>;
++		};
++
++		/* UFS VDDP-REF / PHY PLL — 1.232 V */
++		pm6125_l18a: l18 {
++			regulator-min-microvolt = <1232000>;
++			regulator-max-microvolt = <1232000>;
++		};
++
++		pm6125_l19a: l19 {
++			regulator-min-microvolt = <1624000>;
++			regulator-max-microvolt = <3304000>;
++		};
++
++		pm6125_l20a: l20 {
++			regulator-min-microvolt = <1624000>;
++			regulator-max-microvolt = <3304000>;
++		};
++
++		pm6125_l21a: l21 {
++			regulator-min-microvolt = <2400000>;
++			regulator-max-microvolt = <3544000>;
++		};
++
++		pm6125_l22a: l22 {
++			regulator-min-microvolt = <2952000>;
++			regulator-max-microvolt = <3304000>;
++			regulator-allow-set-load;
++		};
++
++		pm6125_l23a: l23 {
++			regulator-min-microvolt = <3296000>;
++			regulator-max-microvolt = <3304000>;
++		};
++
++		/* UFS VCC — 2.95–2.96 V */
++		pm6125_l24a: l24 {
++			regulator-min-microvolt = <2950000>;
++			regulator-max-microvolt = <2960000>;
++			regulator-allow-set-load;
++		};
++	};
++};
++
++/*
++ * UFS from Android vendor_boot+dtbo59 (notes/dt-adapt/from-images/).
++ * Device: WDC SDINDDK4-64G UFS 2.2. Host PHY: qmp-v4 (SoC IP, not UFS 4/5).
++ * vdd-hba = GDSC via power-domains. Reset = pinctrl ufs_reset (ACTIVE_LOW);
++ * TLMM stub crashed — reset-gpios deferred.
++ */
++&ufs_mem_hc {
++	vcc-supply = <&pm6125_l24a>;
++	vcc-max-microamp = <800000>;
++	vccq2-supply = <&pm6125_l11a>;
++	vccq2-max-microamp = <800000>;
++	/* Android: qcom,vddp-ref-clk-supply = L18 @ 1.232V */
++	qcom,vddp-ref-clk-supply = <&pm6125_l18a>;
++	qcom,vddp-ref-clk-min-uV = <1232000>;
++	qcom,vddp-ref-clk-max-uV = <1232000>;
++	qcom,vddp-ref-clk-max-microamp = <100>;
++	qcom,force-legacy-dme-quirks;
++	qcom,disable-devfreq;
++	/*
++	 * UFS_RESET without TLMM driver: phys = west@0x500000 + 0x78000
++	 * = khaje flat 0x400000 + 0x178000. Active-low via MMIO out bit0.
++	 */
++	qcom,device-reset-mmio = <0x578000>;
++	status = "okay";
++};
++
++&ufs_mem_phy {
++	vdda-phy-supply = <&pm6125_l4a>;
++	vdda-phy-max-microamp = <85700>;
++	vdda-pll-supply = <&pm6125_l18a>;
++	vdda-pll-max-microamp = <18300>;
++	status = "okay";
++};
++
++/*
++ * External µSD — Android sdhc2 @4784000.
++ * CD is TLMM gpio88 (EAST, currently reserved — get_direction hang risk).
++ * Use broken-cd while card is inserted; enable cd-gpios after unreserving 88.
++ */
++&sdhc_2 {
++	pinctrl-names = "default", "sleep";
++	pinctrl-0 = <&sdc2_state_on>;
++	pinctrl-1 = <&sdc2_state_off>;
++
++	vmmc-supply = <&pm6125_l22a>;
++	vqmmc-supply = <&pm6125_l5a>;
++
++	bus-width = <4>;
++	broken-cd;
++	cap-sd-highspeed;
++	sd-uhs-sdr12;
++	sd-uhs-sdr25;
++	sd-uhs-sdr50;
++	sd-uhs-ddr50;
++	sd-uhs-sdr104;
++	max-frequency = <202000000>;
++
++	status = "okay";
++};
++
++&tlmm {
++	wusb3801_int_default: wusb3801-int-default-state {
++		pins = "gpio93";
++		function = "gpio";
++		input-enable;
++		bias-pull-up;
++	};
++};
++
++/*
++ * Vibrator — Android vibrator_gpio / qcom,qpnp-vibrator-ldo:
++ * enable on TLMM gpio36 (ACTIVE_HIGH). No separate VCC rail in vendor DT.
++ * Do not also list gpio36 in pinctrl-0 — gpiod claims the pin alone.
++ */
++/ {
++	vibrator {
++		compatible = "gpio-vibrator";
++		enable-gpios = <&tlmm 36 GPIO_ACTIVE_HIGH>;
++	};
++};
++
++/*
++ * Touch: GENI SE0 SPI has FIFO fused off; GPI DMA hangs this platform.
++ * Use spi-gpio bitbang on the same pins (idle levels: CLK low, CS high →
++ * gpio2=SCK, gpio3=CS, gpio0=MOSI, gpio1=MISO).
++ */
++&qupv3_id_0 {
++	status = "okay";
++};
++
++&gpi_dma0 {
++	status = "disabled";
++};
++
++&spi0 {
++	status = "disabled";
++};
++
++/ {
++	spi_gpio_ts: spi {
++		compatible = "spi-gpio";
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		/* QUP lane map: L0=MISO L1=MOSI L2=SCLK L3=CS */
++		sck-gpios = <&tlmm 2 GPIO_ACTIVE_HIGH>;
++		mosi-gpios = <&tlmm 1 GPIO_ACTIVE_HIGH>;
++		miso-gpios = <&tlmm 0 GPIO_ACTIVE_HIGH>;
++		cs-gpios = <&tlmm 3 GPIO_ACTIVE_LOW>;
++		num-chipselects = <1>;
++
++		touch@0 {
++			compatible = "focaltech,fts";
++			reg = <0>;
++			/* bitbang — keep modest */
++			spi-max-frequency = <1000000>;
++
++			interrupt-parent = <&tlmm>;
++			interrupts = <80 IRQ_TYPE_EDGE_FALLING>;
++			/* pull-up on IRQ only — reset via gpiod alone */
++			pinctrl-names = "default";
++			pinctrl-0 = <&ts_int_default>;
++
++			reset-gpios = <&tlmm 86 GPIO_ACTIVE_HIGH>;
++			/* irq via interrupts= + pinctrl pull-up; skip irq-gpios
++			 * (double-claim with pinctrl). Driver uses spi->irq. */
++
++			focaltech,max-touch-number = <10>;
++			focaltech,display-coords = <0 0 719 1649>;
++		};
++	};
++};
++
++&i2c1 {
++	status = "okay";
++	clock-frequency = <400000>;
++
++	sh366101@55 {
++		compatible = "sh,sh366101";
++		reg = <0x55>;
++	};
++};
++
++&i2c2 {
++	status = "okay";
++	clock-frequency = <400000>;
++
++	smb1351@55 {
++		compatible = "qcom,smb1351-charger-bringup";
++		reg = <0x55>;
++	};
++
++	wusb3801@60 {
++		compatible = "willsemi,wusb3801";
++		reg = <0x60>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <93 IRQ_TYPE_LEVEL_LOW>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&wusb3801_int_default>;
++
++		connector {
++			compatible = "usb-c-connector";
++			label = "USB-C";
++			power-role = "dual";
++			try-power-role = "sink";
++			data-role = "dual";
++			typec-power-opmode = "default";
++			pd-disable;
++		};
++	};
++};
++
++/*
++ * GPU-first + Wi-Fi bringup: Adreno + ath10k_snoc (WCN3990).
++ * MDSS/DSI/panel stay off — ABL/simplefb only for display.
++ */
++&gpu_zap_shader {
++	firmware-name = "qcom/sm6225/a610_zap.mdt";
++};
++
++&gpu {
++	status = "okay";
++};
++
++&dispcc {
++	status = "disabled";
++};
++
++&mdss {
++	status = "disabled";
++};
++
++&mdss_dsi0 {
++	status = "disabled";
++};
++
++&mdss_dsi0_phy {
++	status = "disabled";
++};
++
++/*
++ * Modem PAS + WCN3990 via mainline ath10k_snoc (not Android icnss/qcacld).
++ * Same rails as Motregen / Fxtec WCN3990.
++ */
++&remoteproc_mpss {
++	firmware-name = "qcom/sm6225/modem.mdt";
++	status = "okay";
++};
++
++&wifi {
++	vdd-0.8-cx-mx-supply = <&pm6125_l8a>;
++	vdd-1.8-xo-supply = <&pm6125_l16a>;
++	vdd-1.3-rfa-supply = <&pm6125_l17a>;
++	vdd-3.3-ch0-supply = <&pm6125_l23a>;
++	/* OEM WLAN MAC from Android (ath10k otherwise randomizes) */
++	local-mac-address = [f0 6c 5d 02 36 a2];
++	status = "okay";
++};
++
++/* Exclusive with &wifi — same MMIO @ 0xc800000 */
++&pm6125_adc_tm {
++	status = "okay";
++
++	xo-therm@2 {
++		reg = <2>;
++		io-channels = <&pm6125_adc ADC5_XO_THERM_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++	};
++};
++
++&icnss {
++	status = "disabled";
++};
++
++/ {
++	thermal-zones {
++		xo-thermal {
++			polling-delay-passive = <250>;
++			thermal-sensors = <&pm6125_adc_tm 2>;
++
++			trips {
++				active-config0 {
++					temperature = <125000>;
++					hysteresis = <1000>;
++					type = "critical";
++				};
++			};
++		};
++	};
++};
 diff --git a/drivers/clk/qcom/Kconfig b/drivers/clk/qcom/Kconfig
 index df21ef5ff..f24440a91 100644
 --- a/drivers/clk/qcom/Kconfig

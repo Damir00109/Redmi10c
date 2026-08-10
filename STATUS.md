@@ -8,6 +8,8 @@
   Android DTB overlays show `fsa4480@42` with `status = "disable"` — not populated on this RAIN variant.
 - Reverted fsa4480/connector graph; `wusb3801` typec port still works.
 - Initial git repo created and pushed to `https://github.com/Damir00109/Redmi10c`.
+- USB RNDIS + ACM added to `usb-adb-gadget.sh`; `usb-rndis-net.service` brings `usb0` up as `10.0.0.2/24`. Installed on phone, will take effect on next boot.
+- Thermal: `pm6125_adc_tm` enabled with `xo-therm`; `thermal-zones` added; `qcom-spmi-adc-tm5` built-in. Test image `out/boot-linux-thermal-test.img` is packed (not flashed yet).
 
 
 ## Wi‑Fi: **works, but soft-hangs after ~30–60s**
