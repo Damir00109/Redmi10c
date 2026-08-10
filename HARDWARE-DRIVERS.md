@@ -1,8 +1,10 @@
 # Redmi 10C rain — driver inventory (from live device)
 
-Captured: 2026-07-26
+Captured: 2026-07-26; updated 2026-08-10
 Kernel: 4.19.325 Motregen (almost everything built-in, lsmod empty)
 DT model: Qualcomm Technologies, Inc. RAIN KHAJE IDP nopmi
+
+**Current mainline 7.1.5 status (2026-08-10):** `boot-linux-final.img` boots, USB RNDIS + ACM + ADB, `pm6125-thermal`, `wusb3801` Type-C, UFS, simplefb, touch, vibrator, pwr/resin keys, `smb1351`/`sh366101` charging/FG work.
 
 ## Important
 На этом устройстве почти нет внешних `.ko`.

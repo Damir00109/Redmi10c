@@ -54,7 +54,9 @@ Lineage на слоте остаётся «домашним» миром. Mainli
 
 ---
 
-## Фаза 2 — bringup железа (дни 2–7)
+## Фаза 2 — bringup железа (завершена 2026-08-10)
+
+Результат: `boot-linux-final.img` — рабочий плацдарм с USB RNDIS/ACM/ADB, UFS, simplefb, touch, thermal, Type-C.
 
 Порядок по сложности (из `HARDWARE-DRIVERS.md`):
 
@@ -102,14 +104,14 @@ Lineage на слоте остаётся «домашним» миром. Mainli
 
 ---
 
-## Ближайшие конкретные шаги (чеклист на завтра)
+## Следующие шаги (безопасные — без тебя не бучу)
 
-1. Проверить `logs/build-all.log` → есть ли `out/statzar-v6.1/.../Image.gz` и fog/rain dtb  
-2. Если сборка упала — починить конфиг, пересобрать `-j56`  
-3. Вытащить `msm-id`/`board-id` из Android  
-4. Минимальный initramfs + `pack-boot-test.sh`  
-5. Первый `fastboot boot` (ты подтверждаешь)  
-6. По результату — либо экран/USB, либо pstore/разбор краша  
+1. Wi-Fi: добить soft-hang ~60s (ath10k_snoc / NAPI / RX refill).  
+2. Bluetooth / WCN3990 BTFM (share FW с Wi-Fi).  
+3. GPU Adreno 610 (`a610_zap*`) без включения mdss/dispcc.  
+4. Display DRM/DSI + панель `c3q_43_03_0b` (рискованно, только с тобой рядом).  
+5. Sensors / audio / camera / modem — по желанию, после основного.  
+6. NFC — в последнюю очередь, как и планировалось.
 
 ---
 
