@@ -1,0 +1,31 @@
+rm focaltech_stubs.o
+rm focaltech_ex_fun.o
+rm focaltech_core.o
+rm focaltech_ex_mode.o
+rm focaltech_gesture.o
+rm focaltech_spi.o
+RUN make O=/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5 -j 56 drivers/input/touchscreen/fts_spi/ cwd /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y
+rc 0
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_core.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_spi.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_flash.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_ex_fun.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_ex_mode.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_gesture.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_stubs.o
+  LD [M]  drivers/input/touchscreen/fts_spi/fts_spi.o
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_gesture.c:410:5: warning: no previous prototype for ‘fts_gesture_switch’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:4:5: warning: no previous prototype for ‘fts_esdcheck_init’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:5:5: warning: no previous prototype for ‘fts_esdcheck_exit’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:6:5: warning: no previous prototype for ‘fts_esdcheck_suspend’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:7:5: warning: no previous prototype for ‘fts_esdcheck_resume’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:8:5: warning: no previous prototype for ‘fts_esdcheck_set_intr’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:12:5: warning: no previous prototype for ‘fts_point_report_check_init’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:13:5: warning: no previous prototype for ‘fts_point_report_check_exit’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:14:6: warning: no previous prototype for ‘fts_point_report_check_queue_work’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:18:5: warning: no previous prototype for ‘fts_test_init’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:19:5: warning: no previous prototype for ‘fts_test_exit’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:26:6: warning: no previous prototype for ‘set_fts_ts_variant’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:27:6: warning: no previous prototype for ‘set_lcd_reset_gpio_keep_high’ [-Wmissing-prototypes]
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:28:6: warning: no previous prototype for ‘set_lct_tp_gesture_status’ [-Wmissing-prototypes]
+DONE

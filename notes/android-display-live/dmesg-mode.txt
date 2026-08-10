@@ -1,0 +1,80 @@
+[    0.000000] OF: reserved mem: initialized node qseecom_ta_region, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: initialized node adsp_region, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: initialized node qseecom_region, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: initialized node linux,cma, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: initialized node user_contig_region, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: initialized node mem_dump_region, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: initialized node secure_display_region, compatible id shared-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000045700000, size 6 MiB
+[    0.000000] OF: reserved mem: initialized node hyp_region@45700000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000045e00000, size 1 MiB
+[    0.000000] OF: reserved mem: initialized node xbl_aop_region@45e00000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000045fff000, size 0 MiB
+[    0.000000] OF: reserved mem: initialized node sec_apps_region@45fff000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000046000000, size 2 MiB
+[    0.000000] OF: reserved mem: initialized node smem_region@46000000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000046200000, size 30 MiB
+[    0.000000] OF: reserved mem: initialized node cdsp_sec_regions@46200000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x000000004ab00000, size 105 MiB
+[    0.000000] OF: reserved mem: initialized node modem_region@4ab00000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000051400000, size 5 MiB
+[    0.000000] OF: reserved mem: initialized node pil_video_region@51400000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000051900000, size 1 MiB
+[    0.000000] OF: reserved mem: initialized node wlan_msa_region@51900000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000051a00000, size 30 MiB
+[    0.000000] OF: reserved mem: initialized node cdsp_regions@51a00000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000053800000, size 46 MiB
+[    0.000000] OF: reserved mem: initialized node pil_adsp_region@53800000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000056600000, size 0 MiB
+[    0.000000] OF: reserved mem: initialized node ipa_fw_region@56600000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000056610000, size 0 MiB
+[    0.000000] OF: reserved mem: initialized node ipa_gsi_region@56610000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000056615000, size 0 MiB
+[    0.000000] OF: reserved mem: initialized node gpu_region@56615000, compatible id removed-dma-pool
+[    0.000000] Removed memory: created DMA memory pool at 0x0000000060000000, size 57 MiB
+[    0.000000] OF: reserved mem: initialized node removed_region@60000000, compatible id removed-dma-pool
+[    0.000000] Kernel command line: cgroup_disable=pressure rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off androidboot.hardware=qcom androidboot.memcg=1 androidboot.usbcontroller=4e00000.dwc3 loop.max_part=7 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237 service_locator.enable=1 swiotlb=2048 kpti=off kasan=off  androidboot.verifiedbootstate=orange androidboot.keymaster=1  androidboot.bootdevice=4804000.ufshc androidboot.fstab_suffix=default androidboot.boot_devices=soc/4804000.ufshc androidboot.serialno=82773a69 androidboot.cpuid=0x41e0cb8d androidboot.multisim_config=dsds androidboot.dp=0x0 androidboot.baseband=msm androidboot.lcmtype=dsi_panel_c3q_43_03_0b_fhdp_video_display msm_drm.dsi_display0=qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video: androidboot.fpsensor=fpc panel_info=1 androidboot.secureboot=1 androidboot.slot_suffix=_b rootwait ro init=/init androidboot.dtbo_idx=59 androidboot.dtb_idx=0 androidboot.force_normal_boot=1 androidboot.hwc=Global androidboot.hwversion=5.39.0 androi
+[    0.158808] DMA: preallocated 256 KiB pool for atomic allocations
+[    0.161002] DMA: preallocated 256 KiB pool for atomic allocations
+[    0.183813] platform 5ab0000.qcom,venus: assigned reserved memory node pil_video_region@51400000
+[    0.331130] videodev: Linux video capture interface: v2.00
+[    0.467395] mdss_pll_probe: MDSS pll label = MDSS DSI 0 PLL
+[    0.468200] dsi_pll_clock_register_7nm: Registered DSI PLL ndx=0, clocks successfully
+[    0.965253] gpi_dma 4a00000.qcom,gpi-dma: Linked as a consumer to c600000.apps-smmu
+[    0.965734] iommu: Adding device 4a00000.qcom,gpi-dma to group 4
+[    1.075203] mmc0: SDHCI controller on 4784000.sdhci [4784000.sdhci] using 64-bit ADMA in legacy mode
+[    1.148484] [drm] [msm-dsi-warn]: [ft8006s video mode dsi xinli panel] fallback to default te-pin-select
+[    1.149918] [drm:dsi_display_bind] [msm-dsi-info]: Successfully bind display panel 'qcom,mdss_dsi_panel_c3q_43_03_0b_fhdp_video'
+[    1.153379] [drm:dsi_panel_get_mode] [msm-dsi-info]: default topology: lm: 1 comp_enc:0 intf: 1
+[    1.972280] init: Parsing file /system/etc/init/idmap2d.rc...
+[    5.808703] init: processing action (load-bpf-programs) from (/system/etc/init/hw/init.rc:1137)
+[    6.347721] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.347870] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.350100] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.350246] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.353480] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.353624] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.357201] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.357347] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.359426] UprobeStatsBpfLoad: non-optional program failed to load.
+[    6.359571] UprobeStatsBpfLoad: Failed to load programs, loadCodeSections ret=-1
+[    6.441895] init: processing action (sys.init.perf_lsm_hooks=1 && load-bpf-programs) from (/system/etc/init/init-perfetto.rc:9)
+[    6.442121] init: processing action (sys.init.perf_lsm_hooks=1 && load-bpf-programs) from (/system/etc/init/init-perfetto.rc:9)
+[    7.489251] bolero-clk-rsc-mngr bolero-clk-rsc-mngr: DMA mask not set
+[    7.489947] va_macro va-macro: DMA mask not set
+[    7.491101] rx_macro rx-macro: DMA mask not set
+[    7.492915] tx_macro tx-macro: DMA mask not set
+[    7.493752] wcd937x_codec wcd937x-codec: DMA mask not set
+[    7.496399] swr-wcd va_swr_ctrl: DMA mask not set
+[    7.497303] swr-wcd rx_swr_ctrl: DMA mask not set
+[    7.970396] init: starting service 'idmap2d'...
+[    7.975066] init: ... started service 'idmap2d' has pid 1798
+[    8.222479] [drm:dsi_display_set_mode] [msm-dsi-info]: mdp_transfer_time_us=0 us
+[    8.222482] [drm:dsi_display_set_mode] [msm-dsi-info]: hactive= 720,vactive= 1650,fps=60
+[   12.794272] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   12.948900] msm_vidc:   high: 00000001: h264d: Closed video instance: 0000000000000000
+[   12.960164] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   12.963606] msm_vidc:   high: 00000001: h265d: Closed video instance: 0000000000000000
+[   12.970284] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1
+[   12.978916] msm_vidc:   high: 00000001: h265d: Closed video instance: 0000000000000000
+[   12.987568] msm_vidc:   high: 00000001: ....d: Opening video instance: 0000000000000000, 1

@@ -1,0 +1,1 @@
+cat: /sys/power/state: Permission denied

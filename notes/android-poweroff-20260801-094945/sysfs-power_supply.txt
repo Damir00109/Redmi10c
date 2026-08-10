@@ -1,0 +1,8 @@
+ac
+battery
+bms
+usb
+== /sys/class/power_supply/ac
+== /sys/class/power_supply/battery
+== /sys/class/power_supply/bms
+== /sys/class/power_supply/usb

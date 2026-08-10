@@ -1,0 +1,97 @@
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: bond0: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 36:f4:26:21:a1:f5 brd ff:ff:ff:ff:ff:ff
+3: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether ca:67:37:35:d4:84 brd ff:ff:ff:ff:ff:ff
+4: ip_vti0@NONE: <NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ipip 0.0.0.0 brd 0.0.0.0
+5: ip6_vti0@NONE: <NOARP> mtu 1364 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/tunnel6 :: brd ::
+6: sit0@NONE: <NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/sit 0.0.0.0 brd 0.0.0.0
+7: ip6tnl0@NONE: <NOARP> mtu 1452 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/tunnel6 :: brd ::
+9: rmnet_ipa0: <UP,LOWER_UP> mtu 9216 qdisc pfifo_fast state UNKNOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+10: rmnet_data0@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+11: rmnet_data1@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+12: rmnet_data2@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+13: rmnet_data3@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+14: rmnet_data4@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+15: rmnet_data5@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+16: rmnet_data6@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+17: rmnet_data7@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+18: rmnet_data8@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+19: rmnet_data9@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+20: rmnet_data10@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+21: r_rmnet_data0@rmnet_ipa0: <UP,LOWER_UP> mtu 1500 qdisc mq state UNKNOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+22: r_rmnet_data1@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+23: r_rmnet_data2@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+24: r_rmnet_data3@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+25: r_rmnet_data4@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+26: r_rmnet_data5@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+27: r_rmnet_data6@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+28: r_rmnet_data7@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+29: r_rmnet_data8@rmnet_ipa0: <> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/[519] 
+30: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DORMANT group default qlen 3000
+    link/ether fa:c2:67:3b:a4:c3 brd ff:ff:ff:ff:ff:ff
+31: p2p0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 3000
+    link/ether f2:6c:5d:82:36:a2 brd ff:ff:ff:ff:ff:ff
+32: wifi-aware0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 3000
+    link/ether f2:6c:5d:83:36:a2 brd ff:ff:ff:ff:ff:ff
+---
+bond0
+bonding_masters
+dummy0
+ip6_vti0
+ip6tnl0
+ip_vti0
+lo
+p2p0
+r_rmnet_data0
+r_rmnet_data1
+r_rmnet_data2
+r_rmnet_data3
+r_rmnet_data4
+r_rmnet_data5
+r_rmnet_data6
+r_rmnet_data7
+r_rmnet_data8
+rmnet_data0
+rmnet_data1
+rmnet_data10
+rmnet_data2
+rmnet_data3
+rmnet_data4
+rmnet_data5
+rmnet_data6
+rmnet_data7
+rmnet_data8
+rmnet_data9
+rmnet_ipa0
+sit0
+wifi-aware0
+wlan0
+---
+/sys/devices/platform/soc/c800000.qcom,icnss

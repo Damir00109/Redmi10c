@@ -1,0 +1,3 @@
+List of devices attached
+82773a69               device usb:2-8 product:rain_global model:220333QNY device:rain transport_id:2
+

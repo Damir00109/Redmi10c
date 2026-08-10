@@ -1,0 +1,5 @@
+6080000.qcom,mss
+a5c0000.slim:wcn3990
+c800000.qcom,icnss
+soc:bt_wcn3990
+soc:qcom,smp2p-modem

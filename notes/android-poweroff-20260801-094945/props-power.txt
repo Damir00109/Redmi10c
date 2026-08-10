@@ -1,0 +1,15 @@
+[bluetooth.hardware.power.idle_cur_ma]: [7]
+[bluetooth.hardware.power.operating_voltage_mv]: [3700]
+[bluetooth.hardware.power.rx_cur_ma]: [75]
+[bluetooth.hardware.power.tx_cur_ma]: [93]
+[persist.sys.boot.reason]: []
+[persist.sys.boot.reason.history]: [bootloader,1785566925
+shutdown,userrequested,1785562816
+[power.saving.mode]: [1]
+[ro.ril.disable.power.collapse]: [0]
+[ro.surface_flinger.set_display_power_timer_ms]: [1000]
+[sys.boot.reason]: [bootloader]
+[sys.boot.reason.last]: [bootloader]
+[sys.boot_completed]: [1]
+[sys.bootstat.first_boot_completed]: [1]
+[vendor.display.enable_async_powermode]: [1]

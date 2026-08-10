@@ -1,0 +1,24 @@
+total 0
+drwxr-xr-x 2 root root 0 2026-08-04 20:53 .
+drwxr-xr-x 3 root root 0 2026-08-04 20:53 ..
+lrwxrwxrwx 1 root root 0 2026-08-04 20:53 c800000.qcom,icnss -> ../../../../devices/platform/soc/c800000.qcom,icnss
+== c800000.qcom,icnss
+DMA
+---IPA_SMMU_WLAN---
+total 0
+drwxr-xr-x   3 root root    0 2026-08-04 20:53 .
+drwxr-xr-x 236 root root    0 1970-06-08 14:25 ..
+lrwxrwxrwx   1 root root    0 2026-08-04 20:53 driver -> ../../../../bus/platform/drivers/ipa
+-rw-r--r--   1 root root 4096 2026-08-04 20:53 driver_override
+lrwxrwxrwx   1 root root    0 2026-08-04 20:53 iommu_group -> ../../../../kernel/iommu_groups/1
+-r--r--r--   1 root root 4096 2026-08-04 20:53 modalias
+lrwxrwxrwx   1 root root    0 2026-08-04 20:53 of_node -> ../../../../firmware/devicetree/base/soc/ipa_smmu_wlan
+drwxr-xr-x   2 root root    0 2026-08-04 20:53 power
+lrwxrwxrwx   1 root root    0 2026-08-04 20:53 subsystem -> ../../../../bus/platform
+-rw-r--r--   1 root root 4096 2026-08-04 20:53 uevent
+DRIVER=ipa
+OF_NAME=ipa_smmu_wlan
+OF_FULLNAME=/soc/ipa_smmu_wlan
+OF_COMPATIBLE_0=qcom,ipa-smmu-wlan-cb
+OF_COMPATIBLE_N=1
+MODALIAS=of:Nipa_smmu_wlanT<NULL>Cqcom,ipa-smmu-wlan-cb

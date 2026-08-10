@@ -1,0 +1,9 @@
+savedefconfig rc 0
+make[1]: Entering directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+make[1]: Leaving directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+
+
+defconfig exists True size 22350
+restored /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/arm64/configs/rain-defconfig 22379
+restored /home/damir00109/Desktop/Redmi10c/out/linux-7.1.5/source/arch/arm64/configs/rain-defconfig 22379
+DONE_RESTORE

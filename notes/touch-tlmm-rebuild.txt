@@ -1,0 +1,74 @@
+make[1]: Entering directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+  SYNC    include/config/auto.conf
+  CC      drivers/pinctrl/qcom/pinctrl-khaje.o
+make[4]: *** No rule to make target 'arch/arm64/boot/dts/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb'.  Stop.
+make[3]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:1611: arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb] Error 2
+make[2]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:370: __build_one_by_one] Error 2
+make[1]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:248: __sub-make] Error 2
+make[1]: Leaving directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+make: *** [Makefile:248: __sub-make] Error 2
+make[1]: Entering directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+  DTC     arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb
+  DTC     arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dtb
+  CC      drivers/soc/qcom/qcom-geni-se.o
+  CC      drivers/pinctrl/qcom/pinctrl-msm.o
+  CC      drivers/phy/qualcomm/phy-qcom-qmp-ufs.o
+  CC      drivers/usb/dwc3/gadget.o
+  CC      drivers/soc/qcom/ubwc_config.o
+  CC      drivers/clk/qcom/dispcc-sm6375.o
+  CC      drivers/power/supply/smb1351_charger_bringup.o
+  CC      drivers/power/supply/sh366101_fg_bringup.o
+  CC      drivers/ufs/host/ufs-qcom.o
+  CC      drivers/usb/typec/wusb3801.o
+  UPD     kernel/config_data
+  GZIP    kernel/config_data.gz
+  CC      kernel/configs.o
+  CC      drivers/gpu/drm/msm/msm_fbdev.o
+  CC      drivers/gpu/drm/msm/disp/dpu1/dpu_kms.o
+  CC      drivers/gpu/drm/msm/dsi/dsi_host.o
+  CC      drivers/gpu/drm/msm/dsi/phy/dsi_phy.o
+  AR      drivers/pinctrl/qcom/built-in.a
+  AR      drivers/pinctrl/built-in.a
+  AR      drivers/usb/typec/built-in.a
+  AR      drivers/clk/qcom/built-in.a
+  AR      drivers/clk/built-in.a
+  AR      kernel/built-in.a
+  AR      drivers/phy/qualcomm/built-in.a
+  AR      drivers/soc/qcom/built-in.a
+  AR      drivers/phy/built-in.a
+  AR      drivers/soc/built-in.a
+  AR      drivers/power/supply/built-in.a
+  AR      drivers/power/built-in.a
+  AR      drivers/usb/dwc3/built-in.a
+  AR      drivers/usb/built-in.a
+  AR      drivers/gpu/drm/msm/built-in.a
+  AR      drivers/gpu/drm/built-in.a
+  AR      drivers/gpu/built-in.a
+  AR      drivers/ufs/host/built-in.a
+  AR      drivers/ufs/built-in.a
+  AR      drivers/built-in.a
+  AR      built-in.a
+  AR      vmlinux.a
+  LD      vmlinux.o
+  MODPOST vmlinux.symvers
+  UPD     include/generated/utsversion.h
+  CC      init/version-timestamp.o
+  KSYMS   .tmp_vmlinux0.kallsyms.S
+  AS      .tmp_vmlinux0.kallsyms.o
+  LD      .tmp_vmlinux1
+  NM      .tmp_vmlinux1.syms
+  KSYMS   .tmp_vmlinux1.kallsyms.S
+  AS      .tmp_vmlinux1.kallsyms.o
+  LD      .tmp_vmlinux2
+  NM      .tmp_vmlinux2.syms
+  KSYMS   .tmp_vmlinux2.kallsyms.S
+  AS      .tmp_vmlinux2.kallsyms.o
+  LD      vmlinux.unstripped
+  NM      System.map
+  SORTTAB vmlinux.unstripped
+  OBJCOPY vmlinux
+  GEN     modules.builtin.modinfo
+  GEN     modules.builtin
+  OBJCOPY arch/arm64/boot/Image
+  GZIP    arch/arm64/boot/Image.gz
+make[1]: Leaving directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'

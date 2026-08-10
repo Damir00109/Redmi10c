@@ -1,0 +1,25 @@
+LOGIN_OK
+
+$ stty -echo cols 200; export TERM=linux
+[?2004l
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+$ printf 'rain\n' | sudo -S -v >/dev/null; echo SUDO_OK
+[?2004l
+SUDO_OK
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+### PUSH spi-geni-qcom.ko -> /tmp/spi-geni-qcom.ko bytes=116936 b64=155916 md5=9f10ccf71b8df7e0ed7a9cd0a12afdb4
+
+$ rm -f /tmp/spi-geni-qcom.ko.b64 /tmp/spi-geni-qcom.ko
+[?2004l
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+Traceback (most recent call last):
+  File "<stdin>", line 86, in <module>
+  File "<stdin>", line 73, in push_file
+  File "/usr/lib/python3/dist-packages/serial/serialposix.py", line 636, in write
+    raise SerialTimeoutException('Write timeout')
+serial.serialutil.SerialTimeoutException: Write timeout

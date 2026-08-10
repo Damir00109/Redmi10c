@@ -1,0 +1,80 @@
+Battery History [Format: 2] (13% used, 563KB used of 4096KB, 333 strings using 16KB):
+  05-13 18:33:37.093 RESET:TIME: 2026-05-13-18-33-37
+  05-13 18:33:37.093 048 status=discharging health=good plug=none temp=350 volt=3746 charge=0 modemRailChargemAh=0 wifiRailChargemAh=0 +running
+  05-13 18:33:41.969 048 volt=3718
+  05-13 18:33:52.413 048 temp=360
+  05-13 18:34:01.510 048 stats=0:"write"
+  05-13 18:34:01.530 048 display_state_changed=-1:"display=0 state=ON reason=DEFAULT_POLICY"
+  05-13 18:34:01.530 048 +wake_lock=-1:"screen" +screen
+  05-13 18:34:01.530 048 +sensor brightness=bright +state=1000:"sensor:0xb"
+  05-13 18:34:01.536 048 brightness=medium
+  05-13 18:34:01.554 048 volt=3767
+  05-13 18:33:37.200 TIME: 2026-05-13-18-33-37
+  05-13 18:33:37.649 048 stats=0:"network-stats-enabled"
+  05-13 18:33:37.801 048 +wifi stats=0:"wifi-off"
+  05-13 18:33:37.872 048
+  05-13 18:33:37.872 048
+  05-13 18:33:37.872 048
+  05-13 18:33:37.872 048
+  05-13 18:33:37.873 048 +user=0:"0"
+  05-13 18:33:37.873 048 +userfg=0:"0"
+  05-13 18:33:37.944 048
+  05-13 18:33:37.980 048
+  05-13 18:33:38.183 048
+  05-13 18:33:38.185 048
+  05-13 18:33:38.185 048
+  05-13 18:33:38.187 048
+  05-13 18:33:38.190 048
+  05-13 18:33:38.192 048
+  05-13 18:33:38.264 048
+  05-13 18:33:38.318 048
+  05-13 18:33:38.351 048
+  05-13 18:33:38.376 048
+  05-13 18:33:38.383 048
+  05-13 18:33:38.423 048
+  05-13 18:33:38.440 048 +job=1000:"@com.android.server.appwidget.AppWidgetServiceImpl.ReportWidgetEventsJob@android/com.android.server.appwidget.ReportWidgetEventsJob"
+  05-13 18:33:38.517 048 +top=1000:"com.android.settings"
+  05-13 18:33:38.581 048 wifi_suppl=disabled
+  05-13 18:33:38.584 048 wifi_suppl=disconn +tmpwhitelist=1000:"3f7f46f android.safetycenter.action.REFRESH_SAFETY_SOURCES/u0"
+  05-13 18:33:38.648 048 +tmpwhitelist=1001:"faa9814 android.safetycenter.action.REFRESH_SAFETY_SOURCES/u0"
+  05-13 18:33:38.648 048 +tmpwhitelist=u0a135:"1d8d5ac android.safetycenter.action.REFRESH_SAFETY_SOURCES/u0"
+  05-13 18:33:38.713 048 -job=1000:"@com.android.server.appwidget.AppWidgetServiceImpl.ReportWidgetEventsJob@android/com.android.server.appwidget.ReportWidgetEventsJob"
+  05-13 18:33:38.721 048 +job=1000:"android/com.android.server.notification.NotificationHistoryJobService"
+  05-13 18:33:38.727 048 -job=1000:"android/com.android.server.notification.NotificationHistoryJobService"
+  05-13 18:33:39.129 048
+  05-13 18:33:39.647 048 +state=1000:"sensor:0x110"
+  05-13 18:33:39.719 048
+  05-13 18:33:39.767 048
+  05-13 18:33:39.836 048
+  05-13 18:33:39.838 048
+  05-13 18:33:39.874 048
+  05-13 18:33:39.876 048
+  05-13 18:33:40.808 048 +job=1000:"com.android.settings/.sim.receivers.SimSlotChangeService"
+  05-13 18:33:40.816 048 phone_state=off -job=1000:"com.android.settings/.sim.receivers.SimSlotChangeService"
+  05-13 18:33:40.850 048
+  05-13 18:33:40.852 048
+  05-13 18:33:40.852 048
+  05-13 18:33:40.935 048
+  05-13 18:33:40.935 048
+  05-13 18:33:40.937 048
+  05-13 18:33:40.937 048
+  05-13 18:33:40.951 048 +phone_scanning phone_state=out
+  05-13 18:33:40.963 048
+  05-13 18:33:40.964 048
+  05-13 18:33:40.984 048
+  05-13 18:33:40.984 048
+  05-13 18:33:41.048 048 -phone_scanning phone_state=in phone_signal_strength=poor
+  05-13 18:33:41.268 048
+  05-13 18:33:41.318 048
+  05-13 18:33:41.325 048
+  05-13 18:33:41.325 048
+  05-13 18:33:41.335 048
+  05-13 18:33:41.335 048
+  05-13 18:33:41.336 048
+  05-13 18:33:41.401 048
+  05-13 18:33:41.401 048
+  05-13 18:33:41.464 048
+  05-13 18:33:41.500 048
+  05-13 18:33:41.500 048
+  05-13 18:33:41.508 048
+  05-13 18:33:41.508 048

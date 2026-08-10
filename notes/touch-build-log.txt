@@ -1,0 +1,112 @@
+source real /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y
+rain-defconfig lines 937
+patched .config
+SPI_QCOM_GENI ok
+cross /usr/bin/aarch64-linux-gnu-gcc
+RUN make O=/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5 olddefconfig
+rc 0
+make[1]: Entering directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+#
+# configuration written to .config
+#
+make[1]: Leaving directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+
+RUN make O=/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5 -j 56 drivers/input/touchscreen/fts_spi/ dtbs
+rc 2
+make[1]: Entering directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+  SYNC    include/config/auto.conf
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_core.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_spi.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_flash.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_ex_fun.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_ex_mode.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_gesture.o
+  CC [M]  drivers/input/touchscreen/fts_spi/focaltech_stubs.o
+make[1]: Leaving directory '/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5'
+
+In file included from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_common.h:34,
+                 from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_core.h:64,
+                 from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_flash.c:35:
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_config.h:282:50: fatal error: include/firmware/fw_sample.h: No such file or directory
+  282 | #define FTS_UPGRADE_FW_FILE                      "include/firmware/fw_sample.h"
+      |                                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+compilation terminated.
+make[8]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:289: drivers/input/touchscreen/fts_spi/focaltech_flash.o] Error 1
+make[8]: *** Waiting for unfinished jobs....
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_core.c:1790:15: error: initialization of ‘void (*)(struct spi_device *)’ from incompatible pointer type ‘int (*)(struct spi_device *)’ [-Wincompatible-pointer-types]
+ 1790 |     .remove = fts_ts_remove,
+      |               ^~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_core.c:1790:15: note: (near initialization for ‘fts_ts_driver.remove’)
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_core.c:1773:12: note: ‘fts_ts_remove’ declared here
+ 1773 | static int fts_ts_remove(struct spi_device *spi)
+      |            ^~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:4:5: warning: no previous prototype for ‘fts_esdcheck_init’ [-Wmissing-prototypes]
+    4 | int fts_esdcheck_init(struct fts_ts_data *ts_data) { return 0; }
+      |     ^~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:5:5: warning: no previous prototype for ‘fts_esdcheck_exit’ [-Wmissing-prototypes]
+    5 | int fts_esdcheck_exit(struct fts_ts_data *ts_data) { return 0; }
+      |     ^~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:6:5: warning: no previous prototype for ‘fts_esdcheck_suspend’ [-Wmissing-prototypes]
+    6 | int fts_esdcheck_suspend(void) { return 0; }
+      |     ^~~~~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:7:5: warning: no previous prototype for ‘fts_esdcheck_resume’ [-Wmissing-prototypes]
+    7 | int fts_esdcheck_resume(void) { return 0; }
+      |     ^~~~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:8:5: warning: no previous prototype for ‘fts_esdcheck_set_intr’ [-Wmissing-prototypes]
+    8 | int fts_esdcheck_set_intr(bool intr) { return 0; }
+      |     ^~~~~~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:12:5: warning: no previous prototype for ‘fts_point_report_check_init’ [-Wmissing-prototypes]
+   12 | int fts_point_report_check_init(struct fts_ts_data *ts_data) { return 0; }
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:13:5: warning: no previous prototype for ‘fts_point_report_check_exit’ [-Wmissing-prototypes]
+   13 | int fts_point_report_check_exit(struct fts_ts_data *ts_data) { return 0; }
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:14:6: warning: no previous prototype for ‘fts_point_report_check_queue_work’ [-Wmissing-prototypes]
+   14 | void fts_point_report_check_queue_work(struct fts_ts_data *ts_data) {}
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:18:5: warning: no previous prototype for ‘fts_test_init’ [-Wmissing-prototypes]
+   18 | int fts_test_init(struct fts_ts_data *ts_data) { return 0; }
+      |     ^~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:19:5: warning: no previous prototype for ‘fts_test_exit’ [-Wmissing-prototypes]
+   19 | int fts_test_exit(struct fts_ts_data *ts_data) { return 0; }
+      |     ^~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:26:6: warning: no previous prototype for ‘set_fts_ts_variant’ [-Wmissing-prototypes]
+   26 | void set_fts_ts_variant(bool en) {}
+      |      ^~~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:27:6: warning: no previous prototype for ‘set_lcd_reset_gpio_keep_high’ [-Wmissing-prototypes]
+   27 | void set_lcd_reset_gpio_keep_high(bool en) {}
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_stubs.c:28:6: warning: no previous prototype for ‘set_lct_tp_gesture_status’ [-Wmissing-prototypes]
+   28 | void set_lct_tp_gesture_status(bool flag) {}
+      |      ^~~~~~~~~~~~~~~~~~~~~~~~~
+make[8]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:289: drivers/input/touchscreen/fts_spi/focaltech_core.o] Error 1
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_gesture.c:410:5: warning: no previous prototype for ‘fts_gesture_switch’ [-Wmissing-prototypes]
+  410 | int fts_gesture_switch(struct input_dev *dev, unsigned int type, unsigned int code, int value)
+      |     ^~~~~~~~~~~~~~~~~~
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_ex_fun.c: In function ‘fts_create_apk_debug_channel’:
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_ex_fun.c:489:59: error: passing argument 4 of ‘proc_create’ from incompatible pointer type [-Wincompatible-pointer-types]
+  489 |     proc->proc_entry = proc_create(PROC_NAME, 0777, NULL, &fts_proc_fops);
+      |                                                           ^~~~~~~~~~~~~~
+      |                                                           |
+      |                                                           const struct file_operations *
+In file included from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/include/linux/efi.h:19,
+                 from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/arch/arm64/include/asm/acpi.h:13,
+                 from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/include/acpi/acpi_io.h:7,
+                 from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/include/linux/acpi.h:40,
+                 from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/include/linux/i2c.h:13,
+                 from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_core.h:38,
+                 from /home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/drivers/input/touchscreen/fts_spi/focaltech_ex_fun.c:35:
+/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/include/linux/proc_fs.h:115:122: note: expected ‘const struct proc_ops *’ but argument is of type ‘const struct file_operations *’
+  115 | struct proc_dir_entry *proc_create(const char *name, umode_t mode, struct proc_dir_entry *parent, const struct proc_ops *proc_ops);
+      |                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~
+make[8]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:289: drivers/input/touchscreen/fts_spi/focaltech_ex_fun.o] Error 1
+make[7]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:548: drivers/input/touchscreen/fts_spi] Error 2
+make[6]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:548: drivers/input/touchscreen] Error 2
+make[5]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:548: drivers/input] Error 2
+make[4]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/scripts/Makefile.build:548: drivers] Error 2
+make[3]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:2162: .] Error 2
+make[2]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:370: __build_one_by_one] Error 2
+make[1]: *** [/home/damir00109/Desktop/Redmi10c/mainline/linux-7.1.y/Makefile:248: __sub-make] Error 2
+make: *** [Makefile:248: __sub-make] Error 2
+FAILED ['make', 'O=/home/damir00109/Desktop/Redmi10c/out/linux-7.1.5', '-j', '56', 'drivers/input/touchscreen/fts_spi/', 'dtbs']
+BUILD_DONE

@@ -1,0 +1,110 @@
+LOGIN...
+LOGIN_OK
+
+===== CMD: stty -echo cols 200; export TERM=linux; whoami; uname -r; uptime =====
+stty -echo cols 200; export TERM=linux; whoami; uname -r; uptime
+[?2004lrain
+7.1.5-dirty
+ 15:40:35 up 4 min,  1 user,  load average: 0.08, 0.31, 0.16
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: printf 'rain\n' | sudo -S -v >/dev/null; echo SUDO_OK =====
+[?2004l
+[sudo] password for rain: SUDO_OK
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: printf 'rain\n' | sudo -S dmesg -T 2>/dev/null | grep -iE 'fts|focal|spi-geni|geni-spi|4a80000|touch@' | tail -100; echo ===DMESG_TOUCH=== =====
+[?2004l
+[Fri Jun  5 15:36:36 2026] gcc-sm6115 1400000.clock-controller: sync_state() pending due to 4a80000.spi
+===DMESG_TOUCH===
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: printf 'rain\n' | sudo -S dmesg | grep -iE 'qupv3|geniqup|spi.*4a8|spi_geni|spi-geni' | tail -50; echo ===DMESG_SPI=== =====
+[?2004l
+===DMESG_SPI===
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: lsmod | grep -iE 'spi|fts|geni' || true; ls -l /lib/modules/$(uname -r)/extra/fts_spi.ko /lib/modules/fts_spi.ko 2>/dev/null; echo ===MODS== =====
+[?2004l
+===MODS===
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: find /proc/device-tree -path '*spi@4a80000*' 2>/dev/null | head -30; echo ---; ls /sys/bus/spi/devices 2>/dev/null; ls /sys/class/spi_master =====
+[?2004l
+---
+===SYSFS===
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: printf 'rain\n' | sudo -S modprobe spi-geni; echo SPI_GENI_RC:$?; lsmod | grep -i spi; ls /sys/bus/spi/devices /sys/class/spi_master 2>/dev/ =====
+[?2004l
+modprobe: FATAL: Module spi-geni not found in directory /lib/modules/7.1.5-dirty
+SPI_GENI_RC:1
+/sys/bus/spi/devices:
+
+/sys/class/spi_master:
+===AFTER_SPI===
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: printf 'rain\n' | sudo -S bash -lc 'KO=/lib/modules/$(uname -r)/extra/fts_spi.ko; [ -f $KO ] || KO=/lib/modules/fts_spi.ko; if [ -f $KO ]; t =====
+[?2004l
+modprobe: FATAL: Module fts_spi not found in directory /lib/modules/7.1.5-dirty
+MODPROBE_RC:1
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: printf 'rain\n' | sudo -S dmesg | grep -iE 'fts|focal|spi-geni|geni-spi|4a80000' | tail -80; echo ===AFTER_LOAD=== =====
+[?2004l
+[   14.817182] gcc-sm6115 1400000.clock-controller: sync_state() pending due to 4a80000.spi
+===AFTER_LOAD===
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: cat /proc/bus/input/devices; echo ===INPUT=== =====
+[?2004l
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="pm8941_pwrkey"
+P: Phys=pm8941_pwrkey/input0
+S: Sysfs=/devices/platform/soc/1c40000.spmi/spmi-0/0-00/1c40000.spmi:pmic@0:pon@800/1c40000.spmi:pmic@0:pon@800:pwrkey/input/input0
+U: Uniq=
+H: Handlers=kbd event0 
+B: PROP=0
+B: EV=3
+B: KEY=10000000000000 0
+
+I: Bus=0000 Vendor=0000 Product=0000 Version=0000
+N: Name="pm8941_resin"
+P: Phys=pm8941_resin/input0
+S: Sysfs=/devices/platform/soc/1c40000.spmi/spmi-0/0-00/1c40000.spmi:pmic@0:pon@800/1c40000.spmi:pmic@0:pon@800:resin/input/input1
+U: Uniq=
+H: Handlers=kbd event1 
+B: PROP=0
+B: EV=3
+B: KEY=4000000000000 0
+
+===INPUT===
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: ls -l /dev/input/; echo ===DEVINPUT=== =====
+[?2004l
+total 0
+drwxr-xr-x 2 root root      80 Jun  5 15:36 [0m[01;34mby-path[0m
+crw-rw---- 1 root input 13, 64 Jun  5 15:36 [01;33mevent0[0m
+crw-rw---- 1 root input 13, 65 Jun  5 15:36 [01;33mevent1[0m
+===DEVINPUT===
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+
+===== CMD: ls -l /lib/firmware/focaltech_ts_fw_xinli.bin 2>/dev/null; command -v evtest; command -v rain-touch-load; echo ===TOOLS=== =====
+[?2004l
+===TOOLS===
+[?2004hrain@rain-ubuntu:~$ [?2004l
+[?2004hrain@rain-ubuntu:~$ 
+PROBE_DONE

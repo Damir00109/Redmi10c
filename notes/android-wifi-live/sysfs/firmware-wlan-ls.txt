@@ -1,0 +1,401 @@
+/vendor/firmware/wlan:
+total 12
+drwxr-xr-x 3 root shell 4096 2009-01-01 03:00 .
+drwxr-xr-x 3 root shell 4096 2009-01-01 03:00 ..
+drwxr-xr-x 2 root shell 4096 2009-01-01 03:00 qca_cld
+
+/vendor/firmware/wlan/qca_cld:
+total 8
+drwxr-xr-x 2 root shell 4096 2009-01-01 03:00 .
+drwxr-xr-x 3 root shell 4096 2009-01-01 03:00 ..
+lrw-r--r-- 1 root root    35 2009-01-01 03:00 WCNSS_qcom_cfg.ini -> /vendor/etc/wifi/WCNSS_qcom_cfg.ini
+lrw-r--r-- 1 root root    32 2009-01-01 03:00 wlan_mac.bin -> /mnt/vendor/persist/wlan_mac.bin
+
+/vendor/firmware_mnt/image:
+total 100528
+dr-xr-x--- 3 system system    16384 2011-07-05 21:30 .
+dr-xr-x--- 3 system system    16384 1970-01-01 03:00 ..
+-r--r----- 1 system system     1172 2024-05-27 15:02 adsp.b00
+-r--r----- 1 system system     8248 2024-05-27 15:02 adsp.b01
+-r--r----- 1 system system    85716 2024-05-27 15:02 adsp.b02
+-r--r----- 1 system system   387520 2024-05-27 15:02 adsp.b03
+-r--r----- 1 system system  1819708 2024-05-27 15:02 adsp.b04
+-r--r----- 1 system system  1700332 2024-05-27 15:02 adsp.b05
+-r--r----- 1 system system     2896 2024-05-27 15:02 adsp.b06
+-r--r----- 1 system system    17244 2024-05-27 15:02 adsp.b07
+-r--r----- 1 system system    28524 2024-05-27 15:02 adsp.b08
+-r--r----- 1 system system     4828 2024-05-27 15:02 adsp.b09
+-r--r----- 1 system system      260 2024-05-27 15:02 adsp.b10
+-r--r----- 1 system system    62112 2024-05-27 15:02 adsp.b12
+-r--r----- 1 system system    72452 2024-05-27 15:02 adsp.b13
+-r--r----- 1 system system   319488 2024-05-27 15:02 adsp.b14
+-r--r----- 1 system system  1403268 2024-05-27 15:02 adsp.b15
+-r--r----- 1 system system   278532 2024-05-27 15:02 adsp.b16
+-r--r----- 1 system system    11772 2024-05-27 15:02 adsp.b17
+-r--r----- 1 system system     7008 2024-05-27 15:02 adsp.b18
+-r--r----- 1 system system      732 2024-05-27 15:02 adsp.b19
+-r--r----- 1 system system     9296 2024-05-27 15:02 adsp.b20
+-r--r----- 1 system system    28652 2024-05-27 15:02 adsp.b21
+-r--r----- 1 system system   214128 2024-05-27 15:02 adsp.b22
+-r--r----- 1 system system    98304 2024-05-27 15:02 adsp.b23
+-r--r----- 1 system system  6867924 2024-05-27 15:02 adsp.b24
+-r--r----- 1 system system   353140 2024-05-27 15:02 adsp.b25
+-r--r----- 1 system system     2848 2024-05-27 15:02 adsp.b26
+-r--r----- 1 system system   149656 2024-05-27 15:02 adsp.b27
+-r--r----- 1 system system   315924 2024-05-27 15:02 adsp.b28
+-r--r----- 1 system system      659 2024-05-27 15:02 adsp.b29
+-r--r----- 1 system system    17990 2024-05-27 15:02 adsp.b30
+-r--r----- 1 system system   118644 2024-05-27 15:02 adsp.b31
+-r--r----- 1 system system   586176 2024-05-27 15:02 adsp.b32
+-r--r----- 1 system system      188 2024-05-27 15:02 adsp.b33
+-r--r----- 1 system system     9420 2024-05-27 15:02 adsp.mdt
+-r--r----- 1 system system      403 2024-05-27 14:27 adspr.jsn
+-r--r----- 1 system system      405 2024-05-27 14:29 adsps.jsn
+-r--r----- 1 system system      555 2024-05-27 14:27 adspua.jsn
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qgl.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qglt.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qglu.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qin.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qint.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qinu.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qmx.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qmxt.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qmxu.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qvdf.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qvdft.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bd3qvdfu.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.102
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.104
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.105
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.106
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.107
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.108
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.109
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.10e
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.10f
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.111
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.202
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.203
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.204
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.206
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b04
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b07
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b09
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b0a
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b0b
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b0d
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b0e
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b0f
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b14
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b15
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b30
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b31
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b32
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b33
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b34
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b35
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b36
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b37
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.b38
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlan.bin
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlant.202
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlanu.202
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlanu.206
+-r--r----- 1 system system    26328 2024-05-27 14:15 bdwlanu.206
+-r--r----- 1 system system      308 2024-05-27 15:02 cardapp.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 cardapp.b01
+-r--r----- 1 system system    35547 2024-05-27 15:02 cardapp.b02
+-r--r----- 1 system system      145 2024-05-27 15:02 cardapp.b03
+-r--r----- 1 system system      696 2024-05-27 15:02 cardapp.b04
+-r--r----- 1 system system      332 2024-05-27 15:02 cardapp.b05
+-r--r----- 1 system system      152 2024-05-27 15:02 cardapp.b06
+-r--r----- 1 system system     6957 2024-05-27 15:02 cardapp.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 cardapp.mdt
+-r--r----- 1 system system      468 2024-05-27 15:02 cdsp.b00
+-r--r----- 1 system system     7192 2024-05-27 15:02 cdsp.b01
+-r--r----- 1 system system   235672 2024-05-27 15:02 cdsp.b02
+-r--r----- 1 system system   106620 2024-05-27 15:02 cdsp.b03
+-r--r----- 1 system system     1100 2024-05-27 15:02 cdsp.b04
+-r--r----- 1 system system  2149212 2024-05-27 15:02 cdsp.b05
+-r--r----- 1 system system    23104 2024-05-27 15:02 cdsp.b06
+-r--r----- 1 system system   611192 2024-05-27 15:02 cdsp.b08
+-r--r----- 1 system system     2592 2024-05-27 15:02 cdsp.b09
+-r--r----- 1 system system    58900 2024-05-27 15:02 cdsp.b11
+-r--r----- 1 system system     7660 2024-05-27 15:02 cdsp.mdt
+-r--r----- 1 system system      403 2024-05-27 14:32 cdspr.jsn
+-r--r----- 1 system system   638667 2024-05-27 14:15 data.msc
+-r--r----- 1 system system      512 2024-05-27 15:02 featenab.b00
+-r--r----- 1 system system    20080 2024-05-27 15:02 featenab.b01
+-r--r----- 1 system system    39533 2024-05-27 15:02 featenab.b02
+-r--r----- 1 system system      231 2024-05-27 15:02 featenab.b03
+-r--r----- 1 system system      896 2024-05-27 15:02 featenab.b04
+-r--r----- 1 system system      448 2024-05-27 15:02 featenab.b05
+-r--r----- 1 system system      304 2024-05-27 15:02 featenab.b06
+-r--r----- 1 system system     8481 2024-05-27 15:02 featenab.b07
+-r--r----- 1 system system    20592 2024-05-27 15:02 featenab.mdt
+-r--r----- 1 system system      512 2024-05-27 15:02 fpctzapp.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 fpctzapp.b01
+-r--r----- 1 system system  2683168 2024-05-27 15:02 fpctzapp.b02
+-r--r----- 1 system system      195 2024-05-27 15:02 fpctzapp.b03
+-r--r----- 1 system system  1089200 2024-05-27 15:02 fpctzapp.b04
+-r--r----- 1 system system     2048 2024-05-27 15:02 fpctzapp.b05
+-r--r----- 1 system system      304 2024-05-27 15:02 fpctzapp.b06
+-r--r----- 1 system system   169204 2024-05-27 15:02 fpctzapp.b07
+-r--r----- 1 system system     7464 2024-05-27 15:02 fpctzapp.mdt
+-r--r----- 1 system system      308 2024-05-27 15:02 goodixfp.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 goodixfp.b01
+-r--r----- 1 system system  2515492 2024-05-27 15:02 goodixfp.b02
+-r--r----- 1 system system      155 2024-05-27 15:02 goodixfp.b03
+-r--r----- 1 system system  3573276 2024-05-27 15:02 goodixfp.b04
+-r--r----- 1 system system      540 2024-05-27 15:02 goodixfp.b05
+-r--r----- 1 system system      168 2024-05-27 15:02 goodixfp.b06
+-r--r----- 1 system system   144831 2024-05-27 15:02 goodixfp.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 goodixfp.mdt
+-r--r----- 1 system system     5708 2024-05-27 14:15 gptauuid.xml
+-r--r----- 1 system system      308 2024-05-27 15:02 gptest.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 gptest.b01
+-r--r----- 1 system system    82699 2024-05-27 15:02 gptest.b02
+-r--r----- 1 system system      212 2024-05-27 15:02 gptest.b03
+-r--r----- 1 system system    27572 2024-05-27 15:02 gptest.b04
+-r--r----- 1 system system     1072 2024-05-27 15:02 gptest.b05
+-r--r----- 1 system system      152 2024-05-27 15:02 gptest.b06
+-r--r----- 1 system system    27721 2024-05-27 15:02 gptest.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 gptest.mdt
+-r--r----- 1 system system   191630 2024-05-27 14:22 haventkn.mbn
+-r--r----- 1 system system      512 2024-05-27 15:02 hdcpsrm.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 hdcpsrm.b01
+-r--r----- 1 system system    21525 2024-05-27 15:02 hdcpsrm.b02
+-r--r----- 1 system system      194 2024-05-27 15:02 hdcpsrm.b03
+-r--r----- 1 system system      904 2024-05-27 15:02 hdcpsrm.b04
+-r--r----- 1 system system      448 2024-05-27 15:02 hdcpsrm.b05
+-r--r----- 1 system system      304 2024-05-27 15:02 hdcpsrm.b06
+-r--r----- 1 system system     4989 2024-05-27 15:02 hdcpsrm.b07
+-r--r----- 1 system system     7464 2024-05-27 15:02 hdcpsrm.mdt
+-r--r----- 1 system system      512 2024-05-27 15:02 loadalgo.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 loadalgo.b01
+-r--r----- 1 system system    46650 2024-05-27 15:02 loadalgo.b02
+-r--r----- 1 system system      197 2024-05-27 15:02 loadalgo.b03
+-r--r----- 1 system system    19552 2024-05-27 15:02 loadalgo.b04
+-r--r----- 1 system system      384 2024-05-27 15:02 loadalgo.b05
+-r--r----- 1 system system      304 2024-05-27 15:02 loadalgo.b06
+-r--r----- 1 system system     4265 2024-05-27 15:02 loadalgo.b07
+-r--r----- 1 system system     7464 2024-05-27 15:02 loadalgo.mdt
+-r--r----- 1 system system      308 2024-05-27 15:02 mfido.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 mfido.b01
+-r--r----- 1 system system   180628 2024-05-27 15:02 mfido.b02
+-r--r----- 1 system system      137 2024-05-27 15:02 mfido.b03
+-r--r----- 1 system system    58540 2024-05-27 15:02 mfido.b04
+-r--r----- 1 system system      400 2024-05-27 15:02 mfido.b05
+-r--r----- 1 system system      152 2024-05-27 15:02 mfido.b06
+-r--r----- 1 system system    27366 2024-05-27 15:02 mfido.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 mfido.mdt
+-r--r----- 1 system system      308 2024-05-27 15:02 mlipay.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 mlipay.b01
+-r--r----- 1 system system    46588 2024-05-27 15:02 mlipay.b02
+-r--r----- 1 system system      144 2024-05-27 15:02 mlipay.b03
+-r--r----- 1 system system     2696 2024-05-27 15:02 mlipay.b04
+-r--r----- 1 system system      380 2024-05-27 15:02 mlipay.b05
+-r--r----- 1 system system      152 2024-05-27 15:02 mlipay.b06
+-r--r----- 1 system system     9494 2024-05-27 15:02 mlipay.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 mlipay.mdt
+-r--r----- 1 system system     1044 2024-05-27 15:02 modem.b00
+-r--r----- 1 system system     8056 2024-05-27 15:02 modem.b01
+-r--r----- 1 system system    10544 2024-05-27 15:02 modem.b02
+-r--r----- 1 system system     9496 2024-05-27 15:02 modem.b03
+-r--r----- 1 system system   304044 2024-05-27 15:02 modem.b04
+-r--r----- 1 system system    72152 2024-05-27 15:02 modem.b05
+-r--r----- 1 system system     4108 2024-05-27 15:02 modem.b06
+-r--r----- 1 system system    37044 2024-05-27 15:02 modem.b07
+-r--r----- 1 system system   323668 2024-05-27 15:02 modem.b08
+-r--r----- 1 system system      124 2024-05-27 15:02 modem.b09
+-r--r----- 1 system system  1649256 2024-05-27 15:02 modem.b10
+-r--r----- 1 system system   638976 2024-05-27 15:02 modem.b11
+-r--r----- 1 system system     1344 2024-05-27 15:02 modem.b12
+-r--r----- 1 system system   931376 2024-05-27 15:02 modem.b13
+-r--r----- 1 system system   639392 2024-05-27 15:02 modem.b15
+-r--r----- 1 system system   397584 2024-05-27 15:02 modem.b16
+-r--r----- 1 system system  3337705 2024-05-27 15:02 modem.b17
+-r--r----- 1 system system  2841868 2024-05-27 15:02 modem.b18
+-r--r----- 1 system system    76864 2024-05-27 15:02 modem.b21
+-r--r----- 1 system system 29220928 2024-05-27 15:02 modem.b22
+-r--r----- 1 system system       45 2024-05-27 15:02 modem.b23
+-r--r----- 1 system system 10543808 2024-05-27 15:02 modem.b24
+-r--r----- 1 system system   575853 2024-05-27 15:02 modem.b25
+-r--r----- 1 system system    86276 2024-05-27 15:02 modem.b26
+-r--r----- 1 system system     4984 2024-05-27 15:02 modem.b27
+-r--r----- 1 system system      176 2024-05-27 15:02 modem.b28
+-r--r----- 1 system system   514576 2024-05-27 15:02 modem.b29
+-r--r----- 1 system system     9100 2024-05-27 15:02 modem.mdt
+dr-xr-x--- 3 system system    16384 2011-07-05 21:30 modem_pr
+-r--r----- 1 system system      719 2024-05-27 14:45 modemr.jsn
+-r--r----- 1 system system      713 2024-05-27 14:15 modemuw.jsn
+-r--r----- 1 system system      308 2024-05-27 15:02 otrpapp.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 otrpapp.b01
+-r--r----- 1 system system   312832 2024-05-27 15:02 otrpapp.b02
+-r--r----- 1 system system      143 2024-05-27 15:02 otrpapp.b03
+-r--r----- 1 system system    15232 2024-05-27 15:02 otrpapp.b04
+-r--r----- 1 system system      568 2024-05-27 15:02 otrpapp.b05
+-r--r----- 1 system system      152 2024-05-27 15:02 otrpapp.b06
+-r--r----- 1 system system    46019 2024-05-27 15:02 otrpapp.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 otrpapp.mdt
+-r--r----- 1 system system  5169261 2024-05-27 14:50 qdsp6m.qdb
+-r--r----- 1 system system   316788 2024-05-27 14:22 rtic.mbn
+-r--r----- 1 system system      308 2024-05-27 15:02 secauth.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 secauth.b01
+-r--r----- 1 system system    21937 2024-05-27 15:02 secauth.b02
+-r--r----- 1 system system      152 2024-05-27 15:02 secauth.b03
+-r--r----- 1 system system     1120 2024-05-27 15:02 secauth.b04
+-r--r----- 1 system system      220 2024-05-27 15:02 secauth.b05
+-r--r----- 1 system system      152 2024-05-27 15:02 secauth.b06
+-r--r----- 1 system system     4140 2024-05-27 15:02 secauth.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 secauth.mdt
+-r--r----- 1 system system      308 2024-05-27 15:02 sileadta.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 sileadta.b01
+-r--r----- 1 system system  1200828 2024-05-27 15:02 sileadta.b02
+-r--r----- 1 system system      155 2024-05-27 15:02 sileadta.b03
+-r--r----- 1 system system   364004 2024-05-27 15:02 sileadta.b04
+-r--r----- 1 system system      488 2024-05-27 15:02 sileadta.b05
+-r--r----- 1 system system      152 2024-05-27 15:02 sileadta.b06
+-r--r----- 1 system system    66746 2024-05-27 15:02 sileadta.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 sileadta.mdt
+-r--r----- 1 system system      308 2024-05-27 15:02 smplap32.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 smplap32.b01
+-r--r----- 1 system system   257156 2024-05-27 15:02 smplap32.b02
+-r--r----- 1 system system      204 2024-05-27 15:02 smplap32.b03
+-r--r----- 1 system system  1475900 2024-05-27 15:02 smplap32.b04
+-r--r----- 1 system system     1212 2024-05-27 15:02 smplap32.b05
+-r--r----- 1 system system      152 2024-05-27 15:02 smplap32.b06
+-r--r----- 1 system system    42991 2024-05-27 15:02 smplap32.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 smplap32.mdt
+-r--r----- 1 system system      512 2024-05-27 15:02 smplap64.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 smplap64.b01
+-r--r----- 1 system system   306016 2024-05-27 15:02 smplap64.b02
+-r--r----- 1 system system      248 2024-05-27 15:02 smplap64.b03
+-r--r----- 1 system system  1485648 2024-05-27 15:02 smplap64.b04
+-r--r----- 1 system system     2424 2024-05-27 15:02 smplap64.b05
+-r--r----- 1 system system      304 2024-05-27 15:02 smplap64.b06
+-r--r----- 1 system system    78789 2024-05-27 15:02 smplap64.b07
+-r--r----- 1 system system     7464 2024-05-27 15:02 smplap64.mdt
+-r--r----- 1 system system      512 2024-05-27 15:02 soter64.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 soter64.b01
+-r--r----- 1 system system    52845 2024-05-27 15:02 soter64.b02
+-r--r----- 1 system system      194 2024-05-27 15:02 soter64.b03
+-r--r----- 1 system system     2112 2024-05-27 15:02 soter64.b04
+-r--r----- 1 system system      648 2024-05-27 15:02 soter64.b05
+-r--r----- 1 system system      304 2024-05-27 15:02 soter64.b06
+-r--r----- 1 system system     6984 2024-05-27 15:02 soter64.b07
+-r--r----- 1 system system     7464 2024-05-27 15:02 soter64.mdt
+-r--r----- 1 system system      692 2024-05-27 15:02 venus.b00
+-r--r----- 1 system system     7528 2024-05-27 15:02 venus.b01
+-r--r----- 1 system system      292 2024-05-27 15:02 venus.b02
+-r--r----- 1 system system       20 2024-05-27 15:02 venus.b03
+-r--r----- 1 system system       20 2024-05-27 15:02 venus.b04
+-r--r----- 1 system system       20 2024-05-27 15:02 venus.b05
+-r--r----- 1 system system       20 2024-05-27 15:02 venus.b06
+-r--r----- 1 system system       24 2024-05-27 15:02 venus.b07
+-r--r----- 1 system system       16 2024-05-27 15:02 venus.b08
+-r--r----- 1 system system   689040 2024-05-27 15:02 venus.b09
+-r--r----- 1 system system    56016 2024-05-27 15:02 venus.b10
+-r--r----- 1 system system       32 2024-05-27 15:02 venus.b19
+-r--r----- 1 system system     8220 2024-05-27 15:02 venus.mdt
+-r--r----- 1 system system      308 2024-05-27 15:02 vsimapp.b00
+-r--r----- 1 system system     6952 2024-05-27 15:02 vsimapp.b01
+-r--r----- 1 system system    32059 2024-05-27 15:02 vsimapp.b02
+-r--r----- 1 system system      187 2024-05-27 15:02 vsimapp.b03
+-r--r----- 1 system system      820 2024-05-27 15:02 vsimapp.b04
+-r--r----- 1 system system      268 2024-05-27 15:02 vsimapp.b05
+-r--r----- 1 system system      152 2024-05-27 15:02 vsimapp.b06
+-r--r----- 1 system system     5392 2024-05-27 15:02 vsimapp.b07
+-r--r----- 1 system system     7260 2024-05-27 15:02 vsimapp.mdt
+-r--r----- 1 system system   172427 2024-05-27 14:23 widevine.mbn
+-r--r----- 1 system system  3813748 2024-05-27 15:02 wlanmdsp.mbn
+
+/vendor/firmware_mnt/image/modem_pr:
+total 48
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 mcfg
+
+/vendor/firmware_mnt/image/modem_pr/mcfg:
+total 48
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 configs
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs:
+total 64
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 mcfg_hw
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 mcfg_sw
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw:
+total 96
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 generic
+-r--r----- 1 system system    32 2024-05-27 14:46 mbn_hw.dig
+-r--r----- 1 system system   562 2024-05-27 14:46 mbn_hw.txt
+-r--r----- 1 system system     1 2024-05-27 14:15 oem_hw.txt
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw/generic:
+total 48
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 common
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw/generic/common:
+total 48
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 divar
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw/generic/common/divar:
+total 64
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 cmcc_sub
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 la
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw/generic/common/divar/cmcc_sub:
+total 48
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 2 system system 16384 2011-07-05 21:30 sr_dsds
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw/generic/common/divar/cmcc_sub/sr_dsds:
+total 64
+dr-xr-x--- 2 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 ..
+-r--r----- 1 system system 22668 2024-05-27 14:46 mcfg_hw.mbn
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw/generic/common/divar/la:
+total 64
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 7+7_mode
+dr-xr-x--- 2 system system 16384 2011-07-05 21:30 ss
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw/generic/common/divar/la/7+7_mode:
+total 48
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 ..
+dr-xr-x--- 2 system system 16384 2011-07-05 21:30 sr_dsds
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw/generic/common/divar/la/7+7_mode/sr_dsds:
+total 64
+dr-xr-x--- 2 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 3 system system 16384 2011-07-05 21:30 ..
+-r--r----- 1 system system 17456 2024-05-27 14:57 mcfg_hw.mbn
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_hw/generic/common/divar/la/ss:
+total 64
+dr-xr-x--- 2 system system 16384 2011-07-05 21:30 .
+dr-xr-x--- 4 system system 16384 2011-07-05 21:30 ..
+-r--r----- 1 system system 16476 2024-05-27 14:46 mcfg_hw.mbn
+
+/vendor/firmware_mnt/image/modem_pr/mcfg/configs/mcfg_sw:
+total 128
+dr-xr-x---  3 system system 16384 2011-07-05 21:30 .
+dr-xr-x---  4 system system 16384 2011-07-05 21:30 ..
+---

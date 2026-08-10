@@ -1,0 +1,21 @@
+total 0
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 aw87xxx_pa
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 bkl-bl
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 dummy
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 fs15xx
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 fsa4480-driver
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 i2c_actuator
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 i2c_camera
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 i2c_flash
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 i2c_pmic
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 lcm-bias
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 msm_eeprom
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 msm_ois
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 nq-nci
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 ovti,wl2866d-i2c
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 sh366101
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 smb1351-charger
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 synaptics_dsx_i2c
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 synaptics_tcm_i2c
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 wsa881x-i2c-codec
+drwxr-xr-x 2 root root 0 2026-08-01 09:59 wusb3801

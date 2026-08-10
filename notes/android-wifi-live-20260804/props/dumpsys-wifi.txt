@@ -1,0 +1,120 @@
+Verbose logging is off
+mVerboseLoggingLevel 0
+Stay-awake conditions: 0
+mInIdleMode false
+mScanPending false
+SupportedFeatures: [WIFI_FEATURE_INFRA, WIFI_FEATURE_PASSPOINT, WIFI_FEATURE_P2P, WIFI_FEATURE_MOBILE_HOTSPOT, WIFI_FEATURE_AWARE, WIFI_FEATURE_PNO, WIFI_FEATURE_TDLS, WIFI_FEATURE_TDLS_OFFCHANNEL, WIFI_FEATURE_AP_STA, WIFI_FEATURE_LINK_LAYER_STATS, WIFI_FEATURE_RSSI_MONITOR, WIFI_FEATURE_CONFIG_NDO, WIFI_FEATURE_CONTROL_ROAMING, WIFI_FEATURE_TX_POWER_LIMIT, WIFI_FEATURE_WPA3_SAE, WIFI_FEATURE_WPA3_SUITE_B, WIFI_FEATURE_OWE, WIFI_FEATURE_LOW_LATENCY, WIFI_FEATURE_DPP, WIFI_FEATURE_CONNECTED_RAND_MAC, WIFI_FEATURE_AP_RAND_MAC, WIFI_FEATURE_MBO, WIFI_FEATURE_OCE, WIFI_FEATURE_FILS_SHA256, WIFI_FEATURE_FILS_SHA384, WIFI_FEATURE_SAE_PK, WIFI_FEATURE_DPP_ENROLLEE_RESPONDER, WIFI_FEATURE_PASSPOINT_TERMS_AND_CONDITIONS, WIFI_FEATURE_WFD_R2, WIFI_FEATURE_DECORATED_IDENTITY, WIFI_FEATURE_TRUST_ON_FIRST_USE, WIFI_FEATURE_SET_TLS_MINIMUM_VERSION, WIFI_FEATURE_TLS_V1_3, WIFI_FEATURE_WEP, WIFI_FEATURE_WPA_PERSONAL]
+SettingsStore:
+WifiState 1
+AirplaneModeOn false
+ScanAlwaysAvailable false
+WifiScoringState true
+WifiPasspointState true
+WifiMultiInternetMode 0
+WifiStateApm false
+WifiStateBt false
+WifiStateUser 0
+AirplaneModeEnhancementEnabled true
+SatelliteModeOn false
+Dump of WifiDeviceStateChangeManager
+WifiDeviceStateChangeManager - Log Begin ----
+mLastActiveScreenStateQuery: 
+mLastScreenOn: false
+WifiDeviceStateChangeManager - Log End ----
+Dump of WifiActiveModeWarden
+Current wifi mode: EnabledState
+Wi-Fi is enabled
+NumActiveModeManagers: 1
+mIsMultiplePrimaryBugreportTaken: false
+WifiController:
+ total records=6
+ rec[0]: time=08-03 23:17:51.825 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 1 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=127 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[] SupportedChannelListIn5g[] SupportedChannelListIn6g[] SupportedChannelListIn60g[] mCountryCodeFromDrivernull
+ rec[1]: time=08-03 23:17:51.864 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 1 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=127 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[] SupportedChannelListIn5g[] SupportedChannelListIn6g[] SupportedChannelListIn60g[] mCountryCodeFromDrivernull
+ rec[2]: time=08-03 23:17:55.915 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 1 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=127 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] SupportedChannelListIn5g[36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165] SupportedChannelListIn6g[] SupportedChannelListIn60g[] mCountryCodeFromDriverRU
+ rec[3]: time=08-03 23:17:55.915 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 2 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=127 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] SupportedChannelListIn5g[36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165] SupportedChannelListIn6g[] SupportedChannelListIn60g[] mCountryCodeFromDriverRU
+ rec[4]: time=08-03 23:18:10.252 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 1 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=127 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] SupportedChannelListIn5g[36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165] SupportedChannelListIn6g[] SupportedChannelListIn60g[] mCountryCodeFromDriverRU
+ rec[5]: time=08-03 23:18:10.253 processed=DefaultState org=EnabledState dest=<null> what=CMD_UPDATE_AP_CAPABILITY 2 0 num ClientModeManagers:1 num SoftApManagers:0 SupportedFeatures=127 MaximumSupportedClientNumber=32 SupportedChannelListIn24g[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] SupportedChannelListIn5g[36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165] SupportedChannelListIn6g[] SupportedChannelListIn60g[] mCountryCodeFromDriverRU
+curState=EnabledState
+Dump of ClientModeManager id=12349
+current StateMachine mode: ConnectModeState
+mRole: ROLE_CLIENT_PRIMARY
+mPreviousRole: null
+mTargetRoleChangeInfo: Role: ROLE_CLIENT_PRIMARY, RequestorWs: WorkSource{1000 com.android.settings}, ModeListener: com.android.server.wifi.ActiveModeWarden$ClientListener@4a975
+mClientInterfaceName: wlan0
+mIfaceIsUp: true
+mSecondaryInternet: false
+mIsDbs: false
+WifiClientModeManager:
+ total records=2
+ rec[0]: time=08-03 23:17:49.283 processed=IdleState org=IdleState dest=StartedState what=CMD_START 0 0 Role: ROLE_CLIENT_PRIMARY, RequestorWs: WorkSource{1000 com.android.settings}, ModeListener: com.android.server.wifi.ActiveModeWarden$ClientListener@4a975
+ rec[1]: time=08-03 23:17:49.415 processed=StartedState org=StartedState dest=ConnectModeState what=CMD_SWITCH_TO_CONNECT_MODE 0 0 Role: ROLE_CLIENT_PRIMARY, RequestorWs: WorkSource{1000 com.android.settings}, ModeListener: com.android.server.wifi.ActiveModeWarden$ClientListener@4a975
+curState=ConnectModeState
+
+Dump of ClientModeImpl id=13017
+WifiClientModeImpl:
+ total records=149
+ rec[0]: time=08-04 01:09:43.044 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SCREEN_STATE_CHANGED screen=on 1 0
+ rec[1]: time=08-04 01:09:43.056 processed=L2ConnectedState org=L3ConnectedState dest=<null> what=CMD_ENABLE_RSSI_POLL screen=on 1 0
+ rec[2]: time=08-04 01:09:43.057 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SET_SUSPEND_OPT_ENABLED screen=on 0 0
+ rec[3]: time=08-04 01:09:53.846 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SCREEN_STATE_CHANGED screen=off 0 0
+ rec[4]: time=08-04 01:09:53.846 processed=L2ConnectedState org=L3ConnectedState dest=<null> what=CMD_ENABLE_RSSI_POLL screen=off 0 0
+ rec[5]: time=08-04 01:09:53.847 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SET_SUSPEND_OPT_ENABLED screen=off 1 1
+ rec[6]: time=08-04 02:45:43.113 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SCREEN_STATE_CHANGED screen=on 1 0
+ rec[7]: time=08-04 02:45:43.127 processed=L2ConnectedState org=L3ConnectedState dest=<null> what=CMD_ENABLE_RSSI_POLL screen=on 1 0
+ rec[8]: time=08-04 02:45:43.129 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SET_SUSPEND_OPT_ENABLED screen=on 0 0
+ rec[9]: time=08-04 02:45:53.896 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SCREEN_STATE_CHANGED screen=off 0 0
+ rec[10]: time=08-04 02:45:53.897 processed=L2ConnectedState org=L3ConnectedState dest=<null> what=CMD_ENABLE_RSSI_POLL screen=off 0 0
+ rec[11]: time=08-04 02:45:53.898 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SET_SUSPEND_OPT_ENABLED screen=off 1 1
+ rec[12]: time=08-04 02:48:25.589 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=419
+ rec[13]: time=08-04 03:48:26.664 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=414
+ rec[14]: time=08-04 03:48:56.715 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=419
+ rec[15]: time=08-04 05:48:57.606 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=414
+ rec[16]: time=08-04 05:49:27.676 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=419
+ rec[17]: time=08-04 07:17:45.441 processed=L3ConnectedState org=L3ConnectedState dest=DisconnectedState what=NETWORK_DISCONNECTION_EVENT screen=off  ssid: "5GHz_WiFi_219" bssid: cc:9d:a2:d1:52:f9 reasonCode: 7 locallyGenerated: false
+ rec[18]: time=08-04 07:17:45.474 processed=ConnectableState org=DisconnectedState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid: "5GHz_WiFi_219" bssid: 00:00:00:00:00:00 nid: 0 frequencyMhz: 0 state: DISCONNECTED
+ rec[19]: time=08-04 07:17:45.495 processed=ConnectableState org=DisconnectedState dest=<null> what=CMD_SET_MAX_DTIM_MULTIPLIER screen=off maximum multiplier=0
+ rec[20]: time=08-04 07:17:45.496 processed=ConnectableState org=DisconnectedState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid:  bssid: 00:00:00:00:00:00 nid: 0 frequencyMhz: 0 state: INTERFACE_DISABLED
+ rec[21]: time=08-04 07:17:45.496 processed=ConnectableState org=DisconnectedState dest=<null> what=CMD_UPDATE_LINKPROPERTIES screen=off 1 0 
+ rec[22]: time=08-04 07:17:45.497 processed=ConnectableState org=DisconnectedState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid:  bssid: 00:00:00:00:00:00 nid: 0 frequencyMhz: 0 state: DISCONNECTED
+ rec[23]: time=08-04 07:17:45.612 processed=ConnectableState org=DisconnectedState dest=L2ConnectingState what=CMD_START_CONNECT screen=off 0 1010 targetConfigKey="5GHz_WiFi_219"WPA_PSK BSSID=null targetBssid=any roam=false
+ rec[24]: time=08-04 07:17:45.614 processed=ConnectingOrConnectedState org=L2ConnectingState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid:  bssid: 00:00:00:00:00:00 nid: 0 frequencyMhz: 0 state: INTERFACE_DISABLED
+ rec[25]: time=08-04 07:17:45.615 processed=ConnectingOrConnectedState org=L2ConnectingState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid:  bssid: 00:00:00:00:00:00 nid: 0 frequencyMhz: 0 state: DISCONNECTED
+ rec[26]: time=08-04 07:17:45.617 processed=ConnectingOrConnectedState org=L2ConnectingState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid: "5GHz_WiFi_219" bssid: cc:9d:a2:d1:52:f9 nid: 0 frequencyMhz: 0 state: ASSOCIATING
+ rec[27]: time=08-04 07:17:45.670 processed=ConnectingOrConnectedState org=L2ConnectingState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid: "5GHz_WiFi_219" bssid: cc:9d:a2:d1:52:f9 nid: 0 frequencyMhz: 5200 state: ASSOCIATED
+ rec[28]: time=08-04 07:17:45.671 processed=ConnectableState org=L2ConnectingState dest=<null> what=ASSOCIATED_BSSID_EVENT screen=off 0 0 BSSID=cc:9d:a2:d1:52:f9 Target Bssid=any Last Bssid=cc:9d:a2:d1:52:f9 roam=false
+ rec[29]: time=08-04 07:17:45.672 processed=ConnectingOrConnectedState org=L2ConnectingState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid: "5GHz_WiFi_219" bssid: cc:9d:a2:d1:52:f9 nid: 0 frequencyMhz: 5200 state: FOUR_WAY_HANDSHAKE
+ rec[30]: time=08-04 07:17:45.674 processed=ConnectingOrConnectedState org=L2ConnectingState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid: "5GHz_WiFi_219" bssid: cc:9d:a2:d1:52:f9 nid: 0 frequencyMhz: 5200 state: GROUP_HANDSHAKE
+ rec[31]: time=08-04 07:17:45.675 processed=ConnectingOrConnectedState org=L2ConnectingState dest=L3ProvisioningState what=NETWORK_CONNECTION_EVENT screen=off 0 false cc:9d:a2:d1:52:f9 nid=0 "5GHz_WiFi_219"WPA_PSK last=
+ rec[32]: time=08-04 07:17:45.686 processed=ConnectingOrConnectedState org=L3ProvisioningState dest=<null> what=SUPPLICANT_STATE_CHANGE_EVENT screen=off 0 0 ssid: "5GHz_WiFi_219" bssid: cc:9d:a2:d1:52:f9 nid: 0 frequencyMhz: 5200 state: COMPLETED
+ rec[33]: time=08-04 07:17:45.700 processed=L2ConnectedState org=L3ProvisioningState dest=<null> what=CMD_ONESHOT_RSSI_POLL screen=off 0 0 "5GHz_WiFi_219" cc:9d:a2:d1:52:f9 rssi=-59 f=5200 sc=81 link=292 tx=0.6, 0.0, 0.0 rx=0.6 bcn=125075 [on:463739 tx:1310 rx:1880 period:28778064] from screen [on:54732 period:16311815] score=81
+ rec[34]: time=08-04 07:17:45.701 processed=ConnectableState org=L3ProvisioningState dest=<null> what=CMD_CONFIG_ND_OFFLOAD screen=off 1 1
+ rec[35]: time=08-04 07:17:45.702 processed=ConnectableState org=L3ProvisioningState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=4096
+ rec[36]: time=08-04 07:17:45.702 processed=ConnectableState org=L3ProvisioningState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=376
+ rec[37]: time=08-04 07:17:45.726 processed=ConnectableState org=L3ProvisioningState dest=<null> what=CMD_UPDATE_LINKPROPERTIES screen=off 1 0 
+ rec[38]: time=08-04 07:17:45.727 processed=ConnectableState org=L3ProvisioningState dest=<null> what=CMD_SET_MAX_DTIM_MULTIPLIER screen=off maximum multiplier=1
+ rec[39]: time=08-04 07:17:45.729 processed=L2ConnectedState org=L3ProvisioningState dest=<null> what=CMD_PRE_DHCP_ACTION screen=off 1 0 txpkts=3,0,0
+ rec[40]: time=08-04 07:17:45.729 processed=L2ConnectedState org=L3ProvisioningState dest=<null> what=CMD_PRE_DHCP_ACTION_COMPLETE screen=off 0 0
+ rec[41]: time=08-04 07:17:45.806 processed=L2ConnectedState org=L3ProvisioningState dest=<null> what=CMD_POST_DHCP_ACTION screen=off 
+ rec[42]: time=08-04 07:17:45.808 processed=L2ConnectedState org=L3ProvisioningState dest=<null> what=CMD_IPV4_PROVISIONING_SUCCESS screen=off DhcpResultsParcelable{baseConfiguration: IP address 192.168.1.17/24 Gateway 192.168.1.1  DNS servers: [ 192.168.1.1 ] Domains Home, leaseDuration: 86400, mtu: 0, serverAddress: 192.168.1.1, vendorInfo: null, serverHostName: , captivePortalApiUrl: null}
+ rec[43]: time=08-04 07:17:45.808 processed=ConnectableState org=L3ProvisioningState dest=<null> what=CMD_UPDATE_LINKPROPERTIES screen=off 1 0 v4r
+ rec[44]: time=08-04 07:17:45.817 processed=ConnectableState org=L3ProvisioningState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=414
+ rec[45]: time=08-04 07:17:45.820 processed=ConnectableState org=L3ProvisioningState dest=<null> what=CMD_UPDATE_LINKPROPERTIES screen=off 1 0 v4 v4r v4dns
+ rec[46]: time=08-04 07:17:45.820 processed=L2ConnectedState org=L3ProvisioningState dest=L3ConnectedState what=CMD_IP_CONFIGURATION_SUCCESSFUL screen=off 1 0
+ rec[47]: time=08-04 07:17:45.987 processed=L3ConnectedState org=L3ConnectedState dest=<null> what=CMD_NETWORK_STATUS screen=off 1 0
+ rec[48]: time=08-04 07:17:51.543 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=414
+ rec[49]: time=08-04 07:17:51.545 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_UPDATE_LINKPROPERTIES screen=off 1 0 v4 v4r v4dns
+ rec[50]: time=08-04 09:49:39.569 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SET_MAX_DTIM_MULTIPLIER screen=off maximum multiplier=9
+ rec[51]: time=08-04 09:49:59.533 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=419
+ rec[52]: time=08-04 10:30:18.221 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_INSTALL_PACKET_FILTER screen=off len=414
+ rec[53]: time=08-04 10:30:18.250 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SCREEN_STATE_CHANGED screen=on 1 0
+ rec[54]: time=08-04 10:30:18.278 processed=L2ConnectedState org=L3ConnectedState dest=<null> what=CMD_ENABLE_RSSI_POLL screen=on 1 0
+ rec[55]: time=08-04 10:30:18.281 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SET_SUSPEND_OPT_ENABLED screen=on 0 0
+ rec[56]: time=08-04 10:30:29.053 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SCREEN_STATE_CHANGED screen=off 0 0
+ rec[57]: time=08-04 10:30:29.053 processed=L2ConnectedState org=L3ConnectedState dest=<null> what=CMD_ENABLE_RSSI_POLL screen=off 0 0
+ rec[58]: time=08-04 10:30:29.054 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SET_SUSPEND_OPT_ENABLED screen=off 1 1
+ rec[59]: time=08-04 13:57:23.994 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SCREEN_STATE_CHANGED screen=on 1 0
+ rec[60]: time=08-04 13:57:24.012 processed=L2ConnectedState org=L3ConnectedState dest=<null> what=CMD_ENABLE_RSSI_POLL screen=on 1 0
+ rec[61]: time=08-04 13:57:24.012 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SET_SUSPEND_OPT_ENABLED screen=on 0 0
+ rec[62]: time=08-04 13:57:34.784 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SCREEN_STATE_CHANGED screen=off 0 0
+ rec[63]: time=08-04 13:57:34.784 processed=L2ConnectedState org=L3ConnectedState dest=<null> what=CMD_ENABLE_RSSI_POLL screen=off 0 0
+ rec[64]: time=08-04 13:57:34.785 processed=ConnectableState org=L3ConnectedState dest=<null> what=CMD_SET_SUSPEND_OPT_ENABLED screen=off 1 1

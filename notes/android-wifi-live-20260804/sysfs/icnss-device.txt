@@ -1,0 +1,42 @@
+total 0
+drwxr-xr-x   7 root root    0 1970-06-08 14:25 .
+drwxr-xr-x 236 root root    0 1970-06-08 14:25 ..
+lrwxrwxrwx   1 root root    0 2026-08-04 20:53 driver -> ../../../../bus/platform/drivers/icnss
+-rw-r--r--   1 root root 4096 2026-08-04 20:53 driver_override
+drwxr-xr-x   3 root root    0 2026-08-04 20:53 ieee80211
+lrwxrwxrwx   1 root root    0 2026-08-04 20:53 iommu_group -> ../../../../kernel/iommu_groups/5
+-r--r--r--   1 root root 4096 2026-08-04 20:53 modalias
+drwxr-xr-x   5 root root    0 2026-08-04 20:53 net
+lrwxrwxrwx   1 root root    0 2026-08-04 20:53 of_node -> ../../../../firmware/devicetree/base/soc/qcom,icnss@C800000
+drwxr-xr-x   2 root root    0 2026-08-04 20:53 power
+drwxr-xr-x   3 root root    0 2026-08-04 20:53 ramdump
+lrwxrwxrwx   1 root root    0 2026-08-04 20:53 subsystem -> ../../../../bus/platform
+-rw-r--r--   1 root root 4096 2026-08-04 20:53 uevent
+drwxr-xr-x   3 root root    0 1970-06-08 14:25 wakeup
+---
+DRIVER=icnss
+OF_NAME=qcom,icnss
+OF_FULLNAME=/soc/qcom,icnss@C800000
+OF_COMPATIBLE_0=qcom,icnss
+OF_COMPATIBLE_N=1
+MODALIAS=of:Nqcom,icnssT<NULL>Cqcom,icnss
+---
+/sys/kernel/iommu_groups/5
+---
+5800000.qcom,ipa
+5800000.qcom,ipa:qcom,smp2p_map_ipa_1_in
+5800000.qcom,ipa:qcom,smp2p_map_ipa_1_out
+soc:ipa_smmu_ap
+soc:ipa_smmu_uc
+soc:ipa_smmu_wlan
+soc:qcom,ipa_fws
+soc:qcom,rmnet-ipa
+---
+[init.svc.vendor.ipacm]: [running]
+[init.svc_debug_pid.vendor.ipacm]: [1303]
+[ro.boottime.vendor.ipacm]: [5564949372]
+---
+parameters
+uevent
+
+---

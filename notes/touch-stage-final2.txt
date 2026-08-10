@@ -1,0 +1,10 @@
+cp -a /home/damir00109/Desktop/Redmi10c/tools/rain-overlay/lib/modules/fts_spi.ko /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/lib/modules/7.1.5-dirty/extra/fts_spi.ko -> 0 
+mkdir -p /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/etc/modules-load.d /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/usr/local/sbin /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/lib/modules -> 0 
+cp -a /home/damir00109/Desktop/Redmi10c/tools/rain-overlay/etc/modules-load.d/fts_spi.conf /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/etc/modules-load.d/ -> 0 
+cp -a /home/damir00109/Desktop/Redmi10c/tools/rain-overlay/usr/local/sbin/rain-touch-load /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/usr/local/sbin/ -> 0 
+cp -a /home/damir00109/Desktop/Redmi10c/tools/rain-overlay/lib/modules/fts_spi.ko /home/damir00109/Desktop/Redmi10c/out/ubuntu-dualboot/rootfs/lib/modules/fts_spi.ko -> 0 
+b'focaltech,fts' False
+b'geni-spi' False
+b'qup0' False
+ko size 349528
+DONE

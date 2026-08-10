@@ -1,0 +1,360 @@
+[    0.000000] OF: reserved mem: initialized node modem_region@4ab00000, compatible id removed-dma-pool
+[    0.000000] OF: reserved mem: initialized node pil_video_region@51400000, compatible id removed-dma-pool
+[    0.000000] OF: reserved mem: initialized node wlan_msa_region@51900000, compatible id removed-dma-pool
+[    0.000000] OF: reserved mem: initialized node pil_adsp_region@53800000, compatible id removed-dma-pool
+[    0.171664] platform ab00000.qcom,lpass: assigned reserved memory node pil_adsp_region@53800000
+[    0.180995] platform 5ab0000.qcom,venus: assigned reserved memory node pil_video_region@51400000
+[    0.181562] platform 6080000.qcom,mss: assigned reserved memory node modem_region@4ab00000
+[    0.318861] Failed to setup PIL ipc logging
+ accessory_chip=0, hw_plat_subtype=0, pmic_model=65581, pmic_die_revision=65537 foundry_id=1 serial_number=1105251213 num_pmics=1 chip_family=0x7e raw_device_family=0x9 raw_device_number=0x7 nproduct_id=0x43a num_clusters=0x0 ncluster_array_offset=0xb0 num_subset_parts=0xc nsubset_parts_array_offset=0xb0 nmodem_supported=0xff
+[    0.480685] ipa soc:ipa_smmu_wlan: Linked as a consumer to c600000.apps-smmu
+[    0.481002] iommu: Adding device soc:ipa_smmu_wlan to group 1
+[    0.839398] subsys-pil-tz ab00000.qcom,lpass: Linked as a consumer to regulator.25
+[    0.839419] subsys-pil-tz ab00000.qcom,lpass: Linked as a consumer to regulator.24
+[    0.840189] subsys-pil-tz b300000.qcom,turing: Linked as a consumer to regulator.14
+[    0.840488] subsys-pil-tz 5ab0000.qcom,venus: Linked as a consumer to regulator.6
+[    0.840571] subsys-pil-tz 5ab0000.qcom,venus: for venus segments only will be dumped.
+[    0.840593] subsys-pil-tz 5ab0000.qcom,venus: for md_venus segments only will be dumped.
+[    0.840695] subsys-pil-tz 6080000.qcom,mss: Linked as a consumer to regulator.14
+[    0.841032] subsys-pil-tz soc:qcom,ipa_fws: for ipa_fws segments only will be dumped.
+[    0.841052] subsys-pil-tz soc:qcom,ipa_fws: for md_ipa_fws segments only will be dumped.
+[    0.841174] subsys-pil-tz soc:qcom,kgsl-hyp: for a610_zap segments only will be dumped.
+[    0.841195] subsys-pil-tz soc:qcom,kgsl-hyp: for md_a610_zap segments only will be dumped.
+[    0.844420] icnss: Unable to create log context
+[    0.844428] icnss: Unable to create log long context
+[    0.844573] icnss c800000.qcom,icnss: Linked as a consumer to c600000.apps-smmu
+[    0.845766] iommu: Adding device c800000.qcom,icnss to group 5
+[    0.846094] icnss: Recursive recovery allowed for WLAN
+[    0.846158] icnss c800000.qcom,icnss: Linked as a consumer to regulator.30
+[    0.846189] icnss c800000.qcom,icnss: Linked as a consumer to regulator.38
+[    0.846207] icnss c800000.qcom,icnss: Linked as a consumer to regulator.39
+[    0.846273] icnss c800000.qcom,icnss: Linked as a consumer to regulator.45
+[    0.846427] icnss c800000.qcom,icnss: for wcss_msa0 segments only will be dumped.
+[    0.846479] icnss: Unable to create debugfs -19
+[    0.846517] icnss: Platform driver probed successfully
+[    0.899177] cnss_utils: Unable to create debugfs -19
+[    0.927982] bt_dt_parse_vreg_info: qca,bt-vdd-ldo: is not provided in device tree
+[    0.927988] bt_dt_parse_vreg_info: qca,bt-chip-pwd: is not provided in device tree
+[    0.927993] bt_dt_parse_vreg_info: qca,bt-vdd-aon: is not provided in device tree
+[    0.927998] bt_dt_parse_vreg_info: qca,bt-vdd-dig: is not provided in device tree
+[    0.928004] bt_dt_parse_vreg_info: qca,bt-vdd-rfa1: is not provided in device tree
+[    0.928008] bt_dt_parse_vreg_info: qca,bt-vdd-rfa2: is not provided in device tree
+[    0.928033] bt_dt_parse_vreg_info: qca,bt-vdd-asd: is not provided in device tree
+[    0.929756] wlan: Loading driver v5.2.022.12B
+[    0.930405] wlan_hdd_state wlan major(504) initialized
+[    1.256825] Loading compiled-in X.509 certificates
+[    1.263140] adsprpc: fastrpc_device_init: SSR notifier registered for modem
+[    1.270374] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    1.846301] init: Parsing file /system/etc/init/wifi.rc...
+[    1.846522] init: Parsing file /system/etc/init/wificond.rc...
+[    1.851651] init: Parsing file /vendor/etc/init/android.hardware.wifi-service.rc...
+[    1.851817] init: Parsing file /vendor/etc/init/android.hardware.wifi.supplicant-service.rc...
+[    1.851989] init: /vendor/etc/init/android.hardware.wifi.supplicant-service.rc: 4: Interface 'aidl/android.hardware.wifi.supplicant.ISupplicant/default' redefined in wpa_supplicant but is already defined by wpa_supplicant
+[    1.922536] apexd-bootstrap: Found pre-installed APEX /system/apex/com.android.wifi.capex
+[    3.547901] init: [libfs_mgr] __mount(source=/dev/block/bootdevice/by-name/modem_b,target=/vendor/firmware_mnt,type=vfat)=0: Success
+[    3.574588] init: processing action (fs) from (/system/etc/init/wifi.rc:25)
+[    4.101274] apexd: Found pre-installed APEX /system/apex/com.android.wifi.capex
+[    4.125720] subsys-pil-tz soc:qcom,kgsl-hyp: loading /vendor/firmware/a610_zap.mdt failed with error -13
+[    4.125779] subsys-pil-tz soc:qcom,kgsl-hyp: loading /system/vendor/firmware/a610_zap.mdt failed with error -13
+[    4.125793] subsys-pil-tz soc:qcom,kgsl-hyp: Falling back to syfs fallback for: a610_zap.mdt
+[    4.132370] subsys-pil-tz soc:qcom,kgsl-hyp: a610_zap: loading from 0x00000000fb500000 to 0x00000000fb501000
+[    4.152889] subsys-pil-tz soc:qcom,kgsl-hyp: a610_zap: Brought out of reset
+[    4.154335] apexd: Processing compressed APEX /system/apex/com.android.wifi.capex
+[    4.157887] apexd: Skipping decompression for /system/apex/com.android.wifi.capex
+[    4.314335] init: Parsing file /apex/com.android.wifi/etc/mainline_supplicant.rc...
+[    5.215822] init: processing action (post-fs-data) from (/system/etc/init/wifi.rc:18)
+[    5.216684] selinux: SELinux: Skipping restorecon on directory(/data/misc/apexdata/com.android.wifi)
+[    6.224094] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.mdt
+[    6.225368] subsys-pil-tz b300000.qcom,turing: Falling back to syfs fallback for: cdsp.mdt
+[    6.228785] subsys-pil-tz ab00000.qcom,lpass: adsp: loading from 0x0000000053800000 to 0x0000000056600000
+[    6.230946] subsys-pil-tz b300000.qcom,turing: cdsp: loading from 0x0000000051a00000 to 0x0000000053800000
+[    6.270992] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b02
+[    6.271021] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b03
+[    6.271132] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b04
+[    6.271156] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b05
+[    6.271498] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b06
+[    6.271581] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b07
+[    6.271630] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b08
+[    6.271725] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b09
+[    6.272205] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b10
+[    6.272326] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b12
+[    6.272451] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b13
+[    6.272503] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b14
+[    6.272610] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b15
+[    6.272710] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b16
+[    6.273003] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b17
+[    6.273041] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b18
+[    6.273354] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b19
+[    6.273413] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b20
+[    6.273431] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b21
+[    6.273618] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b22
+[    6.273677] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b23
+[    6.273824] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b24
+[    6.273924] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b25
+[    6.273991] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b26
+[    6.274069] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b27
+[    6.274157] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b28
+[    6.274270] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b29
+[    6.274345] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b30
+[    6.274441] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b31
+[    6.274611] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b32
+[    6.274725] subsys-pil-tz ab00000.qcom,lpass: Falling back to syfs fallback for: adsp.b33
+[    6.277414] subsys-pil-tz b300000.qcom,turing: Falling back to syfs fallback for: cdsp.b02
+[    6.277861] subsys-pil-tz b300000.qcom,turing: Falling back to syfs fallback for: cdsp.b03
+[    6.279394] subsys-pil-tz b300000.qcom,turing: Falling back to syfs fallback for: cdsp.b04
+[    6.279432] subsys-pil-tz b300000.qcom,turing: Falling back to syfs fallback for: cdsp.b05
+[    6.280054] subsys-pil-tz b300000.qcom,turing: Falling back to syfs fallback for: cdsp.b06
+[    6.280794] subsys-pil-tz b300000.qcom,turing: Falling back to syfs fallback for: cdsp.b08
+[    6.280902] subsys-pil-tz b300000.qcom,turing: Falling back to syfs fallback for: cdsp.b09
+[    6.281868] subsys-pil-tz b300000.qcom,turing: Falling back to syfs fallback for: cdsp.b11
+[    6.392697] subsys-pil-tz b300000.qcom,turing: cdsp: Brought out of reset
+[    6.404987] subsys-pil-tz b300000.qcom,turing: Subsystem error monitoring/handling services are up
+[    6.406885] qcom_smd_qrtr_probe:Entered
+[    6.408083] qcom_smd_qrtr_probe:SMD QRTR driver probed
+[    6.408351] subsys-pil-tz b300000.qcom,turing: cdsp: Power/Clock ready interrupt received
+[    6.512055] subsys-pil-tz ab00000.qcom,lpass: adsp: Brought out of reset
+[    6.518694] subsys-pil-tz soc:qcom,ipa_fws: ipa_fws: loading from 0x0000000056600000 to 0x0000000056605000
+[    6.540492] subsys-pil-tz ab00000.qcom,lpass: Subsystem error monitoring/handling services are up
+[    6.541535] subsys-pil-tz ab00000.qcom,lpass: adsp: Power/Clock ready interrupt received
+[    6.549655] subsys-pil-tz soc:qcom,ipa_fws: ipa_fws: Brought out of reset
+[    6.558380] qcom_smd_qrtr_probe:Entered
+[    6.559202] qcom_smd_qrtr_probe:SMD QRTR driver probed
+[    6.600955] init: starting service 'vendor.wifi_hal_legacy'...
+[    6.603604] init: ... started service 'vendor.wifi_hal_legacy' has pid 1457
+[    6.684450] init: starting service 'vendor.qrtr-ns'...
+[    6.703166] init: ... started service 'vendor.qrtr-ns' has pid 1490
+[    6.711077] diag: In socket_open_server, socket not initialized for WCNSS_CNTL
+[    6.711079] diag: In socket_open_server, socket not initialized for MODEM_CNTL
+[    6.711284] diag: In socket_open_server, socket not initialized for MODEM_DATA
+[    6.711314] diag: In socket_open_server, socket not initialized for MODEM_DCI
+[    6.711322] diag: In socket_open_server, socket not initialized for WCNSS_DATA
+[    6.711340] diag: In socket_open_server, socket not initialized for WCNSS_DCI
+[    6.778458] servicemanager: Caller(pid=1457,uid=1010,sid=u:r:hal_wifi_default:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[    6.786667] rmt_storage:INFO:check_support_using_libmdm: Modem subsystem found on target!
+[    6.865977] init: Command 'insmod /vendor/lib/modules/qca_cld3_wlan.ko' action=boot (/vendor/etc/init/hw/init.target.rc:153) took 0ms and failed: open("/vendor/lib/modules/qca_cld3_wlan.ko") failed: No such file or directory
+[    6.997847] subsys-restart: __subsystem_get(): Changing subsys fw_name to modem
+[    7.005772] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.mdt
+[    7.032146] ueventd: firmware: loading 'modem.mdt' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.mdt'
+[    7.033090] ueventd: found /vendor/firmware_mnt/image/modem.mdt for /devices/platform/soc/6080000.qcom,mss/firmware/modem.mdt
+[    7.035206] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.mdt took 3ms
+[    7.035325] subsys-pil-tz 6080000.qcom,mss: modem: loading from 0x000000004ab00000 to 0x0000000051400000
+[    7.065348] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b02
+[    7.068161] ueventd: firmware: loading 'modem.b02' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b02'
+[    7.069091] ueventd: found /vendor/firmware_mnt/image/modem.b02 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b02
+[    7.072815] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b02 took 4ms
+[    7.073016] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b03
+[    7.075439] ueventd: firmware: loading 'modem.b03' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b03'
+[    7.075891] ueventd: found /vendor/firmware_mnt/image/modem.b03 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b03
+[    7.076888] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b03 took 1ms
+[    7.077097] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b04
+[    7.079430] ueventd: firmware: loading 'modem.b04' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b04'
+[    7.080471] ueventd: found /vendor/firmware_mnt/image/modem.b04 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b04
+[    7.082461] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b04 took 3ms
+[    7.082684] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b05
+[    7.086717] ueventd: firmware: loading 'modem.b05' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b05'
+[    7.087870] ueventd: found /vendor/firmware_mnt/image/modem.b05 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b05
+[    7.088744] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b05 took 2ms
+[    7.090280] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b06
+[    7.095337] ueventd: firmware: loading 'modem.b06' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b06'
+[    7.096968] ueventd: found /vendor/firmware_mnt/image/modem.b06 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b06
+[    7.098355] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b06 took 3ms
+[    7.098548] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b07
+[    7.105313] ueventd: firmware: loading 'modem.b07' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b07'
+[    7.106000] ueventd: found /vendor/firmware_mnt/image/modem.b07 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b07
+[    7.107133] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b07 took 1ms
+[    7.107531] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b08
+[    7.112008] ueventd: firmware: loading 'modem.b08' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b08'
+[    7.113083] ueventd: found /vendor/firmware_mnt/image/modem.b08 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b08
+[    7.114630] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b08 took 2ms
+[    7.114821] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b09
+[    7.119270] ueventd: firmware: loading 'modem.b09' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b09'
+[    7.121077] ueventd: found /vendor/firmware_mnt/image/modem.b09 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b09
+[    7.122781] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b09 took 3ms
+[    7.123176] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b10
+[    7.172980] ueventd: firmware: loading 'modem.b10' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b10'
+[    7.173305] ueventd: found /vendor/firmware_mnt/image/modem.b10 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b10
+[    7.184565] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b10 took 11ms
+[    7.187258] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b11
+[    7.320761] ueventd: firmware: loading 'modem.b11' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b11'
+[    7.321852] ueventd: found /vendor/firmware_mnt/image/modem.b11 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b11
+[    7.326671] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b11 took 6ms
+[    7.326948] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b12
+[    7.331437] ueventd: firmware: loading 'modem.b12' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b12'
+[    7.331926] ueventd: found /vendor/firmware_mnt/image/modem.b12 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b12
+[    7.336209] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b12 took 5ms
+[    7.336452] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b13
+[    7.340794] ueventd: firmware: loading 'modem.b13' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b13'
+[    7.341612] ueventd: found /vendor/firmware_mnt/image/modem.b13 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b13
+[    7.345056] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b13 took 4ms
+[    7.348797] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b15
+[    7.351285] ueventd: firmware: loading 'modem.b15' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b15'
+[    7.351792] ueventd: found /vendor/firmware_mnt/image/modem.b15 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b15
+[    7.356270] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b15 took 5ms
+[    7.356386] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b16
+[    7.358459] ueventd: firmware: loading 'modem.b16' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b16'
+[    7.358826] ueventd: found /vendor/firmware_mnt/image/modem.b16 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b16
+[    7.360599] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b16 took 2ms
+[    7.360690] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b17
+[    7.363420] ueventd: firmware: loading 'modem.b17' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b17'
+[    7.364573] ueventd: found /vendor/firmware_mnt/image/modem.b17 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b17
+[    7.378976] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b17 took 15ms
+[    7.381465] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b18
+[    7.384459] ueventd: firmware: loading 'modem.b18' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b18'
+[    7.385257] ueventd: found /vendor/firmware_mnt/image/modem.b18 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b18
+[    7.412589] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b18 took 28ms
+[    7.422795] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b21
+[    7.426499] ueventd: firmware: loading 'modem.b21' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b21'
+[    7.427359] ueventd: found /vendor/firmware_mnt/image/modem.b21 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b21
+[    7.428014] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b21 took 1ms
+[    7.428387] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b22
+[    7.432857] ueventd: firmware: loading 'modem.b22' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b22'
+[    7.433768] ueventd: found /vendor/firmware_mnt/image/modem.b22 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b22
+[    7.478449] init: starting service 'wificond'...
+[    7.485611] init: ... started service 'wificond' has pid 1797
+[    7.527558] servicemanager: Caller(pid=1797,uid=1010,sid=u:r:wificond:s0) Could not find android.hardware.net.nlinterceptor.IInterceptor/default in the VINTF manifest. No alternative instances declared in VINTF.
+[    7.630687] init: starting service 'cnss-daemon'...
+[    7.640305] init: ... started service 'cnss-daemon' has pid 1830
+[    7.685589] cnss-daemon: Couldn't resolve family id
+[    7.685626] cnss-daemon: Failed to init genl between daemon and platform, continue
+[    7.685632] cnss-daemon: wlfw_start: Starting
+[    7.756830] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b22 took 324ms
+[    7.758296] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b23
+[    7.768467] ueventd: firmware: loading 'modem.b23' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b23'
+[    7.768974] ueventd: found /vendor/firmware_mnt/image/modem.b23 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b23
+[    7.772675] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b23 took 4ms
+[    7.773710] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b24
+[    7.777099] ueventd: firmware: loading 'modem.b24' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b24'
+[    7.777561] ueventd: found /vendor/firmware_mnt/image/modem.b24 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b24
+[    7.889150] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b24 took 112ms
+[    7.902823] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b25
+[    7.911641] ueventd: firmware: loading 'modem.b25' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b25'
+[    7.913437] ueventd: found /vendor/firmware_mnt/image/modem.b25 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b25
+[    7.920782] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b25 took 9ms
+[    7.920959] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b26
+[    7.924332] ueventd: firmware: loading 'modem.b26' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b26'
+[    7.924744] ueventd: found /vendor/firmware_mnt/image/modem.b26 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b26
+[    7.925726] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b26 took 1ms
+[    7.928127] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b27
+[    7.930734] ueventd: firmware: loading 'modem.b27' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b27'
+[    7.931817] ueventd: found /vendor/firmware_mnt/image/modem.b27 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b27
+[    7.932386] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b27 took 1ms
+[    7.933133] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b28
+[    7.936014] ueventd: firmware: loading 'modem.b28' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b28'
+[    7.937307] ueventd: found /vendor/firmware_mnt/image/modem.b28 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b28
+[    7.940166] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b28 took 4ms
+[    7.940716] subsys-pil-tz 6080000.qcom,mss: Falling back to syfs fallback for: modem.b29
+[    7.943862] ueventd: firmware: loading 'modem.b29' for '/devices/platform/soc/6080000.qcom,mss/firmware/modem.b29'
+[    7.945105] ueventd: found /vendor/firmware_mnt/image/modem.b29 for /devices/platform/soc/6080000.qcom,mss/firmware/modem.b29
+[    7.952398] ueventd: loading /devices/platform/soc/6080000.qcom,mss/firmware/modem.b29 took 8ms
+[    8.241198] subsys-pil-tz 6080000.qcom,mss: modem: Brought out of reset
+[    8.268365] subsys-pil-tz 6080000.qcom,mss: Subsystem error monitoring/handling services are up
+[    8.272015] subsys-pil-tz 6080000.qcom,mss: modem: Power/Clock ready interrupt received
+[    8.272293] memshare soc:qcom,memshare: memshare: SUBSYS_AFTER_POWERUP: Modem has booted up
+[    8.272304] adsprpc: fastrpc_restart_notifier_cb: modem subsystem is up
+[    8.276082] qcom_smd_qrtr_probe:Entered
+[    8.276608] cnss-daemon: wlfw_service_request: Start the pthread: 0x0K
+[    8.276700] cnss-daemon: no interop issues ap currently
+[    8.277673] cnss-daemon: ro.baseband : [msm]
+[    8.280174] qcom_smd_qrtr_probe:SMD QRTR driver probed
+[    8.281392] sysmon-qmi: ssctl_new_server: Connection established between QMI handle and modem's SSCTL service
+[    8.283519] rmt_storage:INFO:rmt_storage_open_cb: Processing: Open Request (req_h 0x1) for /boot/modem_fs1!
+[    8.284184] rmt_storage:INFO:rmt_storage_open_cb: Processing: Open Request (req_h 0x2) for /boot/modem_fs2!
+[    8.288499] rmt_storage:INFO:rmt_storage_rw_iovec_cb: Read iovec request (req_h 0x4 wr_count 0) received for /boot/modem_fs1
+[    8.289111] rmt_storage:INFO:rmt_storage_client_thread: Calling Read [offset=512, size=512, req_h 0x4, wr_count 0] for /boot/modem_fs1!
+[    8.289570] rmt_storage:INFO:rmt_storage_client_thread: Done Read (bytes = 512, req_h 0x4, wr_count 0) for /boot/modem_fs1!
+[    8.290166] rmt_storage:INFO:rmt_storage_rw_iovec_cb: Read iovec request (req_h 0x5 wr_count 0) received for /boot/modem_fs2
+[    8.292382] rmt_storage:INFO:rmt_storage_client_thread: Calling Read [offset=512, size=512, req_h 0x5, wr_count 0] for /boot/modem_fs2!
+[    8.296111] rmt_storage:INFO:rmt_storage_client_thread: Done Read (bytes = 512, req_h 0x5, wr_count 0) for /boot/modem_fs2!
+[    8.302140] rmt_storage:INFO:rmt_storage_rw_iovec_cb: Read iovec request (req_h 0x6 wr_count 0) received for /boot/modem_fs2
+[    8.302589] rmt_storage:INFO:rmt_storage_client_thread: Calling Read [offset=1024, size=3144704, req_h 0x6, wr_count 0] for /boot/modem_fs2!
+[    8.316774] rmt_storage:INFO:rmt_storage_client_thread: Done Read (bytes = 3144704, req_h 0x6, wr_count 0) for /boot/modem_fs2!
+[    8.419861] rmt_storage:INFO:rmt_storage_rw_iovec_cb: Write iovec request (req_h 0x7 wr_count 1) received for /boot/modem_fs1
+[    8.420175] rmt_storage:INFO:rmt_storage_client_thread: Calling Write [offset=0, size=3145728, req_h 0x7, wr_count 1] for /boot/modem_fs1!
+[    8.476185] rmt_storage:INFO:rmt_storage_client_thread: Done Write (bytes = 3145728, req_h 0x7, wr_count 1) for /boot/modem_fs1!
+[    8.529445] rmt_storage:INFO:rmt_storage_rw_iovec_cb: Write iovec request (req_h 0x8 wr_count 2) received for /boot/modem_fs2
+[    8.529562] rmt_storage:INFO:rmt_storage_client_thread: Calling Write [offset=0, size=3145728, req_h 0x8, wr_count 2] for /boot/modem_fs2!
+[    8.570431] rmt_storage:INFO:rmt_storage_client_thread: Done Write (bytes = 3145728, req_h 0x8, wr_count 2) for /boot/modem_fs2!
+[    8.578547] Sending QMI_IPA_INIT_MODEM_DRIVER_REQ_V01
+[    8.586800] QMI_IPA_INIT_MODEM_DRIVER_REQ_V01 response received
+[    8.914597] rmt_storage:INFO:rmt_storage_rw_iovec_cb: Write iovec request (req_h 0x9 wr_count 3) received for /boot/modem_fs1
+[    8.914764] rmt_storage:INFO:rmt_storage_client_thread: Calling Write [offset=0, size=3145728, req_h 0x9, wr_count 3] for /boot/modem_fs1!
+[    8.938005] rmt_storage:INFO:rmt_storage_client_thread: Done Write (bytes = 3145728, req_h 0x9, wr_count 3) for /boot/modem_fs1!
+[    9.066037] service-notifier: root_service_service_ind_cb: Indication received from msm/modem/wlan_pd, state: 0x1fffffff, trans-id: 1
+[    9.066241] service-notifier: send_ind_ack: Indication ACKed for transid 1, service msm/modem/wlan_pd, instance 180!
+[    9.078888] icnss_qmi: QMI Server Connected: state: 0x980
+[    9.079876] cnss-daemon: wlfw_build_cal_table: not read /data/vendor/wifi/wlfw_cal_00.bin
+[    9.079888] cnss-daemon: wlfw_build_cal_table: not read /data/vendor/wifi/wlfw_cal_01.bin
+[    9.079891] cnss-daemon: wlfw_build_cal_table: not read /data/vendor/wifi/wlfw_cal_02.bin
+[    9.079894] cnss-daemon: wlfw_build_cal_table: not read /data/vendor/wifi/wlfw_cal_03.bin
+[    9.079897] cnss-daemon: wlfw_build_cal_table: not read /data/vendor/wifi/wlfw_cal_04.bin
+[    9.083875] icnss: hyperviser disabled
+[    9.083880] icnss: hyperviser disabled
+[    9.084362] icnss_qmi: Invalid Hang Data details, Offset:0x0, Length:0x0
+[    9.412043] cnss-daemon: wlfw_send_bdf_download_req: Failed to find BDF file regdb.bin
+[    9.412063] cnss-daemon: Failed to Download the REGDB File
+[    9.412378] init: Unable to set property 'ro.wlan.chip' from uid:1000 gid:1000 pid:1830: Read-only property was already set
+[    9.732932] rmt_storage:INFO:rmt_storage_rw_iovec_cb: Write iovec request (req_h 0xa wr_count 4) received for /boot/modem_fs2
+[    9.733075] rmt_storage:INFO:rmt_storage_client_thread: Calling Write [offset=0, size=3145728, req_h 0xa, wr_count 4] for /boot/modem_fs2!
+[    9.744969] rmt_storage:INFO:rmt_storage_client_thread: Done Write (bytes = 3145728, req_h 0xa, wr_count 4) for /boot/modem_fs2!
+[   10.651388] rmt_storage:INFO:rmt_storage_rw_iovec_cb: Write iovec request (req_h 0xb wr_count 5) received for /boot/modem_fs1
+[   10.651451] rmt_storage:INFO:rmt_storage_client_thread: Calling Write [offset=0, size=3145728, req_h 0xb, wr_count 5] for /boot/modem_fs1!
+[   10.668444] rmt_storage:INFO:rmt_storage_client_thread: Done Write (bytes = 3145728, req_h 0xb, wr_count 5) for /boot/modem_fs1!
+[   11.857941] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   11.861863] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+[   11.864264] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+[   11.968651] icnss: WLAN FW is ready: 0xd87
+[   12.343061] cnss_utils: WLAN MAC address is not set, type 0
+[   12.343342] icnss c800000.qcom,icnss: loading /vendor/firmware/wlan/qca_cld/wlan_mac.bin failed with error -13
+[   12.343410] icnss c800000.qcom,icnss: loading /system/vendor/firmware/wlan/qca_cld/wlan_mac.bin failed with error -13
+[   12.343431] icnss c800000.qcom,icnss: Falling back to syfs fallback for: wlan/qca_cld/wlan_mac.bin
+[   12.347922] ueventd: firmware: loading 'wlan/qca_cld/wlan_mac.bin' for '/devices/platform/soc/c800000.qcom,icnss/firmware/wlan!qca_cld!wlan_mac.bin'
+[   12.349907] ueventd: firmware: could not find firmware for wlan/qca_cld/wlan_mac.bin
+[   12.349944] ueventd: firmware: attempted /etc/firmware/wlan/qca_cld/wlan_mac.bin, open failed: No such file or directory
+[   12.349959] ueventd: firmware: attempted /odm/firmware/wlan/qca_cld/wlan_mac.bin, open failed: No such file or directory
+[   12.349973] ueventd: firmware: attempted /vendor/firmware/wlan/qca_cld/wlan_mac.bin, open failed: No such file or directory
+[   12.349987] ueventd: firmware: attempted /firmware/image/wlan/qca_cld/wlan_mac.bin, open failed: No such file or directory
+[   12.350001] ueventd: firmware: attempted /vendor/firmware_mnt/image/wlan/qca_cld/wlan_mac.bin, open failed: No such file or directory
+[   12.351064] cnss-daemon: no interop issues ap currently
+[   12.503691] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   12.514064] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   12.515084] type=1400 audit(1785322822.070:65): avc:  denied  { read } for  comm="binder:1457_1" name="u:object_r:persist_vendor_debug_wifi_prop:s0" dev="tmpfs" ino=1443 scontext=u:r:hal_wifi_default:s0 tcontext=u:object_r:persist_vendor_debug_wifi_prop:s0 tclass=file permissive=0
+[   12.520256] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   12.523115] IPv6: ADDRCONF(NETDEV_UP): wlan0: link is not ready
+[   12.544429] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   12.553661] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   12.554244] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+[   12.554803] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+[   12.555392] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Since 'android.hardware.wifi.supplicant.ISupplicant/default' could not be found trying to start it as a lazy AIDL service. (if it's not configured to be a lazy service, it may be stuck starting or still starting).
+[   12.556689] init: Created socket '/dev/socket/vendor_wpa_wlan0', mode 660, user 1010, group 1010
+[   12.559152] init: Control message: Processed ctl.interface_start for 'aidl/android.hardware.wifi.supplicant.ISupplicant/default' from pid: 961 (/system/bin/servicemanager)
+[   12.582669] servicemanager: Caller(pid=2625,uid=1010,sid=u:r:hal_wifi_supplicant_default:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+[   12.597945] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   12.629242] IPv6: ADDRCONF(NETDEV_UP): wlan0: link is not ready
+[   12.793960] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.mdt
+[   12.798953] subsys-pil-tz 5ab0000.qcom,venus: venus: loading from 0x0000000051400000 to 0x0000000051900000
+[   12.831555] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b03
+[   12.831558] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b05
+[   12.831560] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b04
+[   12.831562] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b02
+[   12.832203] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b07
+[   12.832221] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b06
+[   12.832346] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b08
+[   12.832464] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b10
+[   12.832465] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b09
+[   12.832644] subsys-pil-tz 5ab0000.qcom,venus: Falling back to syfs fallback for: venus.b19
+[   12.885551] subsys-pil-tz 5ab0000.qcom,venus: venus: Brought out of reset
+[   13.859595] servicemanager: Caller(pid=2910,uid=1001,sid=u:r:radio:s0) Could not find android.hardware.radio.modem.IRadioModem/slot1 in the VINTF manifest. No alternative instances declared in VINTF.
+[   13.869716] servicemanager: Caller(pid=2910,uid=1001,sid=u:r:radio:s0) Could not find android.hardware.radio.modem.IRadioModem/slot1 in the VINTF manifest. No alternative instances declared in VINTF.
+[   13.914308] servicemanager: Caller(pid=2910,uid=1001,sid=u:r:radio:s0) Could not find android.hardware.radio.modem.IRadioModem/slot1 in the VINTF manifest. No alternative instances declared in VINTF.
+[   13.937319] servicemanager: Caller(pid=2910,uid=1001,sid=u:r:radio:s0) Could not find android.hardware.radio.modem.IRadioModem/slot2 in the VINTF manifest. No alternative instances declared in VINTF.
+[   13.947404] servicemanager: Caller(pid=2910,uid=1001,sid=u:r:radio:s0) Could not find android.hardware.radio.modem.IRadioModem/slot2 in the VINTF manifest. No alternative instances declared in VINTF.
+[   13.968412] servicemanager: Caller(pid=2910,uid=1001,sid=u:r:radio:s0) Could not find android.hardware.radio.modem.IRadioModem/slot2 in the VINTF manifest. No alternative instances declared in VINTF.
+[   19.614191] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   19.618702] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   19.799757] init: processing action (sys.boot_completed=1 && sys.wifitracing.started=0) from (/system/etc/init/wifi.rc:28)
+[   19.800882] selinux: SELinux: Could not get canonical path for /sys/kernel/tracing/instances/wifi restorecon: No such file or directory.
+[   19.828133] init: processing action (sys.boot_completed=1 && sys.wifitracing.started=1 && wifi.interface=*) from (/system/etc/init/wifi.rc:70)
+[   21.481421] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   21.492146] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   21.936960] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+[   21.939674] servicemanager: Caller(pid=2132,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.

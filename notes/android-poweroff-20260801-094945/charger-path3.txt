@@ -1,0 +1,4 @@
+ls: /system/bin/charger: Permission denied
+ls: /product/bin/charger: No such file or directory
+ls: /system_ext/bin/charger: No such file or directory
+package:/system_ext/priv-app/SystemUI/SystemUI.apk

@@ -1,0 +1,11 @@
+   4 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/charger-bins.txt
+   4 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/cmdline-bootreason.txt
+   3 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/devices.txt
+   4 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/device.txt
+  80 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/dumpsys-batterystats-head.txt
+  24 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/dumpsys-battery.txt
+   1 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/kernel-power.txt
+  15 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/props-power.txt
+  43 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/shutdown-path.txt
+   8 /home/damir00109/Desktop/Redmi10c/notes/android-poweroff-20260801-094945/sysfs-power_supply.txt
+ 186 total

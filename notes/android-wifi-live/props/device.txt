@@ -1,0 +1,6 @@
+rain
+220333QNY
+BP4A.251205.006 release-keys
+_b
+qcom
+bengal

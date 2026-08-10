@@ -1,0 +1,52 @@
+# USB bring-up notes (rain / SM6225 Khaje)
+
+## Confirmed from diag photo
+- Linux 7.1.5 boots thin DT
+- UDC 4e00000.usb OK, ttyGS0=y
+- PHY = usb-nop-xceiv only → host sees nothing
+
+## Downstream (sea_kernel khaje-usb.dtsi) — rain/fog/wind
+- HS PHY @ 0x1613000: compatible = "qcom,usb-hsphy-snps-femto"
+  NOT classic qusb2phy (that's bengal-usb.dtsi)
+- Supplies: L4A (vdd), L12A (vdda18), L15A (vdda33)
+- clocks: rpmcc CXO_SMD_OTG_CLK + gcc GCC_AHB2PHY_USB_CLK
+- reset: GCC_QUSB2PHY_PRIM_BCR
+- param-override-seq: 0x61@0x6c, 0x08@0x70, 0x2d@0x74
+- Wrapper: qcom,dwc-usb3-msm @ 4e00000, dwc3 IRQ 255
+- Also QMP SS PHY @ 1615000 (can disable for HS-only gadget)
+
+## Bengal (older) qusb2 init seq matches Konrad fix:
+  TUNE1=0xf8 TUNE2=0xb3 TUNE3=0x81 TUNE4=0xc0
+  Our 7.1 sm6115_init_tbl still has WRONG 0x53/0x17 — fix it.
+
+## Mainline match
+- Driver: drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c
+  compatible: "qcom,usb-snps-femto-v2-phy"
+  OVERRIDE regs 0x6c/0x70/0x74 match khaje param-override-seq!
+- Needs: ref clk, optional cfg_ahb, exclusive reset (GCC_QUSB2PHY_PRIM_BCR),
+  regulators vdda-pll / vdda33 / vdda18
+- CONFIG_PHY_QCOM_USB_SNPS_FEMTO_V2 was =m → must =y for initramfs
+
+## Next steps
+1. Thin DT: replace usb-nop with femto-v2 @ 1613000, xo_board as ref, stub regs
+2. Make phy reset optional (ABL already inited) OR add minimal gcc reset only
+3. Rebuild, flash, look for host ACM
+4. Keep UFS disabled until USB works
+5. Fixed sm6115_init_tbl TUNE2/4 to bengal values (backup path)
+
+## 2026-07-26 15:10 reinit flash
+- Device previously: GADGET_OK + phy-1613000 + ahb2phy=0x80000003 + ttyGS0=y, host still blind
+- Hypothesis: phy_init before AHB clock → reinit via unbind/bind after MMIO clocks
+- Flashed; host still no ACM after 55s
+
+## 2026-07-26 16:38
+- ep0out fail without USB GDSC; force clocks in femto init
+- host still blind → missing QSCRATCH VBUS_VALID + UTMI-as-pipe (dwc3-qcom)
+- next: MMIO poke 0x04ef8808/10/30 then proper qcom,dwc3 wrapper
+
+## 2026-07-26 16:45 / 17:05 — PROVEN
+- QSCRATCH MMIO (UTMI-as-pipe @ 0x04ef8808 + VBUS_VALID @ 0x04ef8810)
+  + GDSC/clocks + Femto → host **1d6b:0104** and **/dev/ttyACM0**
+- Reproduced on reflash 17:05
+- Proper fix: thin `qcom,dwc3` @ 0x4ef8800 with `qcom,select-utmi-as-pipe-clk`
+  (do not unbind bare snps,dwc3)

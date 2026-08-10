@@ -1,0 +1,9 @@
+rc 0
+  CC [M]  focaltech_ex_fun.o
+  LD [M]  fts_spi.o
+  MODPOST Module.symvers
+  CC [M]  fts_spi.mod.o
+  CC [M]  .module-common.o
+  LD [M]  fts_spi.ko
+KO False 0
+DONE
