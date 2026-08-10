@@ -72,11 +72,20 @@ setup_once() {
   echo rain >"$G/strings/0x409/serialnumber"
   echo Xiaomi >"$G/strings/0x409/manufacturer"
   echo rain-ubuntu >"$G/strings/0x409/product"
-  echo ADB >"$G/configs/c.1/strings/0x409/configuration"
+  echo "ADB+RNDIS+ACM" >"$G/configs/c.1/strings/0x409/configuration"
   echo 0xA0 >"$G/configs/c.1/bmAttributes"
   echo 500 >"$G/configs/c.1/MaxPower" 2>/dev/null || true
 
   mkdir -p "$G/functions/ffs.adb" 2>/dev/null
+  mkdir -p "$G/functions/rndis.usb0" 2>/dev/null
+  mkdir -p "$G/functions/acm.usb0" 2>/dev/null
+
+  # stable MACs for usb0; host can set 02:00:00:00:00:02
+  if [ ! -s "$G/functions/rndis.usb0/dev_addr" ]; then
+    echo 02:00:00:00:00:01 >"$G/functions/rndis.usb0/dev_addr"
+    echo 02:00:00:00:00:02 >"$G/functions/rndis.usb0/host_addr"
+  fi
+
   mkdir -p "$FFS"
   if ! mountpoint -q "$FFS"; then
     mount -t functionfs adb "$FFS" 2>>"$LOG" || {
@@ -86,6 +95,8 @@ setup_once() {
   fi
 
   [ -e "$G/configs/c.1/ffs.adb" ] || ln -sfn "$G/functions/ffs.adb" "$G/configs/c.1/ffs.adb"
+  [ -e "$G/configs/c.1/rndis.usb0" ] || ln -sfn "$G/functions/rndis.usb0" "$G/configs/c.1/rndis.usb0"
+  [ -e "$G/configs/c.1/acm.usb0" ] || ln -sfn "$G/functions/acm.usb0" "$G/configs/c.1/acm.usb0"
 
   # Signal readiness for adbd (ep0 must exist). UDC bind waits for adbd.service
   # via Requires/After — here we only prepare FFS + leave UDC unbound if no ep1 yet.
