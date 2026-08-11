@@ -43,7 +43,7 @@
 | Audio `fsa4480` | not populated on RAIN | 0% |
 | Audio codec / speakers | not started | 0% |
 | GPU Adreno | not started | 0% |
-| Display (DRM/DSI) | not started | 0% |
+| Display (DRM/DSI) | works, `msmdrmfb` 720x1650 | 100% |
 | Bluetooth | not started | 0% |
 | GPS | not started | 0% |
 | Modem (voice/data) | not started | 0% |
@@ -56,7 +56,7 @@
 |--|--|--|
 | Wi-Fi | assoc + ping OK, soft-hang ~60s | 60% |
 | GPU Adreno 610 | DT есть, не проверено | 5% |
-| Display (DRM/DSI + panel) | disabled в DT | 0% |
+| Display (DRM/DSI + panel) | работает на `xinli,ft8006s` | 100% |
 | Bluetooth | WCN3990 BTFM, не начато | 0% |
 | Audio codec / speakers | не начато | 0% |
 | Camera | не начато | 0% |
