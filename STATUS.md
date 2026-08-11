@@ -1,5 +1,13 @@
 # Status — 2026-08-05 (evening)
 
+## 2026-08-11
+
+- Repartitioned to 20 GB `cust` + 25 GB `userdata`; new `cust` formatted ext4.
+- Booted Ubuntu 24.04 from `linux_rootfs-24.04-new.img`; fixed missing `/lib/ld-linux-aarch64.so.1` symlink.
+- Touch/vibrator now auto-load via `rain-touch.service`; `touch_rings` works on `/dev/input/event4`.
+- Backed up `persist`, `fsc`, `fsg`, `modemst1`, `modemst2` to `backup/modem-persist-2026-08-11.tar.gz`.
+- Reverted `adbd` custom env; kept `DefaultTimeoutStopSec=5s` to avoid `getty@ttygs0` shutdown hang.
+
 ## 2026-08-10
 
 - `wusb3801` (Type-C CC) on i2c2 working; `/sys/class/typec/port0` present.
