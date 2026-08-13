@@ -165,10 +165,10 @@ index 000000000..4feec4d72
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..be3d925a7
+index 000000000..a0f009c80
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,529 @@
+@@ -0,0 +1,560 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/* Thin fog/rain + SPMI/pm6125 + RPM regulators (no GCC yet). */
 +/dts-v1/;
@@ -658,24 +658,55 @@ index 000000000..be3d925a7
 +};
 +
 +/*
-+ * DRM/DSI display bringup (dispcc/mdss/mdss_dsi0/panel) caused boot
-+ * hangs (SMMU faults on domain swap, DSI cmd-dma timeouts) — reverted.
-+ * Keep MDSS/DSI/panel off; ABL/simplefb only for display, as before.
++ * DRM/DSI display re-attempt (2026-08-13, careful/incremental):
++ * a previous attempt hacked around apparent SMMU/video-done issues in
++ * dsi_host.c/dpu_kms.c/msm_fbdev.c and hung on boot; those C-level hacks
++ * are NOT reintroduced here. Only the DT nodes + panel driver come back,
++ * so if this still hangs we get a clean, diagnosable failure (console is
++ * now working, see AGENTS.md) instead of a silent brick.
 + */
 +&dispcc {
-+	status = "disabled";
++	status = "okay";
 +};
 +
 +&mdss {
-+	status = "disabled";
++	status = "okay";
 +};
 +
 +&mdss_dsi0 {
-+	status = "disabled";
++	vdda-supply = <&pm6125_l18a>;
++	status = "okay";
++
++	pinctrl-names = "default";
++	pinctrl-0 = <&sde_te_default &lcm1p8en_default &lcmblen_default>;
++
++	panel: panel@0 {
++		compatible = "xinli,ft8006s";
++		reg = <0>;
++
++		/* Android uses ACTIVE_HIGH; reset-sequence is 1/0/1 */
++		reset-gpios = <&tlmm 82 GPIO_ACTIVE_HIGH>;
++		/* Android panel_active bias: ENP=gpio98, ENN=gpio101 (SOUTH,
++		 * deliberately unreserved in pinctrl-khaje.c for this panel) */
++		enp-gpios = <&tlmm 98 GPIO_ACTIVE_HIGH>;
++		enn-gpios = <&tlmm 101 GPIO_ACTIVE_HIGH>;
++		vddio-supply = <&pm6125_l9a>;
++
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&mdss_dsi0_out>;
++			};
++		};
++	};
++};
++
++&mdss_dsi0_out {
++	data-lanes = <0 1 2 3>;
++	remote-endpoint = <&panel_in>;
 +};
 +
 +&mdss_dsi0_phy {
-+	status = "disabled";
++	status = "okay";
 +};
 +
 +/*
@@ -775,10 +806,10 @@ index 000000000..7fe512a7b
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..a57ee4725
+index 000000000..3ab1b1fa3
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,1456 @@
+@@ -0,0 +1,1469 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -1885,12 +1916,25 @@ index 000000000..a57ee4725
 +			reg-names = "mdss";
 +
 +			/*
-+			 * Khaje Android dispcc has no MDSS_GDSC; sm6115's
-+			 * mdss_gdsc@0x3000 never leaves 'off'. ABL leaves MDSS
-+			 * powered (HW ver readable @5e00000). Skip GDSC vote.
-+			 * Skip CORE_BCR reset for bringup — it tears down ABL
-+			 * splash/PLL and our 14nm PLL then fails to relock.
++			 * Real vendor DT mdss_core_gdsc is at dispcc+0x1004
++			 * (0x5f01004), qcom,support-hw-trigger — matches
++			 * mainline's dispcc-sm6375.c mdss_gdsc (gdscr=0x1004,
++			 * flags=HW_CTRL) exactly. Re-enabled 2026-08-13 (was
++			 * previously skipped on the mistaken assumption the
++			 * GDSC lived inside the MDSS block at 0x5e03000 like
++			 * sm6115's, and stayed permanently off there).
++			 *
++			 * CORE_BCR reset at dispcc+0x1000 (DISP_CC_MDSS_CORE_BCR)
++			 * is present in upstream sm6125/sm6375 and is required to
++			 * bring the MDSS out of the state ABL left it in. Without
++			 * it the DSI0 VIDEO_DONE/CMD_DMA_DONE interrupt never fires,
++			 * so panel DCS commands time out. This will tear down the
++			 * ABL splash, but the 7nm DSI PHY driver should re-lock the
++			 * PLL and the DRM stack will take over the display.
 +			 */
++			resets = <&dispcc DISP_CC_MDSS_CORE_BCR>;
++			power-domains = <&dispcc MDSS_GDSC>;
++
 +			clocks = <&gcc GCC_DISP_AHB_CLK>,
 +				 <&gcc GCC_DISP_HF_AXI_CLK>,
 +				 <&dispcc DISP_CC_MDSS_MDP_CLK>;
@@ -3200,20 +3244,31 @@ index df21ef5ff..f24440a91 100644
  	  Support for the display clock controller on Qualcomm Technologies, Inc
  	  SM6375 devices.
 diff --git a/drivers/clk/qcom/dispcc-sm6375.c b/drivers/clk/qcom/dispcc-sm6375.c
-index ec9dbb1f4..506145d7b 100644
+index ec9dbb1f4..767d4ae1f 100644
 --- a/drivers/clk/qcom/dispcc-sm6375.c
 +++ b/drivers/clk/qcom/dispcc-sm6375.c
-@@ -568,8 +568,19 @@ static const struct qcom_cc_desc disp_cc_sm6375_desc = {
+@@ -568,8 +568,30 @@ static const struct qcom_cc_desc disp_cc_sm6375_desc = {
  	.num_gdscs = ARRAY_SIZE(disp_cc_sm6375_gdscs),
  };
  
-+/* Khaje Android dispcc has no GDSC object; GDSCR@0x1004 is HW-managed. */
++/*
++ * Khaje Android dispcc treats GDSCR@0x1004 as HW-managed (mdss_gdsc has
++ * qcom,support-hw-trigger in the vendor DT) and mainline previously left
++ * it unreferenced here on that basis. Re-testing (2026-08-13): expose it
++ * as a normal power-domain like sm6375 — HW_CTRL is already set on
++ * mdss_gdsc, so the generic gdsc framework should just vote for hardware
++ * auto-control rather than fight it; this is not expected to change
++ * ABL's hand-off behavior, only make Linux's own vote correct if it turns
++ * out something *does* need a SW-visible poke.
++ */
 +static const struct qcom_cc_desc disp_cc_sm6225_desc = {
 +	.config = &disp_cc_sm6375_regmap_config,
 +	.clks = disp_cc_sm6375_clocks,
 +	.num_clks = ARRAY_SIZE(disp_cc_sm6375_clocks),
 +	.resets = disp_cc_sm6375_resets,
 +	.num_resets = ARRAY_SIZE(disp_cc_sm6375_resets),
++	.gdscs = disp_cc_sm6375_gdscs,
++	.num_gdscs = ARRAY_SIZE(disp_cc_sm6375_gdscs),
 +};
 +
  static const struct of_device_id disp_cc_sm6375_match_table[] = {
@@ -3223,16 +3278,16 @@ index ec9dbb1f4..506145d7b 100644
  	{ }
  };
  MODULE_DEVICE_TABLE(of, disp_cc_sm6375_match_table);
-@@ -577,14 +588,25 @@ MODULE_DEVICE_TABLE(of, disp_cc_sm6375_match_table);
+@@ -577,14 +599,25 @@ MODULE_DEVICE_TABLE(of, disp_cc_sm6375_match_table);
  static int disp_cc_sm6375_probe(struct platform_device *pdev)
  {
  	struct regmap *regmap;
 +	const struct qcom_cc_desc *desc = &disp_cc_sm6375_desc;
- 
--	regmap = qcom_cc_map(pdev, &disp_cc_sm6375_desc);
++
 +	if (of_device_is_compatible(pdev->dev.of_node, "qcom,sm6225-dispcc"))
 +		desc = &disp_cc_sm6225_desc;
-+
+ 
+-	regmap = qcom_cc_map(pdev, &disp_cc_sm6375_desc);
 +	regmap = qcom_cc_map(pdev, desc);
  	if (IS_ERR(regmap))
  		return PTR_ERR(regmap);
@@ -3304,6 +3359,51 @@ index 4c3804701..a9d26ecc7 100644
  };
  
  static struct gdsc gcc_vcodec0_gdsc = {
+diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
+index c59375aaa..55980cfee 100644
+--- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
++++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
+@@ -567,6 +567,10 @@ static const struct of_device_id dsi_phy_dt_match[] = {
+ 	  .data = &dsi_phy_7nm_7280_cfgs },
+ 	{ .compatible = "qcom,sm6375-dsi-phy-7nm",
+ 	  .data = &dsi_phy_7nm_6375_cfgs },
++	/* Khaje/sm6225: same 7nm V4.1 PHY map as sm6375 (DT compat match
++	 * only — no behavioral hack, just the missing table entry). */
++	{ .compatible = "qcom,sm6225-dsi-phy-7nm",
++	  .data = &dsi_phy_7nm_6375_cfgs },
+ 	{ .compatible = "qcom,sm8350-dsi-phy-5nm",
+ 	  .data = &dsi_phy_5nm_8350_cfgs },
+ 	{ .compatible = "qcom,sm8450-dsi-phy-5nm",
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+index b2153e04a..574f34446 100644
+--- a/drivers/gpu/drm/panel/Kconfig
++++ b/drivers/gpu/drm/panel/Kconfig
+@@ -1295,6 +1295,15 @@ config DRM_PANEL_WIDECHIPS_WS2401
+ 	  480x800 display controller used in panels such as Samsung LMS380KF01.
+ 	  This display is used in the Samsung Galaxy Ace 2 GT-I8160 (Codina).
+ 
++config DRM_PANEL_XINLI_FT8006S
++	tristate "Xinli FT8006S panel (Xiaomi rain/fog)"
++	depends on OF
++	depends on DRM_MIPI_DSI
++	depends on BACKLIGHT_CLASS_DEVICE
++	help
++	  Say Y here for the Xinli FT8006S 720x1650 video-mode DSI panel
++	  used on Xiaomi Redmi 10C (rain, c3q_43_03_0b).
++
+ config DRM_PANEL_XINPENG_XPP055C272
+ 	tristate "Xinpeng XPP055C272 panel driver"
+ 	depends on OF
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+index a4291dc39..09488480d 100644
+--- a/drivers/gpu/drm/panel/Makefile
++++ b/drivers/gpu/drm/panel/Makefile
+@@ -127,4 +127,5 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_RM692E5) += panel-visionox-rm692e5.o
+ obj-$(CONFIG_DRM_PANEL_VISIONOX_VTDR6130) += panel-visionox-vtdr6130.o
+ obj-$(CONFIG_DRM_PANEL_VISIONOX_R66451) += panel-visionox-r66451.o
+ obj-$(CONFIG_DRM_PANEL_WIDECHIPS_WS2401) += panel-widechips-ws2401.o
++obj-$(CONFIG_DRM_PANEL_XINLI_FT8006S) += panel-xinli-ft8006s.o
+ obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
 diff --git a/drivers/gpu/drm/panel/panel-xinli-ft8006s.c b/drivers/gpu/drm/panel/panel-xinli-ft8006s.c
 new file mode 100644
 index 000000000..5dbc807fb
