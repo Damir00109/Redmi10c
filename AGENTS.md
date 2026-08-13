@@ -1,5 +1,51 @@
 # Redmi 10C (rain/fog) mainline bringup — handoff notes
 
+## 2026-08-13: DRM/DSI panel display works — 720x1650 + backlight
+
+The DSI/DRM panel bringup was completed. The missing piece was the MDSS CORE_BCR
+reset in the `&mdss` node (`resets = <&dispcc DISP_CC_MDSS_CORE_BCR>;` in
+`arch/arm64/boot/dts/qcom/sm6225.dtsi`). Without it the MDSS top-level interrupt
+demux stayed in the state ABL left it in, so the DSI0 `VIDEO_DONE`/
+`CMD_DMA_DONE` interrupt never reached the CPU and all panel DCS commands timed
+out (`ret=-110`). With the reset the DSI interrupt fires, the 7nm PHY PLL
+re-locks, and the panel initializes correctly.
+
+Verified on slot `b`:
+- `cat /sys/class/graphics/fb0/name` → `msmdrmfb`
+- `cat /sys/class/drm/card0-DSI-1/modes` → `720x1650`
+- `cat /sys/class/drm/card0-DSI-1/status` → `connected`
+- `cat /sys/class/backlight/5e94000.dsi.0/brightness` → controllable
+- Kernel console (fbcon) draws on the panel; systemd and ADB come up.
+
+Final clean build (no temporary debug prints) archived at
+`archive/mainline-dsi-final-20260813-1622/` (`boot-linux.img`, `Image.gz`,
+`sm6225-xiaomi-fog.dtb`, `.config`, `pivot.cpio.gz`, `pack-ubuntu-boot.sh`,
+plus the `linux_rootfs-24.04-new.sparse.img` for `cust`).
+
+To flash this final image:
+```sh
+fastboot flash boot_b archive/mainline-dsi-final-20260813-1622/boot-linux.img
+fastboot --set-active=b
+fastboot reboot
+```
+
+The debug `pr_info` prints in `drivers/gpu/drm/msm/msm_mdss.c` and
+`drivers/gpu/drm/msm/dsi/dsi_host.c` have been removed. Display still works and
+`dmesg` is clean of the old `HW_INTR_STATUS`/`dsi_host_irq` spam.
+
+### Key display deltas
+- `arch/arm64/boot/dts/qcom/sm6225.dtsi` — `&mdss` now has:
+  - `power-domains = <&dispcc MDSS_GDSC>;`
+  - `resets = <&dispcc DISP_CC_MDSS_CORE_BCR>;`
+- `arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts` — display nodes and
+  `xinli,ft8006s` panel enabled.
+- `drivers/clk/qcom/dispcc-sm6375.c` — `disp_cc_sm6225_desc` exposes the MDSS
+  GDSC and the MDSS/RSCC BCR resets.
+- `drivers/gpu/drm/msm/dsi/phy/dsi_phy.c` — added `qcom,sm6225-dsi-phy-7nm`
+  compat (same 7nm V4.1 config as sm6375).
+- `drivers/gpu/drm/panel/panel-xinli-ft8006s.c` + Kconfig/Makefile — panel
+  driver.
+
 ## 2026-08-13: FULL BOOT SUCCESS — mainline 7.1.5 + Ubuntu 24.04 via switch_root
 
 After the display revert and the three `pivot-init` fixes below (fbcon,
