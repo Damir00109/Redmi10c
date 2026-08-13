@@ -1,5 +1,54 @@
 # Redmi 10C (rain/fog) mainline bringup — handoff notes
 
+## 2026-08-13: GPU Adreno 610 PLL lock FIXED — ZONDA + LUCID PLL types
+
+The persistent `gpu_cc_pll0 failed to enable!` / `Couldn't power up the GPU: -110`
+errors are **fixed**. Root cause: `gpucc-sm6225.c` was using
+`CLK_ALPHA_PLL_TYPE_DEFAULT` for both PLLs, but SM6225/Khaje has different PLL
+hardware:
+- **PLL0** = **ZONDA PLL** (l=0x21, alpha=0x5555, config_ctl=0x08200800)
+- **PLL1** = **LUCID PLL** (l=0x23, alpha=0xF000, config_ctl=0x20485699)
+
+Using DEFAULT caused config writes to go to wrong register offsets (ZONDA has
+CONFIG_CTL at 0x10, DEFAULT has USER_CTL at 0x10), so the PLL never locked.
+
+### Fix (in `drivers/clk/qcom/gpucc-sm6225.c`)
+- PLL0: `CLK_ALPHA_PLL_TYPE_ZONDA` + `clk_alpha_pll_zonda_ops` +
+  `clk_zonda_pll_configure()` + `clk_alpha_pll_postdiv_ro_ops`
+- PLL1: `CLK_ALPHA_PLL_TYPE_LUCID` + `clk_alpha_pll_lucid_ops` +
+  `clk_lucid_pll_configure()` + `clk_alpha_pll_postdiv_lucid_ops`
+- Postdividers, parent maps, freq table updated to match downstream Khaje
+  (all gfx3d frequencies from PLL0_OUT_MAIN with div=1: 320/465/600/785/820/980)
+- Probe: CX GDSC enabled + AHB (0x1078) + CXO (0x1060) clocks always-on
+  before PLL config
+- DTS: `power-domains = <&rpmpd SM6115_VDDCX>` added to gpucc node
+- GPU OPP table updated to match new frequencies
+
+### Verified working
+- `gpu_cc_pll0` = 640 MHz, `gpu_cc_pll1` = 690 MHz
+- `gpu_cc_gx_gfx3d_clk` = 320 MHz
+- DRM: `bound 5900000.gpu (ops a3xx_ops)`
+- `/dev/dri/card0` + `/dev/dri/renderD128` present
+- devfreq: `simple_ondemand`, 6 OPPs
+- Firmware: `qcom/a630_sqe.fw` loaded
+- IOMMU: adreno_smmu bound
+
+### Known harmless messages
+- `supply vdd/vddcx not found, using dummy regulator` — normal for SM6115
+  (upstream sm6115.dtsi also has no regulator properties)
+- `sync_state() pending due to 596a000.gmu` — GMU wrapper has no driver,
+  clocks stay enabled (harmless)
+
+### Not yet done
+- 3D rendering not tested — Mesa installed but lacks freedreno DRI driver
+  (need `mesa-vulkan-drivers` or Mesa rebuild with freedreno; no internet
+  on phone to apt-get install)
+- Display still via simplefb (not DRM/KMS) — GPU bound to DRM but not used
+  for display scanout yet
+
+### Archive
+`archive/mainline-gpucc-zonda-lucid-20260813-2244/` — working build.
+
 ## 2026-08-13: DRM/DSI panel display works — 720x1650 + backlight
 
 The DSI/DRM panel bringup was completed. The missing piece was the MDSS CORE_BCR
