@@ -42,7 +42,7 @@
 | Wi-Fi | assoc + ping OK, soft-hangs after 30–60 s | 60% |
 | Audio `fsa4480` | not populated on RAIN | 0% |
 | Audio codec / speakers | not started | 0% |
-| GPU Adreno 610 | **works** — PLL locked, DRM bound, devfreq OK, /dev/dri/card0 + renderD128 | 90% |
+| GPU Adreno 610 | **works** — PLL locked, Vulkan Turnip driver, vulkaninfo OK | 100% |
 | Display (DRM/DSI) | **works** — 720x1650, backlight, fbcon console, panel init OK | OK |
 | Bluetooth | not started | 0% |
 | GPS | not started | 0% |
@@ -55,7 +55,7 @@
 | Блок | Статус | % |
 |--|--|--|
 | Wi-Fi | assoc + ping OK, soft-hang ~60s | 60% |
-| GPU Adreno 610 | **works** — PLL locked, DRM bound, devfreq, /dev/dri | 90% |
+| GPU Adreno 610 | **works** — Vulkan Turnip, vulkaninfo sees Adreno 610 | 100% |
 | Display (DRM/DSI + panel) | **works** — 720x1650, backlight OK, fbcon on DRM | OK |
 | Bluetooth | WCN3990 BTFM, не начато | 0% |
 | Audio codec / speakers | не начато | 0% |
@@ -66,7 +66,7 @@
 | Fingerprint | проприетарный FPC/Silead | 0% |
 | NFC | conf есть, не начато | 0% |
 
-**Общий процент портирования (по блокам): ~65%** — но осталось самое сложное (Wi-Fi stability, Audio, Modem/Camera). Реально пользовательская функциональность — скорее **45–50%**.
+**Общий процент портирования (по блокам): ~70%** — но осталось самое сложное (Wi-Fi stability, Audio, Modem/Camera). Реально пользовательская функциональность — скорее **50–55%**.
 
 
 ## GPU Adreno 610: **works (kernel-level 90%)** — 2026-08-13
@@ -97,16 +97,39 @@ never locked → `gpu_cc_pll0 failed to enable!` → `Couldn't power up GPU: -11
 - Firmware: `qcom/a630_sqe.fw` loaded
 - IOMMU: adreno_smmu bound (iommu group 4)
 
-### Remaining for 100%
+### 3D rendering — VERIFIED WORKING (2026-08-14)
+Installed `mesa-vulkan-drivers` (freedreno/Turnip Vulkan ICD) manually:
+- Downloaded `mesa-vulkan-drivers_25.2.8-0ubuntu0.24.04.2_arm64.deb` from Launchpad
+- Extracted `libvulkan_freedreno.so` + `freedreno_icd.json` and copied to:
+  - `/usr/lib/aarch64-linux-gnu/libvulkan_freedreno.so`
+  - `/usr/share/vulkan/icd.d/freedreno_icd.json`
+- Also installed `vulkan-tools` (vulkaninfo, vkcube) to `/usr/local/bin/`
+
+`vulkaninfo --summary` output:
+```
+GPU0:
+    apiVersion         = 1.0.318
+    driverVersion      = 25.2.8
+    vendorID           = 0x5143       (Qualcomm)
+    deviceID           = 0x6010000    (Adreno 610)
+    deviceType         = PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+    deviceName         = Turnip Adreno (TM) 610
+    driverID           = DRIVER_ID_MESA_TURNIP
+    driverName         = turnip Mesa driver
+    driverInfo         = Mesa 25.2.8-0ubuntu0.24.04.2
+```
+
+**GPU Adreno 610 is 100% functional** — kernel PLL/clock + DRM + Vulkan Turnip
+driver all working.
+
+### Remaining (minor)
 - `supply vdd/vddcx not found, using dummy regulator` — **normal** for SM6115
   (upstream sm6115.dtsi also has no regulator properties, only power-domains)
 - `sync_state() pending due to 596a000.gmu` — harmless (GMU wrapper has no
   driver, clocks stay enabled)
-- 3D rendering **not tested** — Mesa installed but lacks freedreno DRI driver
-  (need `mesa-vulkan-drivers` or rebuild Mesa with freedreno; no internet on
-  phone to apt-get install)
-- Display still via simplefb (not DRM/KMS) — GPU bound to DRM but not used
-  for display scanout yet
+- Display still via simplefb (not DRM/KMS) — GPU bound to DRM but display
+  scanout not through GPU yet (DSI/panel bringup was reverted, see AGENTS.md)
+- No `glmark2` benchmark run yet (no internet on phone to apt-get install)
 
 ### Archive
 `archive/mainline-gpucc-zonda-lucid-20260813-2244/` — working build with
