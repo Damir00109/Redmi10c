@@ -7,9 +7,10 @@ Ubuntu 24.04 через кастомный `initramfs` (`pivot-init` → `switch
 `cust` под rootfs.
 
 **Текущий статус:** ядро полностью грузится, `switch_root` в Ubuntu 24.04
-проходит успешно (systemd, adb по USB-гаджету). Подробный статус — в
-[`AGENTS.md`](AGENTS.md) и [`STATUS.md`](STATUS.md). Экран работает через
+проходит успешно (systemd, adb по USB-гаджету). Экран работает через
 DRM/DSI: панель FT8006S 720x1650, подсветка, fbcon-консоль, режим `720x1650`.
+**GPU Adreno 610 работает на 100%** — Vulkan Turnip драйвер Mesa, `vulkaninfo`
+подтверждает. Подробный статус — в [`AGENTS.md`](AGENTS.md) и [`STATUS.md`](STATUS.md).
 
 Это репозиторий с **исходниками и патчами**, а не с готовыми бинарниками.
 Ниже — полная инструкция, как всё собрать с нуля.
@@ -196,11 +197,25 @@ fastboot reboot
 См. таблицу статусов и детальный технический журнал в `AGENTS.md` и
 `STATUS.md`. Кратко:
 
+- **GPU Adreno 610 — 100% работает**: PLL0 (ZONDA, 640 МГц) + PLL1 (LUCID,
+  690 МГц) залочены, DRM привязан, Vulkan Turnip драйвер Mesa установлен,
+  `vulkaninfo` подтверждает `Turnip Adreno (TM) 610`, GPU memory allocation
+  и buffer binding работают.
 - DRM/DSI-панель FT8006S 720x1650 работает: подсветка, fbcon, режим 60 Гц.
 - Wi-Fi (`ath10k`) требует модулей ядра, собранных именно под текущую
   версию `Image.gz` — старые `.ko` из прежних сборок не грузятся.
 - Изредка происходит самопроизвольная перезагрузка при бринг-апе
   Wi-Fi/модема (soft-hang, не связано с изменениями из этого README).
+
+### Что не работает (осталось)
+
+- Wi-Fi: assoc + ping OK, но soft-hang через ~60 секунд
+- Audio: не начато
+- Bluetooth: не начато
+- Modem (voice/data): не начато
+- Camera: не начато
+- GPS: не начато
+- Sensors: не найдены в DT/I2C
 
 ---
 
