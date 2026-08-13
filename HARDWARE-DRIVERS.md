@@ -27,7 +27,7 @@ DT model: Qualcomm Technologies, Inc. RAIN KHAJE IDP nopmi
 | SoC bringup | SM6225 / khaje / bengal | clocks, gcc, pinctrl, RPMH | — | Medium: base often exists for bengal family |
 | UART/USB/storage | standard qcom | in-tree | — | Easy (USB proven; UFS next) |
 | Display panel | `dsi_panel_c3q_43_03_0b_fhdp_video` | msm drm / dsi | — | Medium: DT + panel timing, often copy from Android DT |
-| GPU | Adreno 610 (`a610_zap*`) | Android: KGSL; mainline: msm | a610 firmware | Medium: freedreno/msm + FW extract |
+| GPU | Adreno 610 (`a610_zap*`) | Android: KGSL; mainline: msm | a610 firmware | **✅ DONE**: ZONDA+LUCID PLL, Vulkan Turnip Mesa |
 | Touch | Focaltech SPI (`CONFIG_TOUCHSCREEN_FTS_SPI`) + Novatek FW files | downstream FTS/NVT | `focaltech_ts_fw_xinli.bin`, `novatek_ts_*.bin` | Medium-Hard: mainline has focaltech/novatek families, need match IC + FW |
 | NFC (rain) | `ro.hardware.nfc_nci=pn8x`, `CONFIG_NFC_NQ=y` | NQ/NXP NCI | `libnfc-nxp*.conf` | Medium-Easy: NXP NCI often mainline-able; PN557 bindings landed in 2026 |
 | Wi‑Fi | `qca_cld`, ICNSS, ATH, `bd3qvdfu.bin`, WCN3990 BT companion | **qcacld / icnss** (huge downstream) | WLAN FW under `firmware_mnt` | Hard: ath11k/ath10k path depends on exact WCN; often long fight |
@@ -60,7 +60,7 @@ Also partitions: `modem_a/b`, `dsp_a/b`, `bluetooth_a/b`, `vendor.firmware_mnt`
 1. boot + UART/USB + UFS
 2. display + simplefb/DRM
 3. touch
-4. GPU
+4. ~~GPU~~ ✅ (2026-08-14: ZONDA+LUCID PLL, Vulkan Turnip)
 5. Wi‑Fi/BT
 6. audio / modem / camera / FP
 7. NFC last (conf already saved; do not block earlier bringup)

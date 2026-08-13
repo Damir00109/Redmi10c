@@ -68,7 +68,7 @@ Lineage на слоте остаётся «домашним» миром. Mainli
 | 4 | Simple-framebuffer → DRM/DSI | fog DT + panel ft8006s | средне |
 | 5 | Регуляторы / PMIC | Android DT | средне |
 | 6 | Тач Focaltech SPI | FW `focaltech_ts_fw_xinli.bin` | средне+ |
-| 7 | GPU Adreno 610 | `a610_zap*` + msm/freedreno | средне |
+| 7 | GPU Adreno 610 | `a610_zap*` + msm/freedreno | **✅ ГОТОВО** |
 | 8 | Wi‑Fi/BT qcacld/WCN | firmware_mnt | тяжело |
 | 9 | Аудио / модем / камеры / FP | HAL+реверс | опционально |
 | 10 | **NFC NXP** (`nq@2a`, conf уже сняты) | `libnfc-nxp*.conf` + overlay | **последним** |
@@ -106,10 +106,10 @@ Lineage на слоте остаётся «домашним» миром. Mainli
 
 ## Следующие шаги (безопасные — без тебя не бучу)
 
-1. Wi-Fi: добить soft-hang ~60s (ath10k_snoc / NAPI / RX refill).  
-2. Bluetooth / WCN3990 BTFM (share FW с Wi-Fi).  
-3. GPU Adreno 610 (`a610_zap*`) без включения mdss/dispcc.  
-4. Display DRM/DSI + панель `c3q_43_03_0b` (рискованно, только с тобой рядом).  
+1. ~~GPU Adreno 610 (`a610_zap*`) без включения mdss/dispcc.~~ **✅ ГОТОВО (2026-08-14)** — Vulkan Turnip работает.
+2. Wi-Fi: добить soft-hang ~60s (ath10k_snoc / NAPI / RX refill).  
+3. Bluetooth / WCN3990 BTFM (share FW с Wi-Fi).  
+4. ~~Display DRM/DSI + панель `c3q_43_03_0b`~~ **✅ ГОТОВО** — FT8006S 720x1650, fbcon, backlight.
 5. Sensors / audio / camera / modem — по желанию, после основного.  
 6. NFC — в последнюю очередь, как и планировалось.
 
