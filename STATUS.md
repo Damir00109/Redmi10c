@@ -42,7 +42,7 @@
 | Wi-Fi | assoc + ping OK, soft-hangs after 30–60 s | 60% |
 | Audio `fsa4480` | not populated on RAIN | 0% |
 | Audio codec / speakers | not started | 0% |
-| GPU Adreno | not started | 0% |
+| GPU Adreno 610 | **works** — PLL locked, DRM bound, devfreq OK, /dev/dri/card0 + renderD128 | 90% |
 | Display (DRM/DSI) | **works** — 720x1650, backlight, fbcon console, panel init OK | OK |
 | Bluetooth | not started | 0% |
 | GPS | not started | 0% |
@@ -55,7 +55,7 @@
 | Блок | Статус | % |
 |--|--|--|
 | Wi-Fi | assoc + ping OK, soft-hang ~60s | 60% |
-| GPU Adreno 610 | DT есть, не проверено | 5% |
+| GPU Adreno 610 | **works** — PLL locked, DRM bound, devfreq, /dev/dri | 90% |
 | Display (DRM/DSI + panel) | **works** — 720x1650, backlight OK, fbcon on DRM | OK |
 | Bluetooth | WCN3990 BTFM, не начато | 0% |
 | Audio codec / speakers | не начато | 0% |
@@ -66,8 +66,51 @@
 | Fingerprint | проприетарный FPC/Silead | 0% |
 | NFC | conf есть, не начато | 0% |
 
-**Общий процент портирования (по блокам): ~60%** — но осталось самое сложное (Wi-Fi stability, GPU/Display, Audio, Modem/Camera). Реально пользовательская функциональность — скорее **40–45%**.
+**Общий процент портирования (по блокам): ~65%** — но осталось самое сложное (Wi-Fi stability, Audio, Modem/Camera). Реально пользовательская функциональность — скорее **45–50%**.
 
+
+## GPU Adreno 610: **works (kernel-level 90%)** — 2026-08-13
+
+### Root cause of PLL lock failure — FIXED
+The `gpucc-sm6225.c` driver was using `CLK_ALPHA_PLL_TYPE_DEFAULT` for both
+PLLs, but SM6225/Khaje has **different PLL hardware**:
+- **PLL0** = **ZONDA PLL** (l=0x21, config_ctl=0x08200800, zonda_ops)
+- **PLL1** = **LUCID PLL** (l=0x23, config_ctl=0x20485699, lucid_ops)
+
+Using DEFAULT caused config writes to go to wrong register offsets → PLL
+never locked → `gpu_cc_pll0 failed to enable!` → `Couldn't power up GPU: -110`.
+
+### Fix applied
+- `drivers/clk/qcom/gpucc-sm6225.c`: PLL0 → ZONDA, PLL1 → LUCID
+- Postdividers, parent maps, freq table updated to match downstream Khaje
+- Probe uses `clk_zonda_pll_configure` / `clk_lucid_pll_configure`
+- CX GDSC enabled + AHB/CXO clocks always-on before PLL config
+- `power-domains = <&rpmpd SM6115_VDDCX>` added to gpucc DTS node
+- GPU OPP table: 320/465/600/785/820/980 MHz
+
+### Verified working
+- `gpu_cc_pll0` = 640 MHz, `gpu_cc_pll1` = 690 MHz (via `/sys/kernel/debug/clk/`)
+- `gpu_cc_gx_gfx3d_clk` = 320 MHz
+- DRM: `bound 5900000.gpu (ops a3xx_ops)`
+- `/dev/dri/card0` + `/dev/dri/renderD128` present
+- devfreq: `simple_ondemand`, 6 OPPs, cur_freq = 320 MHz
+- Firmware: `qcom/a630_sqe.fw` loaded
+- IOMMU: adreno_smmu bound (iommu group 4)
+
+### Remaining for 100%
+- `supply vdd/vddcx not found, using dummy regulator` — **normal** for SM6115
+  (upstream sm6115.dtsi also has no regulator properties, only power-domains)
+- `sync_state() pending due to 596a000.gmu` — harmless (GMU wrapper has no
+  driver, clocks stay enabled)
+- 3D rendering **not tested** — Mesa installed but lacks freedreno DRI driver
+  (need `mesa-vulkan-drivers` or rebuild Mesa with freedreno; no internet on
+  phone to apt-get install)
+- Display still via simplefb (not DRM/KMS) — GPU bound to DRM but not used
+  for display scanout yet
+
+### Archive
+`archive/mainline-gpucc-zonda-lucid-20260813-2244/` — working build with
+ZONDA+LUCID PLL fix.
 
 ## Wi‑Fi: **works, but soft-hangs after ~30–60s**
 
