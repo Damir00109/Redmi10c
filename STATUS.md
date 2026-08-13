@@ -42,7 +42,7 @@
 | Wi-Fi | assoc + ping OK, soft-hangs after 30–60 s | 60% |
 | Audio `fsa4480` | not populated on RAIN | 0% |
 | Audio codec / speakers | not started | 0% |
-| GPU Adreno 610 | **works** — PLL locked, Vulkan Turnip driver, vulkaninfo OK | 100% |
+| GPU Adreno 610 | **kernel 100%** — PLL, DRM, Vulkan driver; **3D render crashes** | 70% |
 | Display (DRM/DSI) | **works** — 720x1650, backlight, fbcon console, panel init OK | OK |
 | Bluetooth | not started | 0% |
 | GPS | not started | 0% |
@@ -55,7 +55,7 @@
 | Блок | Статус | % |
 |--|--|--|
 | Wi-Fi | assoc + ping OK, soft-hang ~60s | 60% |
-| GPU Adreno 610 | **works** — Vulkan Turnip, vulkaninfo sees Adreno 610 | 100% |
+| GPU Adreno 610 | kernel OK, Vulkan driver OK, **3D render = crash** | 70% |
 | Display (DRM/DSI + panel) | **works** — 720x1650, backlight OK, fbcon on DRM | OK |
 | Bluetooth | WCN3990 BTFM, не начато | 0% |
 | Audio codec / speakers | не начато | 0% |
@@ -97,39 +97,39 @@ never locked → `gpu_cc_pll0 failed to enable!` → `Couldn't power up GPU: -11
 - Firmware: `qcom/a630_sqe.fw` loaded
 - IOMMU: adreno_smmu bound (iommu group 4)
 
-### 3D rendering — VERIFIED WORKING (2026-08-14)
-Installed `mesa-vulkan-drivers` (freedreno/Turnip Vulkan ICD) manually:
-- Downloaded `mesa-vulkan-drivers_25.2.8-0ubuntu0.24.04.2_arm64.deb` from Launchpad
-- Extracted `libvulkan_freedreno.so` + `freedreno_icd.json` and copied to:
-  - `/usr/lib/aarch64-linux-gnu/libvulkan_freedreno.so`
-  - `/usr/share/vulkan/icd.d/freedreno_icd.json`
-- Also installed `vulkan-tools` (vulkaninfo, vkcube) to `/usr/local/bin/`
+### 3D rendering — kernel + Vulkan driver work, but **rendering crashes** (2026-08-14)
 
-`vulkaninfo --summary` output:
-```
-GPU0:
-    apiVersion         = 1.0.318
-    driverVersion      = 25.2.8
-    vendorID           = 0x5143       (Qualcomm)
-    deviceID           = 0x6010000    (Adreno 610)
-    deviceType         = PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
-    deviceName         = Turnip Adreno (TM) 610
-    driverID           = DRIVER_ID_MESA_TURNIP
-    driverName         = turnip Mesa driver
-    driverInfo         = Mesa 25.2.8-0ubuntu0.24.04.2
-```
+**What works:**
+- `vulkaninfo --summary` → `Turnip Adreno (TM) 610`, Mesa 25.2.8 ✅
+- Headless Vulkan test: device creation, memory alloc, buffer binding ✅
+- Weston with Pixman (software) renderer ✅ — DSI-1 720x1650, touch, backlight
+- `vkcube-wayland` finds GPU: `Selected GPU 0: Turnip Adreno (TM) 610`
 
-**GPU Adreno 610 is 100% functional** — kernel PLL/clock + DRM + Vulkan Turnip
-driver all working.
+**What crashes:**
+- `vkcube-wayland`: fails at `demo_init_vk_swapchain: Assertion '!err'` (swapchain creation)
+- `weston --renderer=gl`: phone hangs (likely SMMU fault → UFS timeout cascade)
+- `weston-simple-egl`: phone hangs
+- `weston-simple-dmabuf-egl`: phone hangs
 
-### Remaining (minor)
-- `supply vdd/vddcx not found, using dummy regulator` — **normal** for SM6115
-  (upstream sm6115.dtsi also has no regulator properties, only power-domains)
-- `sync_state() pending due to 596a000.gmu` — harmless (GMU wrapper has no
-  driver, clocks stay enabled)
-- Display still via simplefb (not DRM/KMS) — GPU bound to DRM but display
-  scanout not through GPU yet (DSI/panel bringup was reverted, see AGENTS.md)
-- No `glmark2` benchmark run yet (no internet on phone to apt-get install)
+**Root cause (probable):**
+GPU rendering triggers SMMU fault or memory access that cascades into UFS
+timeout and system hang. The GPU kernel driver (msm DRM) may need:
+1. Proper GMU wrapper initialization (currently `sync_state() pending`)
+2. Zap shader loading (`a610_zap.mdt` not loaded — may be needed for secure
+   rendering)
+3. Correct SMMU context bank configuration
+4. Power domain (GX GDSC) enable before rendering
+
+**Installed on phone (survives reboot):**
+- `/usr/lib/aarch64-linux-gnu/libvulkan_freedreno.so` (Turnip ICD)
+- `/usr/share/vulkan/icd.d/freedreno_icd.json`
+- `/usr/local/bin/vulkaninfo`, `vkcube`, `vkcube-wayland`
+
+### Remaining for 100% GPU
+- Fix GPU rendering crash (SMMU/GMU/zap shader)
+- `supply vdd/vddcx not found, using dummy regulator` — may need real regulators
+- `sync_state() pending due to 596a000.gmu` — GMU wrapper has no driver
+- Display scanout through GPU (currently simplefb/Pixman)
 
 ### Archive
 `archive/mainline-gpucc-zonda-lucid-20260813-2244/` — working build with
