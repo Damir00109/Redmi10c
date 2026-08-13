@@ -94,7 +94,7 @@ Modules: `out/ath10k-fix-modules/ath10k_{core,snoc}.ko`
 sudo rain-mmc-park off
 sudo qcom-wifi-start.sh          # modem + ath10k → wlan0
 # connect immediately — idle wlan0-up often soft-hangs within seconds
-sudo rain-wifi connect '2.4GHz_WiFi_219' 'GP54006948'
+sudo rain-wifi connect 'YOUR_SSID' 'YOUR_PASSWORD'
 # or: sudo rain-oneshot-wifi.sh
 ```
 
