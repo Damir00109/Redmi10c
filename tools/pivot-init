@@ -1,0 +1,171 @@
+#!/bin/busybox sh
+# Pivot: QSCRATCH/USB ACM → mount PARTLABEL=cust → switch_root
+# Use only `busybox <applet>` — never rely on /bin symlinks (host abs links break on device).
+export PATH=/bin:/sbin
+BB=busybox
+
+$BB mount -t proc proc /proc
+$BB mount -t sysfs sysfs /sys
+$BB mount -t devtmpfs devtmpfs /dev 2>/dev/null || $BB mdev -s
+$BB mkdir -p /tmp /dev/pts /sys/kernel/config /newroot
+$BB mount -t configfs configfs /sys/kernel/config 2>/dev/null
+$BB mount -t devpts devpts /dev/pts 2>/dev/null
+
+echo "=== rain ubuntu pivot ==="
+
+rmw32() {
+  a=$1; clr=$2; set=$3
+  cur=$($BB devmem "$a" 32 2>/dev/null) || return 1
+  cur=${cur#0x}
+  nv=$($BB printf '0x%08x' $(( (0x$cur & ~clr) | set )))
+  $BB devmem "$a" 32 "$nv" 2>/dev/null
+}
+
+usb_phy_init() {
+  rmw32 0x0141a004 0x1 0x0 >/dev/null
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    v=$($BB devmem 0x0141a004 32 2>/dev/null); v=${v#0x}
+    [ $(( (0x$v >> 31) & 1 )) -eq 1 ] && break
+    $BB sleep 1
+  done
+  $BB devmem 0x0141a014 32 0x1 2>/dev/null
+  $BB devmem 0x0141a010 32 0x1 2>/dev/null
+  $BB devmem 0x0141a018 32 0x1 2>/dev/null
+  $BB devmem 0x0141d000 32 0x0 2>/dev/null
+  $BB devmem 0x0141d008 32 0x3 2>/dev/null
+  rmw32 0x04ef8808 0x0 0x100 >/dev/null
+  $BB sleep 1
+  rmw32 0x04ef8808 0x0 0x9 >/dev/null
+  $BB sleep 1
+  rmw32 0x04ef8808 0x100 0x0 >/dev/null
+  rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
+  rmw32 0x04ef8830 0x0 0x01000000 >/dev/null
+  $BB devmem 0x0161306c 32 0x61 2>/dev/null
+  $BB devmem 0x01613070 32 0x08 2>/dev/null
+  $BB devmem 0x01613074 32 0x2d 2>/dev/null
+  rmw32 0x04e0c200 0x140 0x0 >/dev/null
+}
+
+G=/sys/kernel/config/usb_gadget/g1
+setup_gadget() {
+  UDC=$($BB ls /sys/class/udc 2>/dev/null | $BB head -n 1)
+  [ -n "$UDC" ] || return 1
+  $BB mkdir -p "$G/strings/0x409" "$G/configs/c.1/strings/0x409" 2>/dev/null
+  $BB mkdir -p "$G/functions/acm.usb0" 2>/dev/null
+  echo 0x1d6b >"$G/idVendor" 2>/dev/null
+  echo 0x0104 >"$G/idProduct" 2>/dev/null
+  echo rain >"$G/strings/0x409/serialnumber" 2>/dev/null
+  echo Xiaomi >"$G/strings/0x409/manufacturer" 2>/dev/null
+  echo rain-ubuntu >"$G/strings/0x409/product" 2>/dev/null
+  echo ACM >"$G/configs/c.1/strings/0x409/configuration" 2>/dev/null
+  echo 0xA0 >"$G/configs/c.1/bmAttributes" 2>/dev/null
+  $BB rm -f "$G/configs/c.1/rndis.usb0" 2>/dev/null
+  $BB ln -sfn "$G/functions/acm.usb0" "$G/configs/c.1/acm.usb0" 2>/dev/null
+  echo "" >"$G/UDC" 2>/dev/null
+  $BB sleep 1
+  rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
+  if echo "$UDC" >"$G/UDC" 2>/dev/null; then
+    echo "GADGET_OK udc=$UDC"
+  else
+    echo GADGET_FAIL
+    return 1
+  fi
+  rmw32 0x04e0c704 0x80000000 0x0 >/dev/null
+  $BB sleep 1
+  rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
+  rmw32 0x04e0c704 0x0 0x80000000 >/dev/null
+  return 0
+}
+
+usb_phy_init
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  # no bare grep — test if any UDC name exists
+  UDC=$($BB ls /sys/class/udc 2>/dev/null | $BB head -n 1)
+  [ -n "$UDC" ] && break
+  $BB sleep 1
+done
+echo "udc=$($BB ls /sys/class/udc 2>/dev/null)"
+setup_gadget
+for _ in 1 2 3 4 5; do
+	[ -c /dev/ttyGS0 ] && break
+	$BB sleep 1
+done
+if [ -c /dev/ttyGS0 ]; then
+	exec </dev/ttyGS0 >/dev/ttyGS0 2>&1
+	echo "pivot: console -> ttyGS0"
+fi
+
+# Ensure block device nodes are populated and UFS is enumerated
+$BB mdev -s 2>/dev/null || true
+$BB sleep 4
+
+CUST=
+for bd in /sys/class/block/* /sys/block/*; do
+  [ -d "$bd" ] || continue
+  pn=''
+  [ -f "$bd/partname" ] && pn=$($BB cat "$bd/partname" 2>/dev/null)
+  if [ -z "$pn" ] && [ -f "$bd/uevent" ]; then
+    pn=$($BB grep -i '^PARTNAME=' "$bd/uevent" 2>/dev/null | $BB head -1)
+    pn=${pn#*=}
+  fi
+  [ -n "$pn" ] || continue
+  if [ "$($BB echo "$pn" | $BB tr 'A-Z' 'a-z')" = "cust" ]; then
+    CUST=/dev/$($BB basename "$bd")
+    break
+  fi
+done
+
+# Fallback: known Redmi 10C cust is sda8
+[ -z "$CUST" ] && [ -b /dev/sda8 ] && CUST=/dev/sda8
+echo "cust=$CUST"
+if [ -z "$CUST" ] || [ ! -b "$CUST" ]; then
+  echo "FATAL: cust partition not found"
+  exec $BB sh
+fi
+
+$BB sleep 1
+$BB mdev -s 2>/dev/null || true
+$BB sleep 3
+if ! $BB mount -t ext4 -o rw "$CUST" /newroot 2>/tmp/mnt.err; then
+  echo "mount cust failed: $($BB cat /tmp/mnt.err)"
+  $BB fsck.ext4 -y "$CUST" 2>/dev/null || true
+  $BB mount -t ext4 -o rw "$CUST" /newroot || exec $BB sh
+fi
+
+if [ ! -x /newroot/sbin/init ] && [ ! -x /newroot/usr/lib/systemd/systemd ]; then
+  echo "FATAL: no init in rootfs"
+  exec $BB sh
+fi
+
+# Keep existing gadget; avoid second full usb_phy_init (hangs some boots)
+rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
+if [ ! -c /dev/ttyGS0 ]; then
+  setup_gadget
+fi
+
+$BB mount --move /dev /newroot/dev 2>/dev/null || $BB mount -t devtmpfs devtmpfs /newroot/dev
+$BB mount --move /proc /newroot/proc 2>/dev/null || $BB mount -t proc proc /newroot/proc
+$BB mount --move /sys /newroot/sys 2>/dev/null || $BB mount -t sysfs sysfs /newroot/sys
+
+# busybox switch_root refuses to run if any other filesystem is still
+# mounted on the old root besides newroot itself — /tmp is a standalone
+# tmpfs that was never moved/unmounted, which silently aborted switch_root
+# (exec returned, script fell off the end, PID1 exited -> kernel panic
+# "Attempted to kill init!"). Drop it before the switch.
+$BB umount /tmp 2>/dev/null
+
+# Debug: stdout/stderr may be on ttyGS0 (invisible on the fb screen).
+# /dev/kmsg always reaches the framebuffer console via printk, so log
+# the pre-flight checks there regardless of where the console is.
+kdbg() { echo "pivot-dbg: $*" >/dev/kmsg 2>/dev/null; }
+kdbg "init resolved: $($BB readlink -f /newroot/sbin/init 2>&1)"
+kdbg "init file: $($BB test -x /newroot/sbin/init && echo exists-exec || echo MISSING-OR-NOT-EXEC)"
+
+# IMPORTANT: switch_root refuses to run unless it IS pid 1 (getpid()==1).
+# Calling it as a plain command forks a child (pid != 1) and it silently
+# bails out to its usage text instead of a real error. It must be `exec`d
+# directly from the pid-1 shell, never wrapped/subshelled/piped.
+kdbg "switch_root -> /sbin/init (exec, no return expected)"
+exec $BB switch_root /newroot /sbin/init
+echo "FATAL: switch_root exec itself failed to run" >/dev/kmsg 2>/dev/null
+exec $BB sh
