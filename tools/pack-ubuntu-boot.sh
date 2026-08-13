@@ -30,7 +30,7 @@ if find "$IR/bin" -type l -lname '/*' | grep -q .; then
   find "$IR/bin" -type l -lname '/*' | head
   exit 1
 fi
-cp -a "$OUT/pivot-init" "$IR/init"
+cp -a "$ROOT/tools/pivot-init" "$IR/init"
 chmod 755 "$IR/init"
 
 # fsck.ext4 helper if available (static or from host - skip if not arm64)

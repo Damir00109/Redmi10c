@@ -28,3 +28,10 @@ notes/dt-adapt
 tools/mkbootimg
 tools/busybox-src
 tools/rain-overlay
+
+# Build/backup snapshots (large binaries; README documents how to rebuild)
+archive/
+*.sparse.img
+*.cpio.gz
+lineage-*.zip
+screenlog.*
