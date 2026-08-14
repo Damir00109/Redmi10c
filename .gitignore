@@ -21,12 +21,14 @@ reference/
 images/
 dt/
 src/
+extracted_*/
 
 # Large local sources/blobs
 notes/vendor-firmware-*
 notes/dt-adapt
 tools/mkbootimg
 tools/busybox-src
+tools/busybox/
 tools/rain-overlay
 
 # Build/backup snapshots (large binaries; README documents how to rebuild)
@@ -35,3 +37,21 @@ archive/
 *.cpio.gz
 lineage-*.zip
 screenlog.*
+
+# AI handoff notes (not for public repo)
+AGENTS.md
+HOST-SPECS.md
+
+# Binary firmware (Qualcomm copyright)
+*.fw
+*.mdt
+*.b00
+*.b01
+*.b02
+*.elf
+*.mbn
+
+# Compiled binaries
+*.o
+*.ko
+*.ko.gz
