@@ -33,6 +33,15 @@ fi
 cp -a "$ROOT/tools/pivot-init" "$IR/init"
 chmod 755 "$IR/init"
 
+# Adreno GPU firmware — must be in initramfs because the GPU probe runs
+# before switch_root and cannot wait for the cust rootfs to be mounted.
+FW="$ROOT/notes/vendor-firmware-20260731/extract/firmware"
+if [ -d "$FW" ]; then
+  mkdir -p "$IR/lib/firmware/qcom/sm6225"
+  cp -a "$FW/a630_sqe.fw" "$IR/lib/firmware/qcom/"
+  cp -a "$FW"/a610_zap.* "$IR/lib/firmware/qcom/sm6225/"
+fi
+
 # fsck.ext4 helper if available (static or from host - skip if not arm64)
 # optional: copy e2fsck from rootfs later
 

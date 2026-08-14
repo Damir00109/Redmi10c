@@ -34,9 +34,9 @@ usb_phy_init() {
   $BB devmem 0x0141d000 32 0x0 2>/dev/null
   $BB devmem 0x0141d008 32 0x3 2>/dev/null
   rmw32 0x04ef8808 0x0 0x100 >/dev/null
-  $BB sleep 1
+  $BB sleep 0.3
   rmw32 0x04ef8808 0x0 0x9 >/dev/null
-  $BB sleep 1
+  $BB sleep 0.3
   rmw32 0x04ef8808 0x100 0x0 >/dev/null
   rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
   rmw32 0x04ef8830 0x0 0x01000000 >/dev/null
@@ -62,7 +62,7 @@ setup_gadget() {
   $BB rm -f "$G/configs/c.1/rndis.usb0" 2>/dev/null
   $BB ln -sfn "$G/functions/acm.usb0" "$G/configs/c.1/acm.usb0" 2>/dev/null
   echo "" >"$G/UDC" 2>/dev/null
-  $BB sleep 1
+  $BB sleep 0.3
   rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
   if echo "$UDC" >"$G/UDC" 2>/dev/null; then
     echo "GADGET_OK udc=$UDC"
@@ -71,7 +71,7 @@ setup_gadget() {
     return 1
   fi
   rmw32 0x04e0c704 0x80000000 0x0 >/dev/null
-  $BB sleep 1
+  $BB sleep 0.3
   rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
   rmw32 0x04e0c704 0x0 0x80000000 >/dev/null
   return 0
@@ -97,7 +97,7 @@ fi
 
 # Ensure block device nodes are populated and UFS is enumerated
 $BB mdev -s 2>/dev/null || true
-$BB sleep 4
+$BB sleep 2
 
 CUST=
 for bd in /sys/class/block/* /sys/block/*; do
@@ -123,9 +123,8 @@ if [ -z "$CUST" ] || [ ! -b "$CUST" ]; then
   exec $BB sh
 fi
 
-$BB sleep 1
 $BB mdev -s 2>/dev/null || true
-$BB sleep 3
+$BB sleep 1
 if ! $BB mount -t ext4 -o rw "$CUST" /newroot 2>/tmp/mnt.err; then
   echo "mount cust failed: $($BB cat /tmp/mnt.err)"
   $BB fsck.ext4 -y "$CUST" 2>/dev/null || true
