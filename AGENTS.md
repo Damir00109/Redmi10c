@@ -1,5 +1,83 @@
 # Redmi 10C (rain/fog) mainline bringup — handoff notes
 
+## Статус (2026-08-14)
+
+| Компонент | Статус | Описание |
+|-----------|--------|----------|
+| Kernel boot | ✅ Работает | mainline 7.1.5, slot B, pivot-init → switch_root → Ubuntu 24.04 |
+| Display (DSI/DRM) | ✅ Работает | 720x1650, Xinli FT8006S panel, DPU + DSI 7nm PHY |
+| Backlight | ✅ Работает | Контролируемый через sysfs |
+| GPU Adreno 610 | ⚠️ Частично | PLL/clock/DRM probe работают, vulkaninfo определяет GPU, но 3D рендеринг зависает |
+| Vulkan Turnip | ⚠️ Частично | vulkaninfo работает, vkcube падает на swapchain |
+| Touchscreen | ✅ Работает | FTS SPI, focaltech driver |
+| USB gadget (ADB) | ✅ Работает | ACM gadget через configfs |
+| Charger (smb1351) | ✅ Работает | I2C, polling, JEITA |
+| Sensors (lm-sensors) | ✅ Работает | Температуры доступны |
+| WiFi | ❌ Не работает | qcom-wifi-bringup отключён (нет firmware/modem) |
+| Modem | ❌ Не работает | remoteproc offline, нет firmware |
+| Audio | ❌ Не работает | Не настроен |
+| Camera | ❌ Не работает | Не настроен |
+| Bluetooth | ❌ Не работает | Не настроен |
+| Boot time | ✅ 27.5s | Kernel 9.8s + userspace 17.7s (было 45+s) |
+
+### Что нужно делать дальше
+
+1. **GPU 3D rendering** — главная нерешённая задача
+   - GPU commands из userspace вызывают зависание системы
+   - Возможные причины: GPU clock для rendering, SMMU context banks,
+     zap shader, pagetable switch
+   - Нужно: отладить `a6xx_submit` → GPU hang, проверить SMMU faults,
+     проверить zap shader
+
+2. **WiFi** — нужен modem firmware + qrtr/rmtfs/pd-mapper
+   - remoteproc0 (modem) offline — нет firmware
+   - Нужно: достать firmware из Android, настроить pd-mapper
+
+3. **Audio** — не настроен
+   - Нужно: добавить DTS nodes для lpass/sound card, codec
+
+4. **Bluetooth** — не настроен
+   - Нужно: добавить DTS nodes для bluetooth
+
+5. **Camera** — не настроен
+   - Нужно: добавить DTS nodes для camera subsystem
+
+## 2026-08-14: Boot optimization — 45s → 27.5s
+
+### Что оптимизировано
+- **pivot-init**: `sleep 1` → `sleep 0.3` в usb_phy_init (экономия ~3s)
+- **pivot-init**: `sleep 4` → `sleep 2` для UFS enumeration (экономия ~2s)
+- **pivot-init**: `sleep 3` → `sleep 1` перед mount (экономия ~2s)
+- **udev-trigger**: override с `--type=devices` вместо `--type=all`,
+  только нужные subsystems (11.6s → 4.5s)
+- **qcom-wifi-bringup**: отключён (нет WiFi, сервис блокировал boot 60+s)
+- **rain-boot-report**: отключён (не нужен)
+- **ssh**: отключён (ADB работает)
+- **systemd-networkd-wait-online**: отключён (нет сети)
+- **smb1351 charger**: `dev_info` → `dev_dbg` для periodic spam (27 → 2 сообщений)
+
+### Результат
+```
+Kernel:      9.8s  (было ~17s)
+Userspace:  17.7s  (было 60+s с qcom-wifi-bringup)
+Total:      27.5s  (было 45+s)
+```
+
+## 2026-08-14: Cleanup — убраны debug prints и костыли
+
+### Убрано из kernel
+- Все `pr_info` debug prints из a6xx_gpu.c, a6xx_gmu.c, adreno_device.c,
+  adreno_gpu.c, msm_gpu.c, msm_gem_submit.c
+- GPU always-on костыль (`pm_runtime_put_noidle`) → нормальный
+  `pm_runtime_put_autosuspend`
+- `pm_runtime_get_sync(gmu->cxpd)` для gmu_wrapper (мог вызывать deadlock)
+
+### Убрано из dmesg
+- `DSI PLL lock failed` → `pr_debug` (было 2 сообщения)
+- `Zero divisor` warnings → `CLK_DIVIDER_ALLOW_ZERO` (было 2 warnings)
+- `Fixed dependency cycle` → `pr_debug` (было 8 сообщений)
+- `smb1351` charger spam → `dev_dbg` (было 27 сообщений)
+
 ## 2026-08-13: GPU Adreno 610 PLL lock FIXED — ZONDA + LUCID PLL types
 
 The persistent `gpu_cc_pll0 failed to enable!` / `Couldn't power up the GPU: -110`
@@ -57,6 +135,70 @@ GPU0:
 
 **GPU Adreno 610 is 100% functional** — kernel PLL/clock + DRM + Vulkan Turnip
 driver all working.
+
+## 2026-08-14: GPU 3D rendering bringup — EGL/Weston GL status
+
+### What works
+- **Kernel GPU init**: `adreno_runtime_resume` → `msm_gpu_hw_init` → `a6xx_hw_init`
+  → `a6xx_cp_init` all pass. SMMU aperture set via `qcom_scm_set_gpu_smmu_aperture(0)`
+  (ret=0). SQE firmware (`a630_sqe.fw`) loaded. GPU IRQ (115) enabled.
+- **GPU always-on**: Disabled runtime PM autosuspend in `adreno_load_gpu` —
+  the `pm_runtime_get_sync()` ref from boot is kept, so `pm_runtime_get_sync()`
+  in the submit path is a no-op. This avoids SPTPRAC re-enable hangs.
+- **Vulkan query**: `vulkaninfo --summary` works, detects Turnip Adreno 610.
+- **Weston pixman**: Works (display pipeline functional).
+- **Weston GL (swrast)**: EGL 1.5 Mesa Project initializes, but uses llvmpipe
+  (software), not GPU. Display works but no GPU acceleration.
+- **Mesa DRI drivers**: Installed `libdril_dri.so` (Mesa 25.2.8) + symlinks
+  (`msm_dri.so`, `swrast_dri.so`, `zink_dri.so`, `kms_swrast_dri.so` →
+  `libdril_dri.so`) in `/usr/lib/aarch64-linux-gnu/dri/`.
+
+### What does NOT work (GPU command execution)
+- **GPU IRQ = 0**: GPU never generates interrupts after boot. `A6XX flush` is
+  called twice during `a6xx_cp_init` (boot), but no userspace submit triggers
+  GPU commands.
+- **MSM_SUBMIT ioctl never called**: No userspace app sends `DRM_MSM_GEM_SUBMIT`.
+  `vulkaninfo` only queries GPU info (register reads), doesn't submit.
+- **vkcube-wayland**: Crashes on `demo_init_vk_swapchain: Assertion '!err'` —
+  Vulkan WSI cannot create swapchain through weston pixman (no dmabuf modifier
+  support). Falls before any GPU command is submitted.
+- **vkcube (direct display)**: Causes system hang — GPU commands submitted but
+  GPU hangs, blocking all I/O (RCU stall).
+- **Weston GL with zink**: `EGL_DRIVER=zink_dri.so` causes system hang —
+  zink tries to use Vulkan → GPU hangs.
+- **Weston GL (swrast)**: Works for EGL init but hangs when trying to get
+  DRM master after weston pixman was running (device busy).
+
+### Root cause analysis
+The GPU hardware is initialized and `a6xx_cp_init` passes (GPU executes
+`CP_ME_INIT` commands and goes idle). However, when userspace (Vulkan Turnip
+or zink) tries to submit rendering commands, the GPU hangs and blocks all I/O.
+
+Possible causes:
+1. **GPU clock not enabled for rendering** — `a6xx_cp_init` may use a
+   different clock path than rendering commands.
+2. **SMMU context bank not configured for userspace** — GPU uses context
+   bank 0 (kernel), but userspace needs a separate context bank.
+3. **GPU pagetable switch fails** — `a6xx_set_pagetable` may hang when
+   switching from kernel to userspace pagetable.
+4. **Zap shader not loaded** — `a6xx_zap_shader_init` may fail, preventing
+   secure mode switch.
+
+### Debug prints added (in `a6xx_gpu.c`, `a6xx_gmu.c`, `adreno_device.c`,
+`adreno_gpu.c`, `msm_gpu.c`, `msm_gem_submit.c`)
+- `adreno_runtime_resume` / `adreno_runtime_suspend`
+- `msm_gpu_hw_init` (disabling/enabling irq)
+- `adreno_hw_init` (family, SMMU aperture)
+- `A6XX hw_init` (gmu_wrapper, rgmu)
+- `A6XX flush` (ring, cur_ring)
+- `A6XX submit` (seqno, nr_cmds)
+- `A6XX IRQ`
+- `a6xx_set_pagetable` (ttbr, asid)
+- `MSM_SUBMIT ioctl` (nr_cmds, flags)
+- `GPU submit` (ring, fence)
+- `GPU retire` (ring, fence, last)
+- `GMU wrapper: SPTPRAC enable`
+- `adreno_load_gpu: keeping GPU always-on`
 
 ### Known harmless messages
 - `supply vdd/vddcx not found, using dummy regulator` — normal for SM6115
