@@ -243,10 +243,4 @@ fastboot reboot
 
 ---
 
-## Лицензия
 
-Патчи и DTS-файлы — GPL-2.0 (соответствуют лицензии ядра Linux).
-Скрипты сборки и утилиты — MIT.
-
-Focaltech touchscreen driver (`fts_spi`) — GPL-2.0, copyright FocalTech Systems.
-Распространяется под условиями GNU General Public License version 2.
