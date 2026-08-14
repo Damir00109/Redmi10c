@@ -80,22 +80,17 @@ setup_gadget() {
   return 0
 }
 
+# Always init USB PHY — ADB gadget is needed for debugging
+# But do NOT redirect console to ttyGS0 (breaks if USB endpoint fails)
 usb_phy_init
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-  # no bare grep — test if any UDC name exists
   UDC=$($BB ls /sys/class/udc 2>/dev/null | $BB head -n 1)
   [ -n "$UDC" ] && break
   $BB sleep 1
 done
 echo "udc=$($BB ls /sys/class/udc 2>/dev/null)"
-setup_gadget
-for _ in 1 2 3 4 5; do
-	[ -c /dev/ttyGS0 ] && break
-	$BB sleep 1
-done
-if [ -c /dev/ttyGS0 ]; then
-	exec </dev/ttyGS0 >/dev/ttyGS0 2>&1
-	echo "pivot: console -> ttyGS0"
+if [ -n "$UDC" ]; then
+  setup_gadget
 fi
 
 # Ensure block device nodes are populated and UFS is enumerated
@@ -168,6 +163,8 @@ kdbg "init file: $($BB test -x /newroot/sbin/init && echo exists-exec || echo MI
 # bails out to its usage text instead of a real error. It must be `exec`d
 # directly from the pid-1 shell, never wrapped/subshelled/piped.
 kdbg "switch_root -> /sbin/init (exec, no return expected)"
+# Unbind UDC so rootfs usb-adb-gadget.service can bind it cleanly
+echo "" >"$G/UDC" 2>/dev/null
 exec $BB switch_root /newroot /sbin/init
 echo "FATAL: switch_root exec itself failed to run" >/dev/kmsg 2>/dev/null
 exec $BB sh
