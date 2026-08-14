@@ -97,39 +97,66 @@ never locked → `gpu_cc_pll0 failed to enable!` → `Couldn't power up GPU: -11
 - Firmware: `qcom/a630_sqe.fw` loaded
 - IOMMU: adreno_smmu bound (iommu group 4)
 
-### 3D rendering — kernel + Vulkan driver work, but **rendering crashes** (2026-08-14)
+### 3D rendering — kernel + Vulkan driver work, but **display path crashes** (2026-08-14)
 
 **What works:**
 - `vulkaninfo --summary` → `Turnip Adreno (TM) 610`, Mesa 25.2.8 ✅
-- Headless Vulkan test: device creation, memory alloc, buffer binding ✅
+- Headless Vulkan: device creation, memory alloc, buffer binding ✅
+- **Headless Vulkan 3D render**: `vkCreateImage`, `vkAllocateMemory`,
+  `vkBindImageMemory`, `vkCmdClearColorImage`, `vkQueueSubmit`,
+  `vkQueueWaitIdle` — **ALL WORK, no errors, no crash** ✅
 - Weston with Pixman (software) renderer ✅ — DSI-1 720x1650, touch, backlight
 - `vkcube-wayland` finds GPU: `Selected GPU 0: Turnip Adreno (TM) 610`
+- Weston GL renderer: EGL 1.5 init, Mesa OpenGL ES — **starts OK** ✅
 
-**What crashes:**
-- `vkcube-wayland`: fails at `demo_init_vk_swapchain: Assertion '!err'` (swapchain creation)
-- `weston --renderer=gl`: phone hangs (likely SMMU fault → UFS timeout cascade)
+**What crashes (hardware lockup, NOT panic):**
+- `weston --renderer=gl`: hangs ~2s after EGL init (during first swap buffers)
 - `weston-simple-egl`: phone hangs
 - `weston-simple-dmabuf-egl`: phone hangs
+- `vkcube-wayland` under pixman weston: `demo_init_vk_swapchain: Assertion
+  '!err'` (swapchain creation fails — expected, needs GL renderer)
 
-**Root cause (probable):**
-GPU rendering triggers SMMU fault or memory access that cascades into UFS
-timeout and system hang. The GPU kernel driver (msm DRM) may need:
-1. Proper GMU wrapper initialization (currently `sync_state() pending`)
-2. Zap shader loading (`a610_zap.mdt` not loaded — may be needed for secure
-   rendering)
-3. Correct SMMU context bank configuration
-4. Power domain (GX GDSC) enable before rendering
+**Root cause analysis (2026-08-14):**
+The crash is a **hardware lockup** (CPU stuck on MMIO read), NOT a kernel
+panic. RCU stall fires after ~60s but doesn't cause panic (no
+SOFTLOCKUP_DETECTOR). pstore/ramoops can't capture it because:
+1. The lockup is a hard CPU stall — no code runs to write pstore
+2. ramoops DTS node at 0x45d00000 **breaks boot** (conflicts with System RAM
+   used by UFS/cust mount) — had to revert
+3. journald can't flush to UFS during lockup
+
+The crash happens when **GPU renders to a buffer and DPU tries to scanout
+from it** (atomic commit with GPU GEM buffer). Headless GPU rendering
+(without display) works perfectly. This points to:
+1. **DPU scanout from GPU buffer** — possible SMMU context fault when DPU
+   reads GPU-allocated memory
+2. **GMU wrapper power management** — `sync_state() pending due to
+   596a000.gmu`, GPU power domains may not be properly enabled for rendering
+3. **Zap shader** — `a610_zap.mdt` present in `/lib/firmware/qcom/sm6225/`
+   but QSEECOM skipped (`untested machine`), so secure rendering may not work
+
+**SMMU faults observed (boot -1, kernel #116):**
+```
+arm-smmu c600000.iommu: Unhandled context fault: fsr=0x402, iova=0x5c000000,
+  fsynr=0x350021, cbfrsynra=0x420, cb=3
+```
+SID=0x420, iova=0x5c000000 = cont_splash_mem (framebuffer). These are
+APPS SMMU faults, not adreno_smmu — likely DPU trying to scanout splash
+memory without proper SMMU mapping.
 
 **Installed on phone (survives reboot):**
 - `/usr/lib/aarch64-linux-gnu/libvulkan_freedreno.so` (Turnip ICD)
 - `/usr/share/vulkan/icd.d/freedreno_icd.json`
 - `/usr/local/bin/vulkaninfo`, `vkcube`, `vkcube-wayland`
+- `/lib/firmware/qcom/sm6225/a610_zap.{mdt,b00,b01,b02,elf,mbn}`
 
 ### Remaining for 100% GPU
-- Fix GPU rendering crash (SMMU/GMU/zap shader)
+- Fix display path crash (DPU scanout from GPU buffer → hardware lockup)
+- Investigate SMMU context faults (SID=0x420, iova=0x5c000000)
 - `supply vdd/vddcx not found, using dummy regulator` — may need real regulators
 - `sync_state() pending due to 596a000.gmu` — GMU wrapper has no driver
-- Display scanout through GPU (currently simplefb/Pixman)
+- QSEECOM skipped (`untested machine`) — may need to add SM6225 to allowlist
+  for zap shader loading
 
 ### Archive
 `archive/mainline-gpucc-zonda-lucid-20260813-2244/` — working build with
