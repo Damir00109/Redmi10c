@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
 # Pull high-value Android (Lineage) artifacts for mainline bringup.
 # Usage: tools/adb-pull-bringup.sh
 set -euo pipefail

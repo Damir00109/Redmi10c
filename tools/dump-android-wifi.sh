@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
 # Dump Wi-Fi / WCN passport from live Android (Magisk root).
 # Usage: tools/dump-android-wifi.sh [OUTDIR]
 set -euo pipefail

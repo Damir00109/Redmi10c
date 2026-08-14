@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
 import serial, time, base64, pathlib, sys
 
 SER = "/dev/ttyACM0"

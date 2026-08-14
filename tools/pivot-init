@@ -1,4 +1,7 @@
 #!/bin/busybox sh
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
 # Pivot: QSCRATCH/USB ACM → mount PARTLABEL=cust → switch_root
 # Use only `busybox <applet>` — never rely on /bin symlinks (host abs links break on device).
 export PATH=/bin:/sbin

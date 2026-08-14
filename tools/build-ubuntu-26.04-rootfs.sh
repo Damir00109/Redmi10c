@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
 # Build Ubuntu 26.04 (resolute) rootfs for Redmi 10C rain dual-boot (cust).
 # Preserves working rain Wi-Fi/serial stack from the 24.04 tree.
 set -euo pipefail

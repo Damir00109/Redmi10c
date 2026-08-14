@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
 # Stage Wi-Fi / modem firmware into out/initramfs-root and rebuild cpio.gz
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
