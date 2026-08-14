@@ -116,6 +116,22 @@ never locked → `gpu_cc_pll0 failed to enable!` → `Couldn't power up GPU: -11
 - `vkcube-wayland` under pixman weston: `demo_init_vk_swapchain: Assertion
   '!err'` (swapchain creation fails — expected, needs GL renderer)
 
+**Android comparison (2026-08-14):**
+Booted into Android (slot a) to verify GPU hardware. Android uses:
+- Kernel 4.19.325 (downstream Qualcomm)
+- **kgsl** proprietary driver (not mainline freedreno)
+- msm_drm (downstream) for display
+
+Results in Android:
+- AdrenoGLES (OpenGL ES) — works perfectly
+- AdrenoVK (Vulkan) — works perfectly
+- WebGL in browser — works
+- **NO SMMU faults, NO crashes, NO hangs**
+- `kgsl_worker_thr` active, no errors in logcat
+
+**Conclusion: GPU hardware is 100% functional. The crash is 100% a
+mainline driver issue.**
+
 **Root cause analysis (2026-08-14):**
 The crash is a **hardware lockup** (CPU stuck on MMIO read), NOT a kernel
 panic. RCU stall fires after ~60s but doesn't cause panic (no
