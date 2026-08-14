@@ -1,0 +1,17 @@
+[Unit]
+Description=Framebuffer on-screen keyboard for fbcon
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/fb-keyboard
+Restart=always
+RestartSec=2
+StandardInput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=multi-user.target
