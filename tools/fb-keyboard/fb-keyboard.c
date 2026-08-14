@@ -549,6 +549,26 @@ static void emit_key(int code, int pressed)
 	write(uinput_fd, &ev, sizeof(ev));
 }
 
+/* ── Swipe handling ───────────────────────────────────────────────── */
+static void handle_swipe(int sx, int sy, int ex, int ey)
+{
+	int dx = ex - sx;
+	int dy = ey - sy;
+	int thr = 40;  /* lower threshold for quick flicks */
+	int dist2 = dx * dx + dy * dy;
+	if (dist2 < thr * thr) return;
+
+	/* Allow imperfect swipes: dominant axis must beat the other by 1.3:1 */
+	int adx = abs(dx), ady = abs(dy);
+	if (adx * 10 > 13 * ady) {
+		if (dx > 0)      emit_key(KEY_RIGHT, 1), emit_key(KEY_RIGHT, 0);
+		else             emit_key(KEY_LEFT, 1),  emit_key(KEY_LEFT, 0);
+	} else if (ady * 10 > 13 * adx) {
+		if (dy > 0)      emit_key(KEY_DOWN, 1),  emit_key(KEY_DOWN, 0);
+		else             emit_key(KEY_UP, 1),    emit_key(KEY_UP, 0);
+	}
+}
+
 static void emit_key_with_mods(int code)
 {
 	if (mod_ctrl) {
@@ -652,6 +672,9 @@ int main(int argc, char **argv)
 
 	/* Touch state */
 	int slot_x = -1, slot_y = -1;
+	int start_x = -1, start_y = -1;
+	int last_x = -1, last_y = -1;
+	bool got_start = false;
 	int slot_id = -1;
 	int tracking_id = -1;
 	bool touching = false;
@@ -659,6 +682,7 @@ int main(int argc, char **argv)
 	long hold_start_ms = 0;
 	long last_repeat_ms = 0;
 	long last_redraw_ms = 0;
+	int kb_top = fb_h - KB_HEIGHT;
 
 	struct pollfd pfd = { .fd = tsfd, .events = POLLIN };
 
@@ -710,6 +734,7 @@ int main(int argc, char **argv)
 					if (ev[i].value >= 0) {
 						tracking_id = ev[i].value;
 						touching = true;
+						got_start = false;
 						{
 							struct timespec ts;
 							clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -718,6 +743,10 @@ int main(int argc, char **argv)
 						}
 					} else {
 						touching = false;
+						/* Swipe gesture if released above keyboard */
+						if (got_start && last_x >= 0 && last_y >= 0) {
+							handle_swipe(start_x, start_y, last_x, last_y);
+						}
 						/* Release key */
 						if (active_row >= 0 && active_idx >= 0) {
 							draw_key(active_row, active_idx, false);
@@ -728,9 +757,23 @@ int main(int argc, char **argv)
 					break;
 				case ABS_MT_POSITION_X:
 					slot_x = ev[i].value;
+					last_x = slot_x;
+					if (touching && !got_start && slot_y >= 0) {
+						start_x = slot_x;
+						start_y = slot_y;
+						got_start = true;
+						last_x = slot_x; last_y = slot_y;
+					}
 					break;
 				case ABS_MT_POSITION_Y:
 					slot_y = ev[i].value;
+					last_y = slot_y;
+					if (touching && !got_start && slot_x >= 0) {
+						start_x = slot_x;
+						start_y = slot_y;
+						got_start = true;
+						last_x = slot_x; last_y = slot_y;
+					}
 					break;
 				}
 			} else if (ev[i].type == EV_KEY && ev[i].code == BTN_TOUCH) {

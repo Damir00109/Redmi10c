@@ -4,5 +4,5 @@
 # https://github.com/Damir00109/Redmi10c
 set -e
 cd "$(dirname "$0")"
-aarch64-linux-gnu-gcc -O2 -Wall -o fb-keyboard fb-keyboard.c
+aarch64-linux-gnu-gcc -O2 -Wall -o fb-keyboard fb-keyboard.c -lm
 echo "Built fb-keyboard ($(wc -c < fb-keyboard) bytes)"
