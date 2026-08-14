@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
 # Build Ubuntu-on-cust dual-boot package for Redmi 10C (rain/fog):
 #   - out/ubuntu-dualboot/boot-linux.img     (mainline kernel → mount cust → switch_root)
 #   - out/ubuntu-dualboot/linux_rootfs.img   (ext4, flashed to cust)

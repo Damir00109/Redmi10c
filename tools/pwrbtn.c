@@ -1,4 +1,7 @@
 /*
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
  * rain: single Power press → poweroff.
  * Waits until pm8941 input nodes appear (PON can probe late), then
  * listens for KEY_POWER (116). Re-scans /dev/input if nodes appear later.

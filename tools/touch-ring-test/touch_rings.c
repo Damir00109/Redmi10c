@@ -1,4 +1,7 @@
 /*
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
  * touch_rings — framebuffer multitouch visualizer for rain/fog bringup.
  * Draws a coloured ring at each contact; HUD shows active / peak / total.
  *

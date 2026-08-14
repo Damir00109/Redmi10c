@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
+# https://github.com/Damir00109/Redmi10c
 # Full-ish partition dump for Redmi 10C (fog/rain/wind)
 # Requires: unlocked BL, rooted Lineage (su), adb on PC, USB debugging
 # Goal: soft-brick recovery without EDL. Does NOT magically bypass Xiaomi EDL auth.
