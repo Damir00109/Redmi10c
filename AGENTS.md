@@ -4,43 +4,75 @@
 
 | Компонент | Статус | Описание |
 |-----------|--------|----------|
-| Kernel boot | ✅ Работает | mainline 7.1.5, slot B, pivot-init → switch_root → Ubuntu 24.04 |
+| Boot / kernel | ✅ Работает | mainline 7.1.5, slot B, pivot-init → switch_root → Ubuntu 24.04 |
+| CPU / SMP | ✅ Работает | 8 ядер, PREEMPT |
+| UFS | ✅ Работает | sda1-sda16, cust = sda8 (ext4, Ubuntu 24.04) |
 | Display (DSI/DRM) | ✅ Работает | 720x1650, Xinli FT8006S panel, DPU + DSI 7nm PHY |
 | Backlight | ✅ Работает | Контролируемый через sysfs |
-| GPU Adreno 610 | ⚠️ Частично | PLL/clock/DRM probe работают, vulkaninfo определяет GPU, но 3D рендеринг зависает |
-| Vulkan Turnip | ⚠️ Частично | vulkaninfo работает, vkcube падает на swapchain |
 | Touchscreen | ✅ Работает | FTS SPI, focaltech driver |
-| USB gadget (ADB) | ✅ Работает | ACM gadget через configfs |
+| Power key | ✅ Работает | pm8941_pwrkey |
+| Volume up | ✅ Работает | pm8941_resin |
+| Vibrator | ✅ Работает | gpio-vibrator |
 | Charger (smb1351) | ✅ Работает | I2C, polling, JEITA |
+| Fuel gauge (sh366101) | ✅ Работает | Battery %, temp |
+| microSD | ✅ Работает | |
+| Type-C CC (wusb3801) | ✅ Работает | /sys/class/typec/port0 |
+| USB RNDIS | ✅ Работает | usb0 = 10.0.0.2/24 |
+| ACM serial (ttyACM0) | ✅ Работает | USB gadget |
+| ADB | ✅ Работает | usb-adb-gadget.service |
+| Thermal (pm6125-thermal) | ✅ Работает | thermal_zone2, ~38°C |
 | Sensors (lm-sensors) | ✅ Работает | Температуры доступны |
-| WiFi | ❌ Не работает | qcom-wifi-bringup отключён (нет firmware/modem) |
-| Modem | ❌ Не работает | remoteproc offline, нет firmware |
-| Audio | ❌ Не работает | Не настроен |
-| Camera | ❌ Не работает | Не настроен |
-| Bluetooth | ❌ Не работает | Не настроен |
+| GPU Adreno 610 | ⚠️ 70% | PLL/clock/DRM probe работают, vulkaninfo определяет GPU, headless 3D render работает, но display path (DPU scanout from GPU buffer) → hardware lockup |
+| Vulkan Turnip | ⚠️ 70% | vulkaninfo + headless render работают, vkcube-wayland падает на swapchain (DPU scanout crash) |
+| Wi-Fi | ❌ 0% | qcom-wifi-bringup отключён, нет modem firmware, remoteproc offline |
+| Modem (voice/data) | ❌ 0% | remoteproc offline, нет firmware |
+| Audio codec / speakers | ❌ 0% | Не настроен (fsa4480 не populated на RAIN) |
+| Bluetooth | ❌ 0% | WCN3990 BTFM, не начато |
+| GPS | ❌ 0% | Не начато |
+| Camera | ❌ 0% | Не начато |
+| Fingerprint | ❌ 0% | Проприетарный FPC/Silead |
+| NFC | ❌ 0% | conf есть, не начато |
 | Boot time | ✅ 27.5s | Kernel 9.8s + userspace 17.7s (было 45+s) |
 
-### Что нужно делать дальше
+**Общий прогресс: ~70%** (пользовательская функциональность ~55%)
 
-1. **GPU 3D rendering** — главная нерешённая задача
-   - GPU commands из userspace вызывают зависание системы
-   - Возможные причины: GPU clock для rendering, SMMU context banks,
-     zap shader, pagetable switch
-   - Нужно: отладить `a6xx_submit` → GPU hang, проверить SMMU faults,
-     проверить zap shader
+### Что нужно делать дальше (по приоритету)
+
+1. **GPU 3D rendering + display path** — главная нерешённая задача
+   - Headless GPU render работает (vkQueueSubmit, vkCmdClearColorImage ✅)
+   - Crash при DPU scanout из GPU buffer → hardware lockup (не panic)
+   - SMMU context fault: SID=0x420, iova=0x5c000000 (cont_splash_mem)
+   - Нужно: отладить DPU scanout из GPU GEM buffer, проверить SMMU
+     mappings, zap shader (QSEECOM skipped — `untested machine`),
+     GMU wrapper power domains
 
 2. **WiFi** — нужен modem firmware + qrtr/rmtfs/pd-mapper
    - remoteproc0 (modem) offline — нет firmware
-   - Нужно: достать firmware из Android, настроить pd-mapper
+   - Нужно: достать firmware из Android, настроить pd-mapper,
+     проверить wcn3990/btwifi chip
 
 3. **Audio** — не настроен
-   - Нужно: добавить DTS nodes для lpass/sound card, codec
+   - fsa4480 не populated на RAIN variant
+   - Нужно: найти правильный codec (возможно analog codec via lpass),
+     добавить DTS nodes для lpass/sound card
 
-4. **Bluetooth** — не настроен
-   - Нужно: добавить DTS nodes для bluetooth
+4. **Bluetooth** — WCN3990 BTFM
+   - Нужно: добавить DTS nodes для bluetooth, firmware
 
 5. **Camera** — не настроен
-   - Нужно: добавить DTS nodes для camera subsystem
+   - Нужно: добавить DTS nodes для camera subsystem, CSI/CCI
+
+6. **GPS** — не начато
+   - Нужно: добавить DTS nodes для GPS
+
+7. **Modem (voice/data)** — не начато
+   - Нужно: modem firmware, remoteproc start, AT commands
+
+8. **Fingerprint** — проприетарный FPC/Silead
+   - Нужно: найти driver, firmware
+
+9. **NFC** — conf есть в Android, не начато
+   - Нужно: проверить NFC chip, добавить driver
 
 ## 2026-08-14: Boot optimization — 45s → 27.5s
 
