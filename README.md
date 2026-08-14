@@ -8,9 +8,12 @@ Ubuntu 24.04 через кастомный `initramfs` (`pivot-init` → `switch
 
 **Текущий статус:** ядро полностью грузится, `switch_root` в Ubuntu 24.04
 проходит успешно (systemd, adb по USB-гаджету). Экран работает через
-DRM/DSI: панель FT8006S 720x1650, подсветка, fbcon-консоль, режим `720x1650`.
-**GPU Adreno 610 работает на 100%** — Vulkan Turnip драйвер Mesa, `vulkaninfo`
-подтверждает. Подробный статус — в [`AGENTS.md`](AGENTS.md) и [`STATUS.md`](STATUS.md).
+DRM/DSI: панель FT8006S 720x1650, подсветка, fbcon-консоль.
+GPU Adreno 610: PLL/clock/DRM probe работают, vulkaninfo определяет GPU,
+headless 3D render работает, но display path (DPU scanout from GPU buffer)
+вызывает hardware lockup. Подробный статус — в [`STATUS.md`](STATUS.md).
+
+Boot time: **27.5 секунд** (kernel 9.8s + userspace 17.7s).
 
 Это репозиторий с **исходниками и патчами**, а не с готовыми бинарниками.
 Ниже — полная инструкция, как всё собрать с нуля.
@@ -28,9 +31,44 @@ DRM/DSI: панель FT8006S 720x1650, подсветка, fbcon-консоль
 | `tools/pack-ubuntu-boot.sh` | Собирает `boot-linux.img` (ядро + initramfs + dtb) |
 | `tools/build-ubuntu-dualboot.sh` | Собирает rootfs Ubuntu (`linux_rootfs*.img`) через debootstrap |
 | `tools/restore-android.sh` | Откат слота `a` на стоковый Android/LineageOS |
-| `AGENTS.md` | Технический журнал: что именно ломалось и как было исправлено (для ИИ-агентов и людей) |
 | `STATUS.md`, `PLAN.md`, `HARDWARE-DRIVERS.md` | История портирования по подсистемам |
-| `archive/` | Снэпшоты успешных сборок (не для продолжения работы, только бэкап) |
+| `notes/` | Исследовательские заметки: dmesg, DT dumps, debug логи с живого устройства |
+
+---
+
+## Статус компонентов
+
+| Компонент | Статус | Описание |
+|-----------|--------|----------|
+| Boot / kernel | ✅ | mainline 7.1.5, slot B, Ubuntu 24.04 |
+| CPU / SMP | ✅ | 8 ядер, PREEMPT |
+| UFS | ✅ | sda1-sda16, cust=sda8 |
+| Display (DSI/DRM) | ✅ | 720x1650, Xinli FT8006S, DPU + DSI 7nm PHY |
+| Backlight | ✅ | sysfs |
+| Touchscreen | ✅ | FTS SPI, focaltech driver |
+| Power key / Volume | ✅ | pm8941_pwrkey / pm8941_resin |
+| Vibrator | ✅ | gpio-vibrator |
+| Charger (smb1351) | ✅ | I2C, polling, JEITA |
+| Fuel gauge (sh366101) | ✅ | Battery %, temp |
+| microSD | ✅ | |
+| Type-C CC (wusb3801) | ✅ | /sys/class/typec/port0 |
+| USB RNDIS | ✅ | usb0=10.0.0.2/24 |
+| ACM serial / ADB | ✅ | ttyACM0, usb-adb-gadget |
+| Thermal (pm6125) | ✅ | ~38°C |
+| Sensors (lm-sensors) | ✅ | Температуры |
+| GPU Adreno 610 | ⚠️ 70% | Headless render ✅, DPU scanout crash |
+| Vulkan Turnip | ⚠️ 70% | vulkaninfo ✅, vkcube swapchain crash |
+| Wi-Fi | ❌ | Нет modem firmware |
+| Modem | ❌ | remoteproc offline |
+| Audio | ❌ | Не настроен |
+| Bluetooth | ❌ | WCN3990, не начато |
+| GPS | ❌ | Не начато |
+| Camera | ❌ | Не начато |
+| Fingerprint | ❌ | FPC/Silead |
+| NFC | ❌ | NQ-NCI, не начато |
+| Boot time | ✅ 27.5s | Kernel 9.8s + userspace 17.7s |
+
+**Общий прогресс: ~70%** (пользовательская функциональность ~55%)
 
 ---
 
@@ -76,12 +114,6 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j"$(nproc)" \
 
 Результат: `out/linux-7.1.5/arch/arm64/boot/Image.gz` и
 `out/linux-7.1.5/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb`.
-
-> Если после `olddefconfig` какая-то опция "отвалилась" (например,
-> `CONFIG_FRAMEBUFFER_CONSOLE` или `CONFIG_DRM_MSM` превратился в модуль),
-> верните её явно:
-> `mainline/linux-7.1.y/scripts/config --file out/linux-7.1.5/.config --enable ИМЯ_ОПЦИИ`
-> и пересоберите. Список критичных опций — в `AGENTS.md`.
 
 ---
 
@@ -140,12 +172,10 @@ bash tools/pack-ubuntu-boot.sh
 `sudo`, `debootstrap`, `qemu-user-static` для aarch64). Он создаёт
 `out/ubuntu-dualboot/linux_rootfs.img` (ext4) и sparse-версию для fastboot.
 
-**Важно** (найденный и исправленный баг, см. `AGENTS.md`): rootfs должен
-иметь либо настоящий merged-usr (`/lib -> usr/lib`), либо хотя бы символьную
-ссылку `/lib/systemd -> ../usr/lib/systemd`, иначе `/sbin/init ->
-../lib/systemd/systemd` не резолвится и `switch_root` проваливается с
-`ENOENT` уже ПОСЛЕ удаления initramfs (безвозвратно вешает шелл до
-физической перезагрузки). Проверить после сборки:
+**Важно:** rootfs должен иметь либо настоящий merged-usr (`/lib -> usr/lib`),
+либо хотя бы символьную ссылку `/lib/systemd -> ../usr/lib/systemd`, иначе
+`/sbin/init -> ../lib/systemd/systemd` не резолвится и `switch_root`
+проваливается с `ENOENT` уже ПОСЛЕ удаления initramfs. Проверить после сборки:
 
 ```sh
 sudo mount -o loop <linux_rootfs.img> /mnt
@@ -165,15 +195,10 @@ sudo umount /mnt
 ```sh
 fastboot erase dtbo_b
 fastboot flash boot_b out/ubuntu-dualboot/boot-linux.img
-fastboot flash cust   out/ubuntu-dualboot/linux_rootfs.sparse.img   # или ...-sparse.img
+fastboot flash cust   out/ubuntu-dualboot/linux_rootfs.sparse.img
 fastboot --set-active=b
 fastboot reboot
 ```
-
-Если `fastboot boot`/`flash` вернёт
-`FAILED (remote: 'Failed to load/authenticate boot image: Load Error')`,
-это значит телефон в "псевдо-fastboot" после предыдущей неудачной попытки —
-сделайте `fastboot reboot` и повторите команду (подробности в `AGENTS.md`).
 
 Проверка после загрузки (USB ACM/adb должны подняться сами):
 
@@ -192,37 +217,37 @@ fastboot reboot
 
 ---
 
-## Известные проблемы / что дальше
+## Что не работает (осталось)
 
-См. таблицу статусов и детальный технический журнал в `AGENTS.md` и
-`STATUS.md`. Кратко:
-
-- **GPU Adreno 610 — 100% работает**: PLL0 (ZONDA, 640 МГц) + PLL1 (LUCID,
-  690 МГц) залочены, DRM привязан, Vulkan Turnip драйвер Mesa установлен,
-  `vulkaninfo` подтверждает `Turnip Adreno (TM) 610`, GPU memory allocation
-  и buffer binding работают.
-- DRM/DSI-панель FT8006S 720x1650 работает: подсветка, fbcon, режим 60 Гц.
-- Wi-Fi (`ath10k`) требует модулей ядра, собранных именно под текущую
-  версию `Image.gz` — старые `.ko` из прежних сборок не грузятся.
-- Изредка происходит самопроизвольная перезагрузка при бринг-апе
-  Wi-Fi/модема (soft-hang, не связано с изменениями из этого README).
-
-### Что не работает (осталось)
-
-- Wi-Fi: assoc + ping OK, но soft-hang через ~60 секунд
-- Audio: не начато
-- Bluetooth: не начато
-- Modem (voice/data): не начато
-- Camera: не начато
-- GPS: не начато
-- Sensors: не найдены в DT/I2C
+- **GPU 3D rendering + display path** — главная нерешённая задача.
+  Headless GPU render работает, но DPU scanout из GPU buffer → hardware lockup.
+  SMMU context fault: SID=0x420, iova=0x5c000000.
+- **Wi-Fi** — нет modem firmware, remoteproc offline
+- **Audio** — не настроен
+- **Bluetooth** — WCN3990, не начато
+- **Modem (voice/data)** — не начато
+- **Camera** — не начато
+- **GPS** — не начато
+- **Fingerprint** — проприетарный FPC/Silead
+- **NFC** — NQ-NCI, не начато
 
 ---
 
-## Безопасность / договорённости с владельцем устройства
+## Безопасность
 
 - **Верификацию (`dm-verity`/AVB) на слоте `a` не отключать** — это
   единственный гарантированно рабочий fallback.
 - Разрушительные операции (erase/flash системных партиций, смена
   `vbmeta`) выполняются только на слоте `b` или на явно указанных
   тестовых партициях (`cust`).
+
+---
+
+## Лицензия
+
+Патчи и DTS-файлы — GPL-2.0 (соответствуют лицензии ядра Linux).
+Скрипты сборки и утилиты — MIT.
+
+Focaltech touchscreen driver (`fts_spi`) исключён из публичного репозитория
+из-за проприетарной лицензии ("All rights reserved"). Для работы тачскрина
+необходимо достать driver из downstream Xiaomi kernel и подключить отдельно.
