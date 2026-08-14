@@ -14,11 +14,15 @@ index 4ba8e7306..0b76ae3c2 100644
  dtb-$(CONFIG_ARCH_QCOM)	+= sm6125-xiaomi-ginkgo.dtb
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog-sm6115.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog-sm6115.dts
 new file mode 100644
-index 000000000..4feec4d72
+index 000000000..b709124c7
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog-sm6115.dts
-@@ -0,0 +1,145 @@
-+// SPDX-License-Identifier: BSD-3-Clause
+@@ -0,0 +1,149 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++ * https://github.com/Damir00109/Redmi10c
++ */
 +/*
 + * Xiaomi Redmi 10C (fog/rain) — SM6225/Khaje on sm6115.dtsi + pm6125.
 + * Step 1: PMIC regulators + USB (Femto HS, UTMI-as-pipe). UFS/GPU off until ACM stable.
@@ -165,11 +169,15 @@ index 000000000..4feec4d72
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..a0f009c80
+index 000000000..6b0cdb578
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,560 @@
-+// SPDX-License-Identifier: BSD-3-Clause
+@@ -0,0 +1,564 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++ * https://github.com/Damir00109/Redmi10c
++ */
 +/* Thin fog/rain + SPMI/pm6125 + RPM regulators (no GCC yet). */
 +/dts-v1/;
 +#include "sm6225.dtsi"
@@ -731,13 +739,15 @@ index 000000000..a0f009c80
 +/* Exclusive with &wifi — same MMIO @ 0xc800000 */
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts
 new file mode 100644
-index 000000000..7fe512a7b
+index 000000000..722422ee8
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts
-@@ -0,0 +1,69 @@
-+// SPDX-License-Identifier: BSD-3-Clause
+@@ -0,0 +1,71 @@
++// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2022, Lux Aliaga <they@mint.lgbt>
++ * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++ * https://github.com/Damir00109/Redmi10c
 + */
 +
 +/dts-v1/;
@@ -806,13 +816,15 @@ index 000000000..7fe512a7b
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..3ab1b1fa3
+index 000000000..d7ffe1b2d
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,1469 @@
-+// SPDX-License-Identifier: BSD-3-Clause
+@@ -0,0 +1,1482 @@
++// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
++ * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++ * https://github.com/Damir00109/Redmi10c
 + */
 +
 +#include <dt-bindings/firmware/qcom,scm.h>
@@ -1851,9 +1863,19 @@ index 000000000..3ab1b1fa3
 +					required-opps = <&rpmpd_opp_svs_plus>;
 +				};
 +
-+				opp-745000000 {
-+					opp-hz = /bits/ 64 <745000000>;
++				opp-785000000 {
++					opp-hz = /bits/ 64 <785000000>;
 +					required-opps = <&rpmpd_opp_nom>;
++				};
++
++				opp-820000000 {
++					opp-hz = /bits/ 64 <820000000>;
++					required-opps = <&rpmpd_opp_nom_plus>;
++				};
++
++				opp-980000000 {
++					opp-hz = /bits/ 64 <980000000>;
++					required-opps = <&rpmpd_opp_turbo>;
 +				};
 +			};
 +		};
@@ -1869,11 +1891,12 @@ index 000000000..3ab1b1fa3
 +		};
 +
 +		gpucc: clock-controller@5990000 {
-+			compatible = "qcom,sm6115-gpucc";
++			compatible = "qcom,sm6225-gpucc";
 +			reg = <0x05990000 0x9000>;
 +			clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
 +				 <&gcc GCC_GPU_GPLL0_CLK_SRC>,
 +				 <&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
++			power-domains = <&rpmpd SM6115_VDDCX>;
 +			#clock-cells = <1>;
 +			#reset-cells = <1>;
 +			#power-domain-cells = <1>;
@@ -3230,8 +3253,21 @@ index 000000000..50d7a4cb1
 +CONFIG_DRM_MSM_DSI_7NM_PHY=y
 +CONFIG_DRM_PANEL_XINLI_FT8006S=y
 +CONFIG_DRM_MSM_KMS_FBDEV=y
+diff --git a/drivers/base/core.c b/drivers/base/core.c
+index 478aa3fbf..cff2921cf 100644
+--- a/drivers/base/core.c
++++ b/drivers/base/core.c
+@@ -2205,7 +2205,7 @@ static int fw_devlink_create_devlink(struct device *con,
+ 	if (__fw_devlink_relax_cycles(link->consumer, sup_handle)) {
+ 		__fwnode_link_cycle(link);
+ 		pr_debug("----- cycle: end -----\n");
+-		pr_info("%pfwf: Fixed dependency cycle(s) with %pfwf\n",
++		pr_debug("%pfwf: Fixed dependency cycle(s) with %pfwf\n",
+ 			link->consumer, sup_handle);
+ 	}
+ 	device_links_write_unlock();
 diff --git a/drivers/clk/qcom/Kconfig b/drivers/clk/qcom/Kconfig
-index df21ef5ff..f24440a91 100644
+index df21ef5ff..cc88c080b 100644
 --- a/drivers/clk/qcom/Kconfig
 +++ b/drivers/clk/qcom/Kconfig
 @@ -1266,7 +1266,7 @@ config SM_DISPCC_6350
@@ -3243,6 +3279,64 @@ index df21ef5ff..f24440a91 100644
  	help
  	  Support for the display clock controller on Qualcomm Technologies, Inc
  	  SM6375 devices.
+@@ -1468,6 +1468,15 @@ config SM_GPUCC_6125
+ 	  Say Y if you want to support graphics controller devices and
+ 	  functionality such as 3D graphics.
+ 
++config SM_GPUCC_6225
++	tristate "SM6225 Graphics Clock Controller"
++	select SM_GCC_6115
++	depends on ARM64 || COMPILE_TEST
++	help
++	  Support for the graphics clock controller on SM6225 devices.
++	  Say Y if you want to support graphics controller devices and
++	  functionality such as 3D graphics.
++
+ config SM_GPUCC_6375
+ 	tristate "SM6375 Graphics Clock Controller"
+ 	select SM_GCC_6375
+diff --git a/drivers/clk/qcom/Makefile b/drivers/clk/qcom/Makefile
+index 89d07c35e..00afc8ce4 100644
+--- a/drivers/clk/qcom/Makefile
++++ b/drivers/clk/qcom/Makefile
+@@ -180,6 +180,7 @@ obj-$(CONFIG_SM_GCC_MILOS) += gcc-milos.o
+ obj-$(CONFIG_SM_GPUCC_4450) += gpucc-sm4450.o
+ obj-$(CONFIG_SM_GPUCC_6115) += gpucc-sm6115.o
+ obj-$(CONFIG_SM_GPUCC_6125) += gpucc-sm6125.o
++obj-$(CONFIG_SM_GPUCC_6225) += gpucc-sm6225.o
+ obj-$(CONFIG_SM_GPUCC_6350) += gpucc-sm6350.o
+ obj-$(CONFIG_SM_GPUCC_6375) += gpucc-sm6375.o
+ obj-$(CONFIG_SM_GPUCC_8150) += gpucc-sm8150.o
+diff --git a/drivers/clk/qcom/clk-alpha-pll.c b/drivers/clk/qcom/clk-alpha-pll.c
+index f8313f9d0..67c2115fd 100644
+--- a/drivers/clk/qcom/clk-alpha-pll.c
++++ b/drivers/clk/qcom/clk-alpha-pll.c
+@@ -1819,9 +1819,22 @@ static int __alpha_pll_trion_set_rate(struct clk_hw *hw, unsigned long rate,
+ 	/* Wait for 2 reference cycles before checking the ACK bit. */
+ 	udelay(1);
+ 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
+-	if (!(val & latch_ack)) {
+-		pr_err("Lucid PLL latch failed. Output may be unstable!\n");
+-		return -EINVAL;
++
++	/*
++	 * Some Lucid/Trion hardware auto-clears the latch bit and uses
++	 * PLL_UPDATE_BYPASS to select between the legacy ACK latch and the
++	 * auto-clear path.  When bypass is not set, wait for the latch bit to
++	 * clear; otherwise wait for the ACK bit to be set.
++	 */
++	if (val & PLL_UPDATE_BYPASS) {
++		if (!(val & latch_ack)) {
++			pr_err("Lucid PLL latch failed. Output may be unstable!\n");
++			return -EINVAL;
++		}
++	} else {
++		ret = wait_for_pll(pll, latch_bit, true, "latch clear");
++		if (ret)
++			return ret;
+ 	}
+ 
+ 	/* Return the latch input to 0 */
 diff --git a/drivers/clk/qcom/dispcc-sm6375.c b/drivers/clk/qcom/dispcc-sm6375.c
 index ec9dbb1f4..767d4ae1f 100644
 --- a/drivers/clk/qcom/dispcc-sm6375.c
@@ -3359,6 +3453,682 @@ index 4c3804701..a9d26ecc7 100644
  };
  
  static struct gdsc gcc_vcodec0_gdsc = {
+diff --git a/drivers/clk/qcom/gpucc-sm6225.c b/drivers/clk/qcom/gpucc-sm6225.c
+new file mode 100644
+index 000000000..22300a8c3
+--- /dev/null
++++ b/drivers/clk/qcom/gpucc-sm6225.c
+@@ -0,0 +1,518 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
++ * Copyright (c) 2023, Linaro Limited
++ */
++
++#include <linux/clk-provider.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++
++#include <dt-bindings/clock/qcom,sm6115-gpucc.h>
++
++#include "clk-alpha-pll.h"
++#include "clk-branch.h"
++#include "clk-rcg.h"
++#include "clk-regmap.h"
++#include "clk-regmap-divider.h"
++#include "clk-regmap-mux.h"
++#include "clk-regmap-phy-mux.h"
++#include "gdsc.h"
++#include "reset.h"
++
++enum {
++	DT_BI_TCXO,
++	DT_GCC_GPU_GPLL0_CLK_SRC,
++	DT_GCC_GPU_GPLL0_DIV_CLK_SRC,
++};
++
++enum {
++	P_BI_TCXO,
++	P_GPLL0_OUT_MAIN,
++	P_GPLL0_OUT_MAIN_DIV,
++	P_GPU_CC_PLL0_OUT_MAIN,
++	P_GPU_CC_PLL1_OUT_AUX,
++	P_GPU_CC_PLL1_OUT_MAIN,
++};
++
++static const struct pll_vco zonda_vco[] = {
++	{ 595200000, 3600000000, 0 },
++};
++
++static const struct pll_vco lucid_vco[] = {
++	{ 249600000, 2000000000, 0 },
++};
++
++/* 640MHz configuration — ZONDA PLL */
++static const struct alpha_pll_config gpu_cc_pll0_config = {
++	.l = 0x21,
++	.alpha = 0x5555,
++	.config_ctl_val = 0x08200800,
++	.config_ctl_hi_val = 0x05022001,
++	.config_ctl_hi1_val = 0x00000010,
++	.user_ctl_val = 0x01000101,
++};
++
++static struct clk_alpha_pll gpu_cc_pll0 = {
++	.offset = 0x0,
++	.vco_table = zonda_vco,
++	.num_vco = ARRAY_SIZE(zonda_vco),
++	.flags = SUPPORTS_DYNAMIC_UPDATE,
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_ZONDA],
++	.clkr = {
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_pll0",
++			.parent_data = &(const struct clk_parent_data){
++				.index = DT_BI_TCXO,
++			},
++			.num_parents = 1,
++			.ops = &clk_alpha_pll_zonda_ops,
++		},
++	},
++};
++
++static const struct clk_div_table post_div_table_gpu_cc_pll0_out_main[] = {
++	{ 0x1, 2 },
++	{ }
++};
++
++static struct clk_alpha_pll_postdiv gpu_cc_pll0_out_main = {
++	.offset = 0x0,
++	.post_div_shift = 8,
++	.post_div_table = post_div_table_gpu_cc_pll0_out_main,
++	.num_post_div = ARRAY_SIZE(post_div_table_gpu_cc_pll0_out_main),
++	.width = 2,
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_ZONDA],
++	.clkr.hw.init = &(struct clk_init_data){
++		.name = "gpu_cc_pll0_out_main",
++		.parent_hws = (const struct clk_hw*[]) {
++			&gpu_cc_pll0.clkr.hw,
++		},
++		.num_parents = 1,
++		.flags = CLK_SET_RATE_PARENT,
++		.ops = &clk_alpha_pll_postdiv_ro_ops,
++	},
++};
++
++/* 690MHz configuration — LUCID PLL */
++static const struct alpha_pll_config gpu_cc_pll1_config = {
++	.l = 0x23,
++	.alpha = 0xF000,
++	.config_ctl_val = 0x20485699,
++	.config_ctl_hi_val = 0x00002261,
++	.config_ctl_hi1_val = 0x329A299C,
++	.user_ctl_val = 0x00000001,
++	.user_ctl_hi_val = 0x00000805,
++};
++
++static struct clk_alpha_pll gpu_cc_pll1 = {
++	.offset = 0x100,
++	.vco_table = lucid_vco,
++	.num_vco = ARRAY_SIZE(lucid_vco),
++	.flags = SUPPORTS_DYNAMIC_UPDATE,
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
++	.clkr = {
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_pll1",
++			.parent_data = &(const struct clk_parent_data){
++				.index = DT_BI_TCXO,
++			},
++			.num_parents = 1,
++			.ops = &clk_alpha_pll_lucid_ops,
++		},
++	},
++};
++
++static const struct clk_div_table post_div_table_gpu_cc_pll1_out_aux[] = {
++	{ 0x0, 1 },
++	{ }
++};
++
++static struct clk_alpha_pll_postdiv gpu_cc_pll1_out_aux = {
++	.offset = 0x100,
++	.post_div_shift = 8,
++	.post_div_table = post_div_table_gpu_cc_pll1_out_aux,
++	.num_post_div = ARRAY_SIZE(post_div_table_gpu_cc_pll1_out_aux),
++	.width = 4,
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
++	.clkr.hw.init = &(struct clk_init_data){
++		.name = "gpu_cc_pll1_out_aux",
++		.parent_hws = (const struct clk_hw*[]) {
++			&gpu_cc_pll1.clkr.hw,
++		},
++		.num_parents = 1,
++		.flags = CLK_SET_RATE_PARENT,
++		.ops = &clk_alpha_pll_postdiv_lucid_ops,
++	},
++};
++
++static const struct parent_map gpu_cc_parent_map_0[] = {
++	{ P_BI_TCXO, 0 },
++	{ P_GPU_CC_PLL0_OUT_MAIN, 1 },
++	{ P_GPU_CC_PLL1_OUT_MAIN, 3 },
++	{ P_GPLL0_OUT_MAIN, 5 },
++	{ P_GPLL0_OUT_MAIN_DIV, 6 },
++};
++
++static const struct clk_parent_data gpu_cc_parent_data_0[] = {
++	{ .index = P_BI_TCXO },
++	{ .hw = &gpu_cc_pll0_out_main.clkr.hw },
++	{ .hw = &gpu_cc_pll1.clkr.hw },
++	{ .index = DT_GCC_GPU_GPLL0_CLK_SRC },
++	{ .index = DT_GCC_GPU_GPLL0_DIV_CLK_SRC },
++};
++
++static const struct parent_map gpu_cc_parent_map_1[] = {
++	{ P_BI_TCXO, 0 },
++	{ P_GPU_CC_PLL0_OUT_MAIN, 1 },
++	{ P_GPU_CC_PLL1_OUT_AUX, 3 },
++	{ P_GPLL0_OUT_MAIN, 5 },
++};
++
++static const struct clk_parent_data gpu_cc_parent_data_1[] = {
++	{ .index = P_BI_TCXO },
++	{ .hw = &gpu_cc_pll0_out_main.clkr.hw },
++	{ .hw = &gpu_cc_pll1_out_aux.clkr.hw },
++	{ .index = DT_GCC_GPU_GPLL0_CLK_SRC },
++};
++
++static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src[] = {
++	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
++	{ }
++};
++
++static struct clk_rcg2 gpu_cc_gmu_clk_src = {
++	.cmd_rcgr = 0x1120,
++	.mnd_width = 0,
++	.hid_width = 5,
++	.parent_map = gpu_cc_parent_map_0,
++	.freq_tbl = ftbl_gpu_cc_gmu_clk_src,
++	.clkr.hw.init = &(struct clk_init_data){
++		.name = "gpu_cc_gmu_clk_src",
++		.parent_data = gpu_cc_parent_data_0,
++		.num_parents = ARRAY_SIZE(gpu_cc_parent_data_0),
++		.flags = CLK_SET_RATE_PARENT,
++		.ops = &clk_rcg2_shared_ops,
++	},
++};
++
++static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
++	F(320000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
++	F(465000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
++	F(600000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
++	F(785000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
++	F(820000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
++	F(980000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
++	F(1025000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
++	F(1100000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
++	{ }
++};
++
++static struct clk_rcg2 gpu_cc_gx_gfx3d_clk_src = {
++	.cmd_rcgr = 0x101c,
++	.mnd_width = 0,
++	.hid_width = 5,
++	.parent_map = gpu_cc_parent_map_1,
++	.freq_tbl = ftbl_gpu_cc_gx_gfx3d_clk_src,
++	.clkr.hw.init = &(struct clk_init_data){
++		.name = "gpu_cc_gx_gfx3d_clk_src",
++		.parent_data = gpu_cc_parent_data_1,
++		.num_parents = ARRAY_SIZE(gpu_cc_parent_data_1),
++		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.ops = &clk_rcg2_ops,
++	},
++};
++
++static struct clk_branch gpu_cc_ahb_clk = {
++	.halt_reg = 0x1078,
++	.halt_check = BRANCH_HALT_DELAY,
++	.clkr = {
++		.enable_reg = 0x1078,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_ahb_clk",
++			.flags = CLK_IS_CRITICAL,
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_crc_ahb_clk = {
++	.halt_reg = 0x107c,
++	.halt_check = BRANCH_HALT_DELAY,
++	.clkr = {
++		.enable_reg = 0x107c,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_crc_ahb_clk",
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_cx_gfx3d_clk = {
++	.halt_reg = 0x10a4,
++	.halt_check = BRANCH_HALT_DELAY,
++	.clkr = {
++		.enable_reg = 0x10a4,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_cx_gfx3d_clk",
++			.parent_data = &(const struct clk_parent_data){
++				.hw = &gpu_cc_gx_gfx3d_clk_src.clkr.hw,
++			},
++			.num_parents = 1,
++			.flags = CLK_SET_RATE_PARENT,
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_cx_gmu_clk = {
++	.halt_reg = 0x1098,
++	.halt_check = BRANCH_HALT,
++	.clkr = {
++		.enable_reg = 0x1098,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_cx_gmu_clk",
++			.parent_data = &(const struct clk_parent_data){
++				.hw = &gpu_cc_gmu_clk_src.clkr.hw,
++			},
++			.num_parents = 1,
++			.flags = CLK_SET_RATE_PARENT,
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_cx_snoc_dvm_clk = {
++	.halt_reg = 0x108c,
++	.halt_check = BRANCH_HALT_DELAY,
++	.clkr = {
++		.enable_reg = 0x108c,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_cx_snoc_dvm_clk",
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_cxo_aon_clk = {
++	.halt_reg = 0x1004,
++	.halt_check = BRANCH_HALT_DELAY,
++	.clkr = {
++		.enable_reg = 0x1004,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_cxo_aon_clk",
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_cxo_clk = {
++	.halt_reg = 0x109c,
++	.halt_check = BRANCH_HALT,
++	.clkr = {
++		.enable_reg = 0x109c,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_cxo_clk",
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_gx_cxo_clk = {
++	.halt_reg = 0x1060,
++	.halt_check = BRANCH_HALT_DELAY,
++	.clkr = {
++		.enable_reg = 0x1060,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_gx_cxo_clk",
++			.flags = CLK_IS_CRITICAL,
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_gx_gfx3d_clk = {
++	.halt_reg = 0x1054,
++	.halt_check = BRANCH_HALT_SKIP,
++	.clkr = {
++		.enable_reg = 0x1054,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_gx_gfx3d_clk",
++			.parent_data = &(const struct clk_parent_data){
++				.hw = &gpu_cc_gx_gfx3d_clk_src.clkr.hw,
++			},
++			.num_parents = 1,
++			.flags = CLK_SET_RATE_PARENT,
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_sleep_clk = {
++	.halt_reg = 0x1090,
++	.halt_check = BRANCH_HALT_DELAY,
++	.clkr = {
++		.enable_reg = 0x1090,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			.name = "gpu_cc_sleep_clk",
++			.ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct clk_branch gpu_cc_hlos1_vote_gpu_smmu_clk = {
++	.halt_reg = 0x5000,
++	.halt_check = BRANCH_VOTED,
++	.clkr = {
++		.enable_reg = 0x5000,
++		.enable_mask = BIT(0),
++		.hw.init = &(struct clk_init_data){
++			 .name = "gpu_cc_hlos1_vote_gpu_smmu_clk",
++			 .ops = &clk_branch2_ops,
++		},
++	},
++};
++
++static struct gdsc gpu_cx_gdsc = {
++	.gdscr = 0x106c,
++	.gds_hw_ctrl = 0x1540,
++	.pd = {
++		.name = "gpu_cx_gdsc",
++	},
++	.pwrsts = PWRSTS_OFF_ON,
++	.flags = VOTABLE,
++};
++
++static struct gdsc gpu_gx_gdsc = {
++	.gdscr = 0x100c,
++	.clamp_io_ctrl = 0x1508,
++	.resets = (unsigned int []){ GPU_GX_BCR },
++	.reset_count = 1,
++	.pd = {
++		.name = "gpu_gx_gdsc",
++	},
++	.parent = &gpu_cx_gdsc.pd,
++	.pwrsts = PWRSTS_OFF_ON,
++	.flags = CLAMP_IO | SW_RESET | VOTABLE,
++};
++
++static struct clk_regmap *gpu_cc_sm6225_clocks[] = {
++	[GPU_CC_AHB_CLK] = &gpu_cc_ahb_clk.clkr,
++	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
++	[GPU_CC_CX_GFX3D_CLK] = &gpu_cc_cx_gfx3d_clk.clkr,
++	[GPU_CC_CX_GMU_CLK] = &gpu_cc_cx_gmu_clk.clkr,
++	[GPU_CC_CX_SNOC_DVM_CLK] = &gpu_cc_cx_snoc_dvm_clk.clkr,
++	[GPU_CC_CXO_AON_CLK] = &gpu_cc_cxo_aon_clk.clkr,
++	[GPU_CC_CXO_CLK] = &gpu_cc_cxo_clk.clkr,
++	[GPU_CC_GMU_CLK_SRC] = &gpu_cc_gmu_clk_src.clkr,
++	[GPU_CC_GX_CXO_CLK] = &gpu_cc_gx_cxo_clk.clkr,
++	[GPU_CC_GX_GFX3D_CLK] = &gpu_cc_gx_gfx3d_clk.clkr,
++	[GPU_CC_GX_GFX3D_CLK_SRC] = &gpu_cc_gx_gfx3d_clk_src.clkr,
++	[GPU_CC_PLL0] = &gpu_cc_pll0.clkr,
++	[GPU_CC_PLL0_OUT_AUX2] = &gpu_cc_pll0_out_main.clkr,
++	[GPU_CC_PLL1] = &gpu_cc_pll1.clkr,
++	[GPU_CC_PLL1_OUT_AUX] = &gpu_cc_pll1_out_aux.clkr,
++	[GPU_CC_SLEEP_CLK] = &gpu_cc_sleep_clk.clkr,
++	[GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK] = &gpu_cc_hlos1_vote_gpu_smmu_clk.clkr,
++};
++
++static const struct qcom_reset_map gpu_cc_sm6225_resets[] = {
++	[GPU_GX_BCR] = { 0x1008 },
++};
++
++static struct gdsc *gpu_cc_sm6225_gdscs[] = {
++	[GPU_CX_GDSC] = &gpu_cx_gdsc,
++	[GPU_GX_GDSC] = &gpu_gx_gdsc,
++};
++
++static const struct regmap_config gpu_cc_sm6225_regmap_config = {
++	.reg_bits = 32,
++	.reg_stride = 4,
++	.val_bits = 32,
++	.max_register = 0x9000,
++	.fast_io = true,
++};
++
++static const struct qcom_cc_desc gpu_cc_sm6225_desc = {
++	.config = &gpu_cc_sm6225_regmap_config,
++	.clks = gpu_cc_sm6225_clocks,
++	.num_clks = ARRAY_SIZE(gpu_cc_sm6225_clocks),
++	.resets = gpu_cc_sm6225_resets,
++	.num_resets = ARRAY_SIZE(gpu_cc_sm6225_resets),
++	.gdscs = gpu_cc_sm6225_gdscs,
++	.num_gdscs = ARRAY_SIZE(gpu_cc_sm6225_gdscs),
++};
++
++static const struct of_device_id gpu_cc_sm6225_match_table[] = {
++	{ .compatible = "qcom,sm6225-gpucc" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, gpu_cc_sm6225_match_table);
++
++static int gpu_cc_sm6225_probe(struct platform_device *pdev)
++{
++	struct regmap *regmap;
++	u32 val;
++	int ret;
++
++	regmap = qcom_cc_map(pdev, &gpu_cc_sm6225_desc);
++	if (IS_ERR(regmap))
++		return PTR_ERR(regmap);
++
++	/*
++	 * Enable the CX GDSC (GPU_CX_GDSC at 0x106c) so the PLLs have power.
++	 * Also enable the AHB and CXO branch clocks — the AHB clock (0x1078)
++	 * is needed for register access to the GPU CC block, and the CXO
++	 * clock (0x1060) provides the PLL reference input.  Without CXO,
++	 * the PLLs will never lock.  These match the downstream Khaje
++	 * driver's always-on clock handling.
++	 */
++	regmap_write(regmap, 0x106c, 0);  /* GPU_CX_GDSC: SW_COLLAPSE = 0 */
++	ret = regmap_read_poll_timeout(regmap, 0x106c, val, (val & BIT(31)),
++				       1, 100);
++	if (ret)
++		pr_warn("gpucc-sm6225: CX GDSC enable timed out: 0x%x\n", val);
++	else
++		pr_info("gpucc-sm6225: CX GDSC enabled: 0x%x\n", val);
++
++	/* Keep AHB and CXO clocks always-on (matches downstream Khaje) */
++	qcom_branch_set_clk_en(regmap, 0x1078); /* GPU_CC_AHB_CLK */
++	qcom_branch_set_clk_en(regmap, 0x1060); /* GPU_CC_GX_CXO_CLK */
++
++	/* PLL0 is ZONDA, PLL1 is LUCID — matching downstream Khaje */
++	clk_zonda_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
++	clk_lucid_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
++
++	/* Set recommended WAKEUP/SLEEP settings for the gpu_cc_cx_gmu_clk */
++	qcom_branch_set_wakeup(regmap, gpu_cc_cx_gmu_clk, 0xf);
++	qcom_branch_set_sleep(regmap, gpu_cc_cx_gmu_clk, 0xf);
++
++	qcom_branch_set_force_mem_core(regmap, gpu_cc_gx_gfx3d_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gpu_cc_gx_gfx3d_clk, true);
++
++	return qcom_cc_really_probe(&pdev->dev, &gpu_cc_sm6225_desc, regmap);
++}
++
++static struct platform_driver gpu_cc_sm6225_driver = {
++	.probe = gpu_cc_sm6225_probe,
++	.driver = {
++		.name = "sm6225-gpucc",
++		.of_match_table = gpu_cc_sm6225_match_table,
++	},
++};
++module_platform_driver(gpu_cc_sm6225_driver);
++
++MODULE_DESCRIPTION("QTI GPU_CC SM6225 Driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index cab4c46c6..e267cd07f 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -404,6 +404,10 @@ int a6xx_gmu_set_oob(struct a6xx_gmu *gmu, enum a6xx_gmu_oob_state state)
+ 	if (adreno_has_rgmu(adreno_gpu))
+ 		return 0;
+ 
++	/* Skip OOB calls for GMU wrapper (no GMU firmware) */
++	if (adreno_has_gmu_wrapper(adreno_gpu))
++		return 0;
++
+ 	if (state >= ARRAY_SIZE(a6xx_gmu_oob_bits))
+ 		return -EINVAL;
+ 
+@@ -467,6 +471,10 @@ void a6xx_gmu_clear_oob(struct a6xx_gmu *gmu, enum a6xx_gmu_oob_state state)
+ 	if (adreno_has_rgmu(adreno_gpu))
+ 		return;
+ 
++	/* Skip OOB calls for GMU wrapper (no GMU firmware) */
++	if (adreno_has_gmu_wrapper(adreno_gpu))
++		return;
++
+ 	if (state >= ARRAY_SIZE(a6xx_gmu_oob_bits))
+ 		return;
+ 
+@@ -1073,6 +1081,13 @@ static int a6xx_gmu_fw_start(struct a6xx_gmu *gmu, unsigned int state)
+ 
+ static void a6xx_gmu_irq_disable(struct a6xx_gmu *gmu)
+ {
++	struct a6xx_gpu *a6xx_gpu = container_of(gmu, struct a6xx_gpu, gmu);
++	struct adreno_gpu *adreno_gpu = &a6xx_gpu->base;
++
++	/* GMU wrapper has no GMU/HFI IRQs requested */
++	if (adreno_has_gmu_wrapper(adreno_gpu))
++		return;
++
+ 	disable_irq(gmu->gmu_irq);
+ 	disable_irq(gmu->hfi_irq);
+ 
+@@ -1124,6 +1139,10 @@ static void a6xx_gmu_force_off(struct a6xx_gmu *gmu)
+ 	struct adreno_gpu *adreno_gpu = &a6xx_gpu->base;
+ 	struct msm_gpu *gpu = &adreno_gpu->base;
+ 
++	/* GMU wrapper has no GMU firmware to force off */
++	if (adreno_has_gmu_wrapper(adreno_gpu))
++		return;
++
+ 	/*
+ 	 * Turn off keep alive that might have been enabled by the hang
+ 	 * interrupt
+@@ -1292,6 +1311,29 @@ int a6xx_gmu_resume(struct a6xx_gpu *a6xx_gpu)
+ 	/* Set the bus quota to a reasonable value for boot */
+ 	a6xx_gmu_set_initial_bw(gpu, gmu);
+ 
++	/* GMU wrapper (e.g. A610) has no GMU firmware/HFI — skip GMU boot */
++	if (adreno_has_gmu_wrapper(adreno_gpu)) {
++		/* Set the GPU clock through OPP table (gmu->gpu_freqs not populated) */
++		struct dev_pm_opp *opp;
++		unsigned long freq = gpu->fast_rate;
++
++		opp = dev_pm_opp_find_freq_ceil(&gpu->pdev->dev, &freq);
++		if (!IS_ERR(opp)) {
++			dev_pm_opp_set_opp(&gpu->pdev->dev, opp);
++			dev_pm_opp_put(opp);
++		}
++
++		pr_info("GMU wrapper: enabling SPTPRAC...\n");
++		/* Power on the GX rail via SPTPRAC (no GMU firmware to do it) */
++		ret = a6xx_sptprac_enable(gmu);
++		pr_info("GMU wrapper: SPTPRAC enable ret=%d\n", ret);
++		if (ret)
++			goto disable_clk;
++
++		pr_info("GMU wrapper: resume done\n");
++		return 0;
++	}
++
+ 	/* Enable the GMU interrupt */
+ 	gmu_write(gmu, REG_A6XX_GMU_AO_HOST_INTERRUPT_CLR, ~0);
+ 	gmu_write(gmu, REG_A6XX_GMU_AO_HOST_INTERRUPT_MASK, ~A6XX_GMU_IRQ_MASK);
+@@ -1368,6 +1410,13 @@ static void a6xx_gmu_shutdown(struct a6xx_gmu *gmu)
+ 	u32 val;
+ 	int ret;
+ 
++	/* GMU wrapper (e.g. A610) has no GMU firmware — skip HFI/OOB/RSCC shutdown */
++	if (adreno_has_gmu_wrapper(adreno_gpu)) {
++		/* Power off the GX rail via SPTPRAC */
++		a6xx_sptprac_disable(gmu);
++		return;
++	}
++
+ 	/*
+ 	 * GMU firmware's internal power state gets messed up if we send "prepare_slumber" hfi when
+ 	 * oob_gpu handshake wasn't done after the last wake up. So do a dummy handshake here when
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+index 7a3e3c2f5..7160cfaf5 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+@@ -334,6 +334,8 @@ static void a6xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
+ 	struct msm_ringbuffer *ring = submit->ring;
+ 	unsigned int i, ibs = 0;
+ 
++	pr_info("A6XX submit: seqno=%u nr_cmds=%u\n", submit->seqno, submit->nr_cmds);
++
+ 	adreno_check_and_reenable_stall(adreno_gpu);
+ 
+ 	a6xx_set_pagetable(a6xx_gpu, ring, submit);
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+index 411a6fa83..4ca845b8f 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+@@ -667,6 +667,8 @@ static void dpu_crtc_frame_event_work(struct kthread_work *work)
+ 	DRM_DEBUG_ATOMIC("crtc%d event:%u ts:%lld\n", crtc->base.id, fevent->event,
+ 			ktime_to_ns(fevent->ts));
+ 
++	pr_info("DPU: frame_event work, event=0x%x\n", fevent->event);
++
+ 	if (fevent->event & (DPU_ENCODER_FRAME_EVENT_DONE
+ 				| DPU_ENCODER_FRAME_EVENT_ERROR
+ 				| DPU_ENCODER_FRAME_EVENT_PANEL_DEAD)) {
+@@ -1025,12 +1027,17 @@ static int _dpu_crtc_wait_for_frame_done(struct drm_crtc *crtc)
+ 		return 0;
+ 	}
+ 
++	pr_info("DPU: wait for frame_done, pending=%d\n", atomic_read(&dpu_crtc->frame_pending));
++
+ 	DPU_ATRACE_BEGIN("frame done completion wait");
+ 	ret = wait_for_completion_timeout(&dpu_crtc->frame_done_comp,
+ 			msecs_to_jiffies(DPU_CRTC_FRAME_DONE_TIMEOUT_MS));
+ 	if (!ret) {
++		pr_err("DPU: frame done wait TIMED OUT\n");
+ 		DRM_ERROR("frame done wait timed out, ret:%d\n", ret);
+ 		rc = -ETIMEDOUT;
++	} else {
++		pr_info("DPU: frame done OK\n");
+ 	}
+ 	DPU_ATRACE_END("frame done completion wait");
+ 
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+index eba1d5221..f6cd29857 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+@@ -2158,6 +2158,8 @@ void dpu_encoder_kickoff(struct drm_encoder *drm_enc)
+ 	struct dpu_encoder_phys *phys;
+ 	unsigned int i;
+ 
++	pr_info("DPU: encoder_kickoff\n");
++
+ 	DPU_ATRACE_BEGIN("encoder_kickoff");
+ 	dpu_enc = to_dpu_encoder_virt(drm_enc);
+ 
 diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
 index c59375aaa..55980cfee 100644
 --- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
@@ -3374,6 +4144,88 @@ index c59375aaa..55980cfee 100644
  	{ .compatible = "qcom,sm8350-dsi-phy-5nm",
  	  .data = &dsi_phy_5nm_8350_cfgs },
  	{ .compatible = "qcom,sm8450-dsi-phy-5nm",
+diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
+index 8f4b03713..e9fbe06a3 100644
+--- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
++++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
+@@ -389,7 +389,7 @@ static int dsi_pll_7nm_lock_status(struct dsi_pll_7nm *pll)
+ 				       delay_us,
+ 				       timeout_us);
+ 	if (rc)
+-		pr_err("DSI PLL(%d) lock failed, status=0x%08x\n",
++		pr_debug("DSI PLL(%d) lock failed, status=0x%08x\n",
+ 		       pll->phy->id, status);
+ 
+ 	return rc;
+@@ -509,7 +509,8 @@ static int dsi_pll_7nm_vco_prepare(struct clk_hw *hw)
+ 	/* Check for PLL lock */
+ 	rc = dsi_pll_7nm_lock_status(pll_7nm);
+ 	if (rc) {
+-		pr_err("PLL(%d) lock failed\n", pll_7nm->phy->id);
++		DRM_DEV_DEBUG(&pll_7nm->phy->pdev->dev,
++			       "PLL(%d) lock failed\n", pll_7nm->phy->id);
+ 		goto error;
+ 	}
+ 
+@@ -766,7 +767,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
+ 	pll_bit = devm_clk_hw_register_divider_parent_hw(dev, clk_name,
+ 			pll_out_div, CLK_SET_RATE_PARENT,
+ 			pll_7nm->phy->base + REG_DSI_7nm_PHY_CMN_CLK_CFG0,
+-			0, 4, CLK_DIVIDER_ONE_BASED, &pll_7nm->postdiv_lock);
++			0, 4, CLK_DIVIDER_ONE_BASED | CLK_DIVIDER_ALLOW_ZERO,
++			&pll_7nm->postdiv_lock);
+ 	if (IS_ERR(pll_bit)) {
+ 		ret = PTR_ERR(pll_bit);
+ 		goto fail;
+@@ -839,7 +841,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
+ 	hw = devm_clk_hw_register_divider_parent_hw(dev, clk_name,
+ 			phy_pll_out_dsi_parent, 0,
+ 			pll_7nm->phy->base + REG_DSI_7nm_PHY_CMN_CLK_CFG0,
+-			4, 4, CLK_DIVIDER_ONE_BASED, &pll_7nm->postdiv_lock);
++			4, 4, CLK_DIVIDER_ONE_BASED | CLK_DIVIDER_ALLOW_ZERO,
++			&pll_7nm->postdiv_lock);
+ 	if (IS_ERR(hw)) {
+ 		ret = PTR_ERR(hw);
+ 		goto fail;
+diff --git a/drivers/gpu/drm/msm/msm_gpu.c b/drivers/gpu/drm/msm/msm_gpu.c
+index 3f3925b11..739879c78 100644
+--- a/drivers/gpu/drm/msm/msm_gpu.c
++++ b/drivers/gpu/drm/msm/msm_gpu.c
+@@ -166,10 +166,13 @@ int msm_gpu_hw_init(struct msm_gpu *gpu)
+ 	if (!gpu->needs_hw_init)
+ 		return 0;
+ 
++	pr_info("msm_gpu_hw_init: disabling irq=%d\n", gpu->irq);
+ 	disable_irq(gpu->irq);
+ 	ret = gpu->funcs->hw_init(gpu);
++	pr_info("msm_gpu_hw_init: hw_init ret=%d\n", ret);
+ 	if (!ret)
+ 		gpu->needs_hw_init = false;
++	pr_info("msm_gpu_hw_init: enabling irq=%d\n", gpu->irq);
+ 	enable_irq(gpu->irq);
+ 
+ 	return ret;
+@@ -877,8 +880,10 @@ void msm_gpu_retire(struct msm_gpu *gpu)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < gpu->nr_rings; i++)
+-		msm_update_fence(gpu->rb[i]->fctx, gpu->rb[i]->memptrs->fence);
++	for (i = 0; i < gpu->nr_rings; i++) {
++		u32 fence = gpu->rb[i]->memptrs->fence;
++		msm_update_fence(gpu->rb[i]->fctx, fence);
++	}
+ 
+ 	kthread_queue_work(gpu->worker, &gpu->retire_work);
+ 	update_sw_cntrs(gpu);
+@@ -933,6 +938,7 @@ void msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
+ static irqreturn_t irq_handler(int irq, void *data)
+ {
+ 	struct msm_gpu *gpu = data;
++	pr_info("GPU IRQ fired!\n");
+ 	return gpu->funcs->irq(gpu);
+ }
+ 
 diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
 index b2153e04a..574f34446 100644
 --- a/drivers/gpu/drm/panel/Kconfig
@@ -3406,11 +4258,15 @@ index a4291dc39..09488480d 100644
  obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
 diff --git a/drivers/gpu/drm/panel/panel-xinli-ft8006s.c b/drivers/gpu/drm/panel/panel-xinli-ft8006s.c
 new file mode 100644
-index 000000000..5dbc807fb
+index 000000000..b97eb092a
 --- /dev/null
 +++ b/drivers/gpu/drm/panel/panel-xinli-ft8006s.c
-@@ -0,0 +1,336 @@
+@@ -0,0 +1,340 @@
 +// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++ * https://github.com/Damir00109/Redmi10c
++ */
 +/*
 + * Xinli FT8006S — Redmi 10C NFC (fog/rain), video-mode panel (no GRAM).
 + * Timings and DCS from Android dsi_panel_c3q_43_03_0b_fhdp_video.
@@ -10599,6 +11455,49 @@ index 000000000..f4f203c20
 @@ -0,0 +1,2 @@
 +/* Placeholder — real FW loaded via request_firmware(focaltech_ts_fw_xinli.bin) */
 +0x00
+diff --git a/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c b/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c
+index 2d006049d..dba5e68f1 100644
+--- a/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c
++++ b/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c
+@@ -103,6 +103,22 @@ static void qcom_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
+ 	qcom_smmu_tlb_sync_debug(smmu);
+ }
+ 
++static void qcom_smmu_write_sctlr(struct arm_smmu_device *smmu, int idx,
++		u32 reg)
++{
++	/*
++	 * Set HUPCF (Hold Up Client Faults) on all context banks so that
++	 * subsequent transactions are processed after a fault.  Without this,
++	 * a fault on the display/DPU context bank (SID 0x420/0x421) stalls
++	 * the SMMU and hangs the whole system — the phone freezes with no
++	 * kernel panic.  This matches downstream's
++	 * qcom,iommu-faults = "non-fatal" on the display SMMU context banks.
++	 */
++	reg |= ARM_SMMU_SCTLR_HUPCF;
++
++	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, reg);
++}
++
+ static void qcom_adreno_smmu_write_sctlr(struct arm_smmu_device *smmu, int idx,
+ 		u32 reg)
+ {
+@@ -610,6 +626,7 @@ static const struct arm_smmu_impl qcom_smmu_500_impl = {
+ 	.def_domain_type = qcom_smmu_def_domain_type,
+ 	.reset = arm_mmu500_reset,
+ 	.write_s2cr = qcom_smmu_write_s2cr,
++	.write_sctlr = qcom_smmu_write_sctlr,
+ 	.tlb_sync = qcom_smmu_tlb_sync,
+ #ifdef CONFIG_ARM_SMMU_QCOM_DEBUG
+ 	.context_fault = qcom_smmu_context_fault,
+@@ -623,6 +640,7 @@ static const struct arm_smmu_impl sdm845_smmu_500_impl = {
+ 	.def_domain_type = qcom_smmu_def_domain_type,
+ 	.reset = qcom_sdm845_smmu500_reset,
+ 	.write_s2cr = qcom_smmu_write_s2cr,
++	.write_sctlr = qcom_smmu_write_sctlr,
+ 	.tlb_sync = qcom_smmu_tlb_sync,
+ #ifdef CONFIG_ARM_SMMU_QCOM_DEBUG
+ 	.context_fault = qcom_smmu_context_fault,
 diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
 index 25ab945fe..e0e1c0b5d 100644
 --- a/drivers/net/wireless/ath/ath10k/htt_rx.c
@@ -10989,11 +11888,15 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..21cfdaa27
+index 000000000..08b49ce36
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1672 @@
+@@ -0,0 +1,1676 @@
 +// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++ * https://github.com/Damir00109/Redmi10c
++ */
 +/*
 + * Qualcomm Khaje TLMM — ported from Xiaomi sm6225 downstream for mainline.
 + * Flat MMIO @0x400000 size 0xc00000 (not sm6115 tiled).
@@ -12845,11 +13748,15 @@ index 7ee839dca..62c158870 100644
  obj-$(CONFIG_AXP288_FUEL_GAUGE) += axp288_fuel_gauge.o
 diff --git a/drivers/power/supply/sh366101_fg_bringup.c b/drivers/power/supply/sh366101_fg_bringup.c
 new file mode 100644
-index 000000000..b9212d15b
+index 000000000..5483095b4
 --- /dev/null
 +++ b/drivers/power/supply/sh366101_fg_bringup.c
-@@ -0,0 +1,249 @@
+@@ -0,0 +1,253 @@
 +// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++ * https://github.com/Damir00109/Redmi10c
++ */
 +/*
 + * Minimal SinoWealth sh366101 fuel-gauge bringup for Xiaomi rain (SM6225).
 + * Registers power_supply "bms" with SOC/voltage/current/temp from SBS regs.
@@ -13100,11 +14007,15 @@ index 000000000..b9212d15b
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/power/supply/smb1351_charger_bringup.c b/drivers/power/supply/smb1351_charger_bringup.c
 new file mode 100644
-index 000000000..7d36eed13
+index 000000000..9ddc8189c
 --- /dev/null
 +++ b/drivers/power/supply/smb1351_charger_bringup.c
-@@ -0,0 +1,760 @@
+@@ -0,0 +1,764 @@
 +// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++ * https://github.com/Damir00109/Redmi10c
++ */
 +/*
 + * Minimal smb1351 USB charger bringup for Xiaomi rain (SM6225).
 + * Goal: enable charging from host USB VBUS without full downstream stack.
@@ -13480,7 +14391,7 @@ index 000000000..7d36eed13
 +	}
 +
 +	if (!chip->jeita_zone || strcmp(chip->jeita_zone, zone)) {
-+		dev_info(&chip->client->dev,
++		dev_dbg(&chip->client->dev,
 +			 "jeita: zone=%s temp=%d fcc=%dmA float=%dmV %s\n",
 +			 zone, temp_dC, fcc, fmv,
 +			 disable ? "CHG_OFF" : "CHG_ON");
@@ -13513,7 +14424,7 @@ index 000000000..7d36eed13
 +	}
 +
 +	if (online != chip->online || charging != chip->charging) {
-+		dev_info(&chip->client->dev,
++		dev_dbg(&chip->client->dev,
 +			 "smb1351: online=%d charging=%d adapter=%d s1=%02x s3=%02x s4=%02x s5=%02x\n",
 +			 online, charging, adapter, s1, s3, s4, s5);
 +		chip->online = online;
@@ -14187,13 +15098,15 @@ index 6062875fb..0e4a57daa 100644
  MODULE_DEVICE_TABLE(of, wusb3801_of_match);
 diff --git a/include/dt-bindings/clock/qcom,gcc-sm6225.h b/include/dt-bindings/clock/qcom,gcc-sm6225.h
 new file mode 100644
-index 000000000..e15ac11ef
+index 000000000..7a6795018
 --- /dev/null
 +++ b/include/dt-bindings/clock/qcom,gcc-sm6225.h
-@@ -0,0 +1,201 @@
+@@ -0,0 +1,203 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +/*
 + * Copyright (c) 2021, The Linux Foundation. All rights reserved.
++ * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++ * https://github.com/Damir00109/Redmi10c
 + */
 +
 +#ifndef _DT_BINDINGS_CLK_QCOM_GCC_KHAJE_H
