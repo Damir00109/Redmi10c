@@ -1,5 +1,20 @@
 # Status — 2026-08-05 (evening)
 
+## 2026-08-15
+
+### NFC: driver probes, chip unresponsive (50%)
+- NXP NQ-NCI NFC chip on **i2c2** (`i2c@4a88000`, SE2) at address **0x2a** (not 0x28/i2c1 as initially assumed).
+- DTS node `nq-nci@2a` added to `sm6225-xiaomi-fog.dts` under `&i2c2` with:
+  - IRQ: GPIO 70 (EDGE_FALLING)
+  - VEN (enable): GPIO 56
+  - FIRM: GPIO 31
+- GPIOs 31/56/70 unreserved from `khaje_reserved_gpios` in `pinctrl-khaje.c`.
+- `nxp-nci_i2c` module loads, probes successfully, `nfc0` + `rfkill0` appear in sysfs.
+- `NFC_CMD_DEV_UP` via genlink raises VEN (GPIO 56 high), but NCI RESET times out (`__nci_request: wait_for_completion_interruptible_timeout failed 0`).
+- Chip ACKs zero-length I2C writes after ~200ms boot delay, but **any data write (incl. NCI RESET 0x20 0x00 0x01 0x00) causes phone reboot** — likely I2C bus hang / watchdog.
+- In **stock Android** (slot A): `nq-nci 1-002a: nfcc_hw_check: - NFCC HW not Supported`, `NxpFwDnld: Error loading libpn54x_fw`, `Wrong FW Version >>> Firmware download not allowed`. NFC service reports `mState=on` but firmware download fails. 37 IRQ interrupts registered.
+- **Conclusion**: chip is partially functional (ACKs I2C address, generates IRQ in Android) but cannot complete NCI initialization — likely needs firmware download that Android also fails to do. Mainline `nxp-nci` driver doesn't support FW download for NQ-NCI. Further work would require porting downstream `qcom,nq-nci` driver or finding/extracting NFC firmware.
+
 ## 2026-08-11
 
 - Repartitioned to 20 GB `cust` + 25 GB `userdata`; new `cust` formatted ext4.
@@ -64,7 +79,7 @@
 | GPS | не начато | 0% |
 | Modem (voice/data) | не начато | 0% |
 | Fingerprint | проприетарный FPC/Silead | 0% |
-| NFC | conf есть, не начато | 0% |
+| NFC | driver probes, chip ACKs I2C but NCI init fails (FW issue) | 50% |
 
 **Общий процент портирования (по блокам): ~70%** — но осталось самое сложное (Wi-Fi stability, Audio, Modem/Camera). Реально пользовательская функциональность — скорее **50–55%**.
 

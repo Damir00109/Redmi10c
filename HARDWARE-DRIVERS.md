@@ -29,7 +29,7 @@ DT model: Qualcomm Technologies, Inc. RAIN KHAJE IDP nopmi
 | Display panel | `dsi_panel_c3q_43_03_0b_fhdp_video` | msm drm / dsi | — | Medium: DT + panel timing, often copy from Android DT |
 | GPU | Adreno 610 (`a610_zap*`) | Android: KGSL; mainline: msm | a610 firmware | **✅ DONE**: ZONDA+LUCID PLL, Vulkan Turnip Mesa |
 | Touch | Focaltech SPI (`CONFIG_TOUCHSCREEN_FTS_SPI`) + Novatek FW files | downstream FTS/NVT | `focaltech_ts_fw_xinli.bin`, `novatek_ts_*.bin` | Medium-Hard: mainline has focaltech/novatek families, need match IC + FW |
-| NFC (rain) | `ro.hardware.nfc_nci=pn8x`, `CONFIG_NFC_NQ=y` | NQ/NXP NCI | `libnfc-nxp*.conf` | Medium-Easy: NXP NCI often mainline-able; PN557 bindings landed in 2026 |
+| NFC (rain) | `ro.hardware.nfc_nci=pn8x`, `CONFIG_NFC_NQ=y` | NQ/NXP NCI | `libnfc-nxp*.conf` | **⚠️ PARTIAL**: mainline `nxp-nci` driver probes on i2c2@0x2a, VEN/IRQ/FIRM GPIOs work, but chip fails NCI init (FW download needed, Android also fails `NFCC HW not Supported`) |
 | Wi‑Fi | `qca_cld`, ICNSS, ATH, `bd3qvdfu.bin`, WCN3990 BT companion | **qcacld / icnss** (huge downstream) | WLAN FW under `firmware_mnt` | Hard: ath11k/ath10k path depends on exact WCN; often long fight |
 | Bluetooth | `CONFIG_BTFM_SLIM_WCN3990` | slim/btfm downstream | bt_firmware partition | Hard-Medium with Wi‑Fi stack |
 | Fingerprint | boot `fpc`, vendor `silead`; both `CONFIG_FPC1020` + `CONFIG_SILEAD_FP` | Xiaomi downstream | `fingerprint.fpc/silead` HAL | Hard for auth; Silead has some mainline gslX680 history but Xiaomi FP stack is proprietary |
