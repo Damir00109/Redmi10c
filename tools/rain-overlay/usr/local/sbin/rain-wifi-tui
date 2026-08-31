@@ -1,0 +1,146 @@
+#!/bin/bash
+# rain-wifi-tui — simple TUI over rain-wifi / wpa_cli (NO NetworkManager, NO iw).
+# Uses dialog/whiptail if present, else plain numbered menu.
+set +e
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+RAIN_WIFI=/usr/local/sbin/rain-wifi
+TITLE="rain Wi-Fi"
+
+need_root() {
+  [ "$(id -u)" = 0 ] || { echo "sudo $0"; exit 1; }
+}
+
+have_dialog() {
+  command -v dialog >/dev/null 2>&1 && echo dialog && return 0
+  command -v whiptail >/dev/null 2>&1 && echo whiptail && return 0
+  return 1
+}
+
+msg() {
+  local D
+  D=$(have_dialog) || { echo "$*"; return; }
+  if [ "$D" = dialog ]; then
+    dialog --title "$TITLE" --msgbox "$*" 12 60
+  else
+    whiptail --title "$TITLE" --msgbox "$*" 12 60
+  fi
+}
+
+# Returns selected SSID on stdout
+pick_ssid() {
+  local D tmp i line ssid sig items=() n=0 choice
+  tmp=$(mktemp)
+  "$RAIN_WIFI" scan >"$tmp" 2>/tmp/rain-wifi-scan.err
+  if [ ! -s "$tmp" ]; then
+    msg "Нет сетей. Лог: $(tail -3 /tmp/rain-wifi-scan.err)"
+    rm -f "$tmp"
+    return 1
+  fi
+
+  D=$(have_dialog)
+  if [ -n "$D" ]; then
+    while IFS=$'\t' read -r ssid sig _; do
+      [ -n "$ssid" ] || continue
+      n=$((n + 1))
+      items+=("$n" "$ssid  $sig")
+    done <"$tmp"
+    if [ "$D" = dialog ]; then
+      choice=$(dialog --title "$TITLE" --menu "Выбери сеть" 20 70 12 "${items[@]}" 2>&1 >/dev/tty)
+    else
+      choice=$(whiptail --title "$TITLE" --menu "Выбери сеть" 20 70 12 "${items[@]}" 3>&1 1>&2 2>&3)
+    fi
+    [ -n "$choice" ] || { rm -f "$tmp"; return 1; }
+    ssid=$(sed -n "${choice}p" "$tmp" | cut -f1)
+  else
+    echo "=== $TITLE ==="
+    nl -ba -w2 -s') ' <"$tmp"
+    echo -n "Номер: "
+    read -r choice
+    ssid=$(sed -n "${choice}p" "$tmp" | cut -f1)
+  fi
+  rm -f "$tmp"
+  [ -n "$ssid" ] || return 1
+  printf '%s\n' "$ssid"
+}
+
+ask_pass() {
+  local D pass ssid="$1"
+  D=$(have_dialog)
+  if [ "$D" = dialog ]; then
+    pass=$(dialog --title "$TITLE" --insecure --passwordbox "Пароль для $ssid" 10 60 2>&1 >/dev/tty)
+  elif [ "$D" = whiptail ]; then
+    pass=$(whiptail --title "$TITLE" --passwordbox "Пароль для $ssid" 10 60 3>&1 1>&2 2>&3)
+  else
+    echo -n "Пароль для '$ssid': "
+    stty -echo 2>/dev/null
+    read -r pass
+    stty echo 2>/dev/null
+    echo
+  fi
+  printf '%s\n' "$pass"
+}
+
+main_menu() {
+  local D choice ssid pass
+  need_root
+  D=$(have_dialog)
+  while true; do
+    if [ "$D" = dialog ]; then
+      choice=$(dialog --title "$TITLE" --menu "ath10k / wpa (без NM)" 16 50 6 \
+        1 "Скан + подключить" \
+        2 "Статус" \
+        3 "Только скан" \
+        4 "Поднять стек (modem+wifi)" \
+        5 "Выход" 2>&1 >/dev/tty) || exit 0
+    elif [ "$D" = whiptail ]; then
+      choice=$(whiptail --title "$TITLE" --menu "ath10k / wpa (без NM)" 16 50 6 \
+        1 "Скан + подключить" \
+        2 "Статус" \
+        3 "Только скан" \
+        4 "Поднять стек (modem+wifi)" \
+        5 "Выход" 3>&1 1>&2 2>&3) || exit 0
+    else
+      echo
+      echo "=== $TITLE ==="
+      echo "1) Скан + подключить"
+      echo "2) Статус"
+      echo "3) Только скан"
+      echo "4) Поднять стек"
+      echo "5) Выход"
+      echo -n "> "
+      read -r choice
+    fi
+    case "$choice" in
+      1)
+        ssid=$(pick_ssid) || continue
+        pass=$(ask_pass "$ssid") || continue
+        clear 2>/dev/null
+        "$RAIN_WIFI" connect "$ssid" "$pass"
+        echo
+        echo -n "Enter..."
+        read -r _
+        ;;
+      2)
+        clear 2>/dev/null
+        "$RAIN_WIFI" status
+        echo -n "Enter..."
+        read -r _
+        ;;
+      3)
+        clear 2>/dev/null
+        "$RAIN_WIFI" scan
+        echo -n "Enter..."
+        read -r _
+        ;;
+      4)
+        clear 2>/dev/null
+        /usr/local/sbin/qcom-wifi-start.sh
+        echo -n "Enter..."
+        read -r _
+        ;;
+      5|q|Q) exit 0 ;;
+    esac
+  done
+}
+
+main_menu

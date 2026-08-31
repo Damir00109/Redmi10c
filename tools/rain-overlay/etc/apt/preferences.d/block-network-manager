@@ -1,0 +1,5 @@
+# Block NetworkManager forever (soft-hang with ath10k on rain/fog).
+Package: network-manager libnm0 libnm-dev
+         network-manager-* modemmanager libmm-glib0
+Pin: release *
+Pin-Priority: -1

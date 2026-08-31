@@ -1,0 +1,4 @@
+#!/bin/bash
+# Manual soft charger screen (same as poweroff path, no systemd).
+# Usage: sudo rain-charger
+exec /usr/local/sbin/rain-poweroff

@@ -1,0 +1,14 @@
+[Unit]
+Description=Rain boot diagnostic report → /var/log/rain/latest.log
+After=multi-user.target rain-stable-boot.service
+Wants=rain-stable-boot.service
+
+[Service]
+Type=oneshot
+# Immediate snapshot, then another after settle (background — do not block boot)
+ExecStart=/bin/bash -c '/usr/local/sbin/rain-boot-report.sh; (sleep 25; /usr/local/sbin/rain-boot-report.sh) >/dev/null 2>&1 &'
+RemainAfterExit=yes
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Rain stable boot guard (modem offline, no WiFi bind)
+DefaultDependencies=no
+After=local-fs.target
+Before=basic.target multi-user.target usb-acm-gadget.service usb-adb-gadget.service qcom-wifi-bringup.service NetworkManager.service wpa_supplicant.service tqftpserv.service rmtfs.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/rain-stable-boot.sh
+# Script must stay non-blocking (no systemctl stop/mask). Keep short.
+TimeoutStartSec=15
+
+[Install]
+WantedBy=multi-user.target
