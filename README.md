@@ -100,8 +100,8 @@ cd mainline/linux-7.1.y
 
 # 1.2 Применить патч Redmi 10C (добавляет DTS, панель, pinctrl-khaje,
 #     правки DSI/UFS/USB/ath10k и т.д.)
-git apply --stat ../../patches/redmi10c-mainline-20260813.patch   # предпросмотр
-git apply ../../patches/redmi10c-mainline-20260813.patch
+git apply --stat ../../patches/redmi10c-mainline-20260831.patch   # предпросмотр
+git apply ../../patches/redmi10c-mainline-20260831.patch
 
 # 1.3 Взять готовый рабочий .config
 mkdir -p ../../out/linux-7.1.5
