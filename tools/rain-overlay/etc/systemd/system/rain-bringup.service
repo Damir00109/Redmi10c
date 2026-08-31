@@ -1,0 +1,14 @@
+[Unit]
+Description=Rain bringup: touch (spi-gpio/fts) + gpio vibrator
+After=local-fs.target rain-stable-boot.service
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=RAIN_TOUCH_VERBOSE=0
+ExecStart=/usr/local/sbin/rain-touch-load
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

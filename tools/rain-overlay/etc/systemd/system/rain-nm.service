@@ -1,0 +1,17 @@
+[Unit]
+Description=Rain: start Qualcomm Wi-Fi then stock NetworkManager (manual)
+Documentation=file:///usr/local/sbin/rain-nm-enable.sh
+After=rain-stable-boot.service multi-user.target
+Conflicts=rain-wifi.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/local/sbin/rain-nm-enable.sh
+ExecStop=/bin/bash -c 'systemctl stop NetworkManager; systemctl mask NetworkManager; true'
+TimeoutStartSec=300
+
+[Install]
+# Not WantedBy multi-user — start manually: systemctl start rain-nm
+WantedBy=

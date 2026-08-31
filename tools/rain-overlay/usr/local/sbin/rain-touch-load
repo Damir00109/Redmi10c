@@ -1,0 +1,55 @@
+#!/bin/sh
+# Load Focaltech FT8006S + gpio-vibrator on rain/fog Ubuntu.
+# Order matters: bitbang + gpio-shared before fts; spi-gpio last (probes DT).
+# ff-memless before gpio-vibra.
+set -e
+
+MODDIR=/lib/modules/$(uname -r)/extra
+[ -d "$MODDIR" ] || MODDIR=/data/local/tmp
+
+load_one() {
+	name=$1
+	# already loaded?
+	mod=$(echo "$name" | tr '-' '_')
+	if lsmod 2>/dev/null | grep -q "^${mod} "; then
+		return 0
+	fi
+	for p in "$MODDIR/$name.ko" /lib/modules/"$(uname -r)"/extra/"$name.ko" \
+		/data/local/tmp/"$name.ko" /lib/modules/"$name.ko"; do
+		if [ -f "$p" ]; then
+			insmod "$p" 2>/dev/null || true
+			return 0
+		fi
+	done
+	modprobe "$name" 2>/dev/null || true
+}
+
+# Drop previous touch instance only when reloading interactively
+if [ "${RAIN_TOUCH_RELOAD:-0}" = "1" ]; then
+	rmmod fts_spi 2>/dev/null || true
+	rmmod spi_gpio 2>/dev/null || true
+	rmmod gpio_shared_proxy 2>/dev/null || true
+	rmmod spi_bitbang 2>/dev/null || true
+fi
+
+load_one spi-bitbang
+load_one gpio-shared-proxy
+load_one fts_spi
+load_one spi-gpio
+
+load_one ff-memless
+load_one gpio-vibra
+
+# Give fts a moment to probe + request IRQ
+sleep 2
+
+if [ -t 1 ] || [ "${RAIN_TOUCH_VERBOSE:-0}" = "1" ]; then
+	echo "=== fts input ==="
+	grep -A8 -i fts /proc/bus/input/devices 2>/dev/null || echo "(no fts_ts yet)"
+	echo "=== vibra ==="
+	grep -A6 -i vibra /proc/bus/input/devices 2>/dev/null || echo "(no gpio-vibrator yet)"
+	echo "=== irq ==="
+	grep fts /proc/interrupts 2>/dev/null || true
+fi
+
+exit 0

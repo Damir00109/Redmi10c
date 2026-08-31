@@ -1,0 +1,116 @@
+#!/bin/bash
+# Soft "power off" for rain/fog when PSCI SYSTEM_OFF is missing.
+#
+# Reality on this board (USB plugged in):
+#   systemctl poweroff / sysrq-o → SoC reset → ABL boots active slot again
+#   (= looks like reboot; NOT Android charge animation — that only exists on
+#    the Android boot chain / offline-charger path).
+#
+# This script NEVER calls systemd poweroff/reboot. It:
+#   1) parks Wi-Fi/modem if up
+#   2) blanks the console / tries DRM blank
+#   3) enters suspend (mem) or freeze, else idle charger screen
+#
+# Real offline-charge UI (% ) needs sh366101 + smb1351 in DT (not in live DT yet).
+set +e
+export PATH=/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+export TERM="${TERM:-linux}"
+
+log() { echo "rain-poweroff: $*" >&2; }
+
+sync; sync
+
+# Tear Wi-Fi/modem FIRST (ath10k must unload before PAS stop — else hang).
+# Do this before any halt.target job that can race the stack.
+QCOM_WIFI_TEARDOWN_QUIET=1 /usr/local/sbin/qcom-wifi-teardown.sh 2>/dev/null \
+  || {
+    pkill -x wpa_supplicant 2>/dev/null || true
+    pkill -x udhcpc 2>/dev/null || true
+    ip link set wlan0 down 2>/dev/null || true
+    rmmod ath10k_snoc 2>/dev/null || true
+    sleep 0.4
+    for RP in /sys/class/remoteproc/remoteproc*; do
+      [ -e "$RP/state" ] || continue
+      echo stop >"$RP/state" 2>/dev/null || true
+    done
+  }
+
+# Do NOT use systemctl poweroff — it resets this SoC into a full reboot.
+# Non-blocking: do not wait forever if job engine is wedged.
+timeout 5 systemctl start --job-mode=replace-irreversibly --no-block halt.target 2>/dev/null || true
+
+blank_display() {
+  # VT blank
+  for t in /dev/tty0 /dev/tty1; do
+    [ -c "$t" ] || continue
+    setterm --blank force --powersave powerdown </dev/"${t#/dev/}" >/dev/"${t#/dev/}" 2>/dev/null || true
+  done
+  # DRM/simplefb backlight if present
+  for b in /sys/class/backlight/*/brightness; do
+    [ -w "$b" ] || continue
+    echo 0 >"$b" 2>/dev/null || true
+  done
+  for c in /sys/class/graphics/fb0/blank /sys/devices/platform/*/graphics/fb0/blank; do
+    [ -w "$c" ] || continue
+    echo 1 >"$c" 2>/dev/null || true
+  done
+}
+
+show_charger_tty() {
+  local cap status online msg
+  cap="n/a"
+  status="unknown"
+  online="?"
+  for d in /sys/class/power_supply/*; do
+    [ -d "$d" ] || continue
+    t=$(cat "$d/type" 2>/dev/null)
+    case "$t" in
+      Battery)
+        [ -f "$d/capacity" ] && cap=$(cat "$d/capacity")
+        [ -f "$d/status" ] && status=$(cat "$d/status")
+        ;;
+      USB|USB_PD|Mains|Wireless)
+        [ -f "$d/online" ] && online=$(cat "$d/online")
+        ;;
+    esac
+  done
+  if [ ! -d /sys/class/power_supply ] || [ -z "$(ls -A /sys/class/power_supply 2>/dev/null)" ]; then
+    msg="USB soft-off (no fuel-gauge in DT yet)"
+  else
+    msg="Battery ${cap}%  status=${status}  usb=${online}"
+  fi
+  # Draw on console
+  if [ -c /dev/tty0 ]; then
+    {
+      printf '\033[2J\033[H\033[?25l'
+      printf '\n\n\n'
+      printf '    RAIN — charger / soft-off\n\n'
+      printf '    %s\n\n' "$msg"
+      printf '    PSCI SYSTEM_OFF missing → cannot cut power.\n'
+      printf '    Screen idle. Hold Power to wake / force off.\n'
+      printf '    Unplug USB + hold Power for hard off.\n'
+    } >/dev/tty0 2>/dev/null
+  fi
+  log "$msg"
+}
+
+blank_display
+show_charger_tty
+
+# Prefer suspend-to-RAM (wakes on power / USB events if wired)
+if grep -qw mem /sys/power/state 2>/dev/null; then
+  log "entering suspend (mem)..."
+  echo mem >/sys/power/state 2>/dev/null && exit 0
+fi
+if grep -qw freeze /sys/power/state 2>/dev/null; then
+  log "entering freeze..."
+  echo freeze >/sys/power/state 2>/dev/null && exit 0
+fi
+
+# Idle loop — still better than reboot
+log "idle charger loop (Ctrl+C or Power wake to return)"
+while true; do
+  show_charger_tty
+  blank_display
+  sleep 30
+done

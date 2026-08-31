@@ -29,7 +29,11 @@ notes/dt-adapt
 tools/mkbootimg
 tools/busybox-src
 tools/busybox/
-tools/rain-overlay
+
+# rain-overlay: track scripts/configs, but not binary packages or firmware
+tools/rain-overlay/pkg/
+tools/rain-overlay/lib/
+tools/rain-overlay/usr/local/bin/busybox*
 
 # Build/backup snapshots (large binaries; README documents how to rebuild)
 archive/

@@ -1,0 +1,22 @@
+[Unit]
+Description=USB ACM serial getty (ttyGS0 → host ttyACM*)
+After=usb-acm-gadget.service sysinit.target
+Wants=usb-acm-gadget.service
+ConditionPathExists=|/dev/ttyGS0
+
+[Service]
+Type=idle
+Restart=always
+RestartSec=1
+# Wait until gadget node exists (gadget service may still be binding)
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 60); do [ -c /dev/ttyGS0 ] && exit 0; sleep 0.5; done; exit 1'
+ExecStart=/sbin/agetty -o "-p -- \\u" --keep-baud 115200,57600,38400,9600 ttyGS0 vt220
+TTYPath=/dev/ttyGS0
+TTYReset=yes
+TTYVHangup=yes
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+
+[Install]
+WantedBy=multi-user.target

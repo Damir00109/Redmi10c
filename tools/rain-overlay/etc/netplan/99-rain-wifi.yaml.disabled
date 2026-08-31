@@ -1,0 +1,16 @@
+# Netplan for rain/fog — NetworkManager FORBIDDEN (soft-hang with ath10k).
+# wlan0 appears only after qcom-wifi-start (rain-netplan-wifi.service).
+network:
+  version: 2
+  renderer: networkd
+  ethernets: {}
+  wifis:
+    wlan0:
+      optional: true
+      dhcp4: true
+      dhcp6: false
+      access-points:
+        "2.4GHz_WiFi_219":
+          password: "GP54006948"
+      nameservers:
+        addresses: [1.1.1.1, 8.8.8.8]

@@ -1,0 +1,25 @@
+[Unit]
+Description=Rain: Qualcomm Wi-Fi + netplan (MANUAL only)
+Documentation=file:///usr/local/sbin/rain-wifi
+# Never auto-start at boot — modem/ath10k too early kills console (RCU / hang).
+# Start later:  sudo systemctl start rain-netplan-wifi
+# Or:          sudo rain-wifi menu
+After=rain-stable-boot.service multi-user.target
+Wants=rain-stable-boot.service
+Conflicts=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStartPre=-/bin/systemctl stop NetworkManager
+ExecStartPre=-/bin/systemctl mask NetworkManager NetworkManager-wait-online
+ExecStartPre=-/bin/systemctl unmask wpa_supplicant.service
+ExecStart=/usr/local/sbin/qcom-wifi-start.sh
+# Enable wifi netplan only after wlan0 exists (never leave it active across reboot).
+ExecStart=/bin/bash -c 'systemctl unmask netplan-wpa-wlan0.service 2>/dev/null || true; test -f /etc/netplan/99-rain-wifi.yaml.disabled && cp -a /etc/netplan/99-rain-wifi.yaml.disabled /etc/netplan/99-rain-wifi.yaml; netplan apply'
+TimeoutStartSec=180
+
+[Install]
+# Intentionally empty — not WantedBy multi-user
+WantedBy=
