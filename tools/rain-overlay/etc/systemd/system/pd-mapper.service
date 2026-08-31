@@ -1,1 +1,15 @@
-/dev/null
+[Unit]
+Description=Qualcomm Protection Domain Mapper (pd-mapper)
+DefaultDependencies=no
+After=qrtr-ns.service qcom-firmware-stage.service
+Requires=qrtr-ns.service
+Before=qcom-modem-start.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/pd-mapper
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=sysinit.target

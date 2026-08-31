@@ -1,1 +1,15 @@
-/dev/null
+[Unit]
+Description=Qualcomm TFTP Server (tqftpserv) for WiFi DSP firmware
+DefaultDependencies=no
+After=qrtr-ns.service qcom-firmware-stage.service
+Requires=qrtr-ns.service qcom-firmware-stage.service
+Before=qcom-modem-start.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/tqftpserv
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=sysinit.target
