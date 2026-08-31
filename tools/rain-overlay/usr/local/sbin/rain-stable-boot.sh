@@ -1,7 +1,11 @@
 #!/bin/bash
-# Earliest userspace guard: modem offline, no WiFi, kill QMI helpers.
+# Earliest userspace guard: ensure clean modem/WiFi state at boot.
+# This runs on sysinit.target BEFORE the qcom-* service chain.
 # NEVER call blocking `systemctl stop/mask` here — this unit runs during
 # sysinit and will deadlock the job engine (TimeoutStartSec → failed).
+#
+# 2026-08-31: NM/rmtfs/pd-mapper/tqftpserv masks removed — the original
+# soft-hang was caused by UFS memory corruption (now fixed), not by NM.
 set +e
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/sbin
 LOG=/var/log/rain-stable-boot.log
@@ -9,13 +13,13 @@ LOG=/var/log/rain-stable-boot.log
 exec >>"$LOG" 2>&1
 echo "=== $(date -Is) rain-stable-boot ==="
 
+# Kill any stale QMI/WiFi processes from a previous boot
 pkill -x tqftpserv 2>/dev/null || true
 pkill -x rmtfs 2>/dev/null || true
 pkill -x pd-mapper 2>/dev/null || true
-pkill -x NetworkManager 2>/dev/null || true
 pkill -x ModemManager 2>/dev/null || true
-pkill -x wpa_supplicant 2>/dev/null || true
 
+# Stop any running remoteproc (modem) — qcom-modem-start will restart it
 for RP in /sys/class/remoteproc/remoteproc*; do
   [ -d "$RP" ] || continue
   [ -e "$RP/recovery" ] && echo disabled >"$RP/recovery" 2>/dev/null
@@ -34,23 +38,19 @@ for RP in /sys/class/remoteproc/remoteproc*; do
   esac
 done
 
-for m in ath10k_snoc ath10k_core ath10k_pci ath10k_sdio \
-         sh366101_fg_bringup smb1351_charger_bringup; do
+# Remove stale ath10k modules (qcom-modem-start + ath10k-snoc-load will reload)
+for m in ath10k_snoc ath10k_core ath10k_pci ath10k_sdio; do
   lsmod 2>/dev/null | grep -q "^$m" && rmmod "$m" 2>/dev/null || true
 done
 
-# Static masks via symlink (no dbus / no job engine). Idempotent.
-mask_unit() {
-  local u=$1
-  ln -sfn /dev/null "/etc/systemd/system/$u" 2>/dev/null || true
-}
-mask_unit NetworkManager.service
-mask_unit NetworkManager-wait-online.service
-mask_unit ModemManager.service
-mask_unit tqftpserv.service
-mask_unit rmtfs.service
-mask_unit pd-mapper.service
-mask_unit netplan-wpa-wlan0.service
+# Remove stale masks from previous boots (rain-stable-boot used to mask these)
+for u in NetworkManager.service NetworkManager-wait-online.service \
+         tqftpserv.service rmtfs.service pd-mapper.service \
+         netplan-wpa-wlan0.service wpa_supplicant.service; do
+  [ -L "/etc/systemd/system/$u" ] && \
+    [ "$(readlink "/etc/systemd/system/$u")" = "/dev/null" ] && \
+    rm -f "/etc/systemd/system/$u" 2>/dev/null
+done
 
 # wlan0 only after qcom-wifi-start — never leave wifi netplan active across reboot
 if [ -f /etc/netplan/99-rain-wifi.yaml ]; then
