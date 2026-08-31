@@ -1,0 +1,12 @@
+[Unit]
+Description=Rebind Focaltech touch driver (firmware reload)
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rain-touch-rebind.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
