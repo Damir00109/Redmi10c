@@ -1,4 +1,48 @@
-# Status — 2026-08-05 (evening)
+# Status — 2026-08-31 (evening)
+
+## 2026-08-31
+
+### Wi-Fi: **STABLE — NetworkManager + ath10k_snoc, full internet**
+
+The Wi-Fi soft-hang issue that plagued earlier sessions is **resolved**.
+The root cause was UFS memory corruption (fixed in the
+`fix/sm6225-ufs-memory-stability` branch), not ath10k_snoc or
+NetworkManager as previously suspected.
+
+**Current working stack:**
+- Kernel: `ath10k_snoc` built-in (=y), `CFG80211`/`MAC80211`/`RFKILL` built-in
+- Modem: `remoteproc_mpss` PAS with `wlanmdsp.mbn` from modem_a partition
+- Firmware: `firmware-5.bin` (qcm2290, `single-chan-info-per-channel`, crc32 a79c5b24)
+- Userspace: **NetworkManager 1.46.0** + `wpa_supplicant` (D-Bus) + `systemd-resolved`
+- Connection: `nmcli` / NM keyfile profile for Xiaomi_E4C4 (WPA2-PSK, DHCP)
+
+**Boot chain (sysinit.target → multi-user.target):**
+```
+qcom-firmware-stage (1.5s) → qrtr-ns → rmtfs+pd-mapper+tqftpserv (parallel)
+  → qcom-modem-start (2.9s) → ath10k-snoc-load (8s) → NetworkManager → Wi-Fi connected
+```
+
+**Verified:**
+- Cold boot to Wi-Fi connected: ~55s (was ~70s with monolithic script)
+- 100 MB download: HTTP 200, 2.3 MB/s, 0 errors
+- 200 MB + 100 MB + 50 MB parallel + 60 ping: 0% packet loss
+- DNS via systemd-resolved (resolvectl, not resolv.conf writes)
+- 0 ath10k errors, 0 UFS errors, 0 RCU stalls after stress test
+- `nmcli device status` → wlan0 connected to Xiaomi_E4C4
+
+**Key changes:**
+- `rain-stable-boot.sh`: removed NM/rmtfs/pd-mapper/tqftpserv masks
+  (they were masking these at every boot due to the old soft-hang theory)
+- `qcom-wifi-bringup.service`: masked (replaced by parallel systemd chain)
+- `qcom-wifi-connect.service`: disabled (NM manages Wi-Fi now)
+- `udhcpc-wlan.script`: kept as fallback for non-NM boots
+- `wpa_supplicant.service`: unmasked (NM uses it via D-Bus)
+
+**UFS power management (still active):**
+- auto-hibern8: 5000 µs ✓
+- clock gating: enabled ✓
+- runtime PM: active/auto ✓
+- devfreq: disabled (hardware gear-transition bug, -110/-22)
 
 ## 2026-08-15
 
@@ -54,7 +98,7 @@
 | USB RNDIS | works | OK |
 | ACM serial (`ttyACM0`) | works | OK |
 | Thermal `pm6125-thermal` | works | OK |
-| Wi-Fi | assoc + ping OK, soft-hangs after 30–60 s | 60% |
+| Wi-Fi | **works** — NM + ath10k_snoc, stable, 350+ MB tested | OK |
 | Audio `fsa4480` | not populated on RAIN | 0% |
 | Audio codec / speakers | not started | 0% |
 | GPU Adreno 610 | **kernel 100%** — PLL, DRM, Vulkan driver; **3D render crashes** | 70% |
@@ -69,7 +113,7 @@
 
 | Блок | Статус | % |
 |--|--|--|
-| Wi-Fi | assoc + ping OK, soft-hang ~60s | 60% |
+| Wi-Fi | **works** — NM, stable, 350+ MB stress test OK | OK |
 | GPU Adreno 610 | kernel OK, Vulkan driver OK, **3D render = crash** | 70% |
 | Display (DRM/DSI + panel) | **works** — 720x1650, backlight OK, fbcon on DRM | OK |
 | Bluetooth | WCN3990 BTFM, не начато | 0% |
@@ -193,41 +237,40 @@ memory without proper SMMU mapping.
 `archive/mainline-gpucc-zonda-lucid-20260813-2244/` — working build with
 ZONDA+LUCID PLL fix.
 
-## Wi‑Fi: **works, but soft-hangs after ~30–60s**
+## Wi-Fi: **STABLE — see 2026-08-31 update above**
 
-Proven this session:
+> The section below is kept for historical reference. The soft-hang issue
+> described here was **resolved** — the root cause was UFS memory corruption,
+> not ath10k_snoc or NetworkManager. See the 2026-08-31 entry at the top.
+
+### Historical notes (pre-fix, 2026-08-05)
 
 | | |
 |--|--|
 | Path | mainline `ath10k_snoc` + modem PAS |
-| Assoc | WPA2 COMPLETED (`2.4GHz_WiFi_219`) |
-| IP | DHCP `192.168.1.38/24` |
+| Assoc | WPA2 COMPLETED |
+| IP | DHCP via udhcpc |
 | Ping | `1.1.1.1` / `8.8.8.8` OK |
 | MAC | OEM `f0:6c:5d:02:36:a2` |
-| Soak | OK at 30s, soft-hang ~60s (ADB dies; often self-reboot later) |
+| Soak | soft-hang ~60s (root cause: UFS memory corruption, now fixed) |
 
-### Kernel deltas vs stock 7.1.5 (minimal)
-Modules: `out/ath10k-fix-modules/ath10k_{core,snoc}.ko`
+### Kernel config (current)
+- `CFG80211`/`MAC80211`/`RFKILL`/`ATH10K`/`ATH10K_SNOC` built-in (=y)
+- `ATH10K_PCI`/`ATH10K_SDIO` disabled (not used on SNOC)
 
-1. **snoc**: no `netif_threaded_enable` (stock hangs between `firmware ver` and `htt-ver`)
-2. **mac**: do not advertise `SUPPORTS_PS` on WCN3990; force PS off once STA is started
-3. **htt_rx**: cap RX refill batch to 16 on WCN3990
-
-### Userspace (required)
+### Userspace (current — NetworkManager)
 ```bash
-sudo rain-mmc-park off
-sudo qcom-wifi-start.sh          # modem + ath10k → wlan0
-# connect immediately — idle wlan0-up often soft-hangs within seconds
-sudo rain-wifi connect 'YOUR_SSID' 'YOUR_PASSWORD'
-# or: sudo rain-oneshot-wifi.sh
+# Wi-Fi is managed by NetworkManager automatically on boot.
+# Manual control:
+nmcli device wifi connect Xiaomi_E4C4 password GP54006948
+nmcli connection show
+nmcli device status
 ```
 
-- Mask `qcom-wifi-bringup` / NetworkManager (they race PAS)
-- Connect via **wpa conf file**, not `wpa_cli set_network`
-- Start log is `/run/qcom-wifi-start.log` (tmpfs; UFS logging hangs)
-
-### Known failure modes
-- Stock + `netif_threaded_enable` → hang after `firmware ver`
-- Idle after `OK_wlan0` without quick assoc → hang in ~2s
-- Connected soak → hang ~60s (RX/NAPI soft-lock class)
-- Aftermath: UFS timeouts, ADB offline — wait for self-reboot or force power
+### Fallback (no NM)
+```bash
+sudo qcom-firmware-stage.sh
+sudo qcom-modem-start.sh
+sudo ath10k-snoc-load.sh
+sudo qcom-wifi-connect.sh
+```
