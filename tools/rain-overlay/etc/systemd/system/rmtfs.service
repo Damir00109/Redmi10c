@@ -1,1 +1,15 @@
-/dev/null
+[Unit]
+Description=Qualcomm Remote Filesystem Service (rmtfs)
+DefaultDependencies=no
+After=qrtr-ns.service qcom-firmware-stage.service
+Requires=qrtr-ns.service qcom-firmware-stage.service
+Before=qcom-modem-start.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rmtfs -s -o /var/lib/rmtfs
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=sysinit.target

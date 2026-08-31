@@ -1,0 +1,14 @@
+[Unit]
+Description=Qualcomm QRTR Name Service
+DefaultDependencies=no
+After=qcom-firmware-stage.service
+Before=rmtfs.service pd-mapper.service tqftpserv.service qcom-modem-start.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/qrtr-ns -f 1
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=sysinit.target
