@@ -1,0 +1,14 @@
+[Unit]
+Description=Start Qualcomm modem remoteproc (PAS)
+DefaultDependencies=no
+After=qrtr-ns.service rmtfs.service pd-mapper.service tqftpserv.service
+Requires=qrtr-ns.service rmtfs.service pd-mapper.service tqftpserv.service
+Before=ath10k-snoc-load.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/qcom-modem-start.sh
+
+[Install]
+WantedBy=sysinit.target

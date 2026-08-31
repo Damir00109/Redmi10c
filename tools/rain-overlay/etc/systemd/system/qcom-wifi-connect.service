@@ -1,0 +1,13 @@
+[Unit]
+Description=Connect WiFi to configured SSID (WPA + DHCP)
+After=ath10k-snoc-load.service
+Requires=ath10k-snoc-load.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/qcom-wifi-connect.sh
+
+[Install]
+WantedBy=multi-user.target
