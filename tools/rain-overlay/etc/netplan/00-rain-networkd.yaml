@@ -1,0 +1,6 @@
+# Minimal networkd — NO wlan0 here.
+# Wi-Fi is manual: sudo rain-wifi / qcom-wifi-*.sh
+# Optional netplan wifi template: 99-rain-wifi.yaml.disabled
+network:
+  version: 2
+  renderer: networkd

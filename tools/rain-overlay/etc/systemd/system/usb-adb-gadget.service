@@ -1,0 +1,17 @@
+[Unit]
+Description=USB ADB FunctionFS gadget (host adb ↔ phone adbd)
+After=local-fs.target sysinit.target rain-stable-boot.service
+Before=adbd.service
+Wants=rain-stable-boot.service
+Conflicts=usb-acm-gadget.service rain-serial-console.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=RAIN_USB_PHY=0
+ExecStart=/usr/local/sbin/usb-adb-gadget.sh setup
+# Do not Restart=always — rebind storms hang the SoC
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,39 @@
+#!/bin/sh
+# udhcpc default script for wlan0 on rain/fog (Ubuntu 24.04 + systemd-resolved).
+# Registers IP/route via ip(8) and DNS via resolvectl so the systemd-resolved
+# stub at 127.0.0.53 actually has an upstream server.  Writing directly to
+# /etc/resolv.conf does NOT work here — that file is a symlink to
+# /run/systemd/resolve/stub-resolv.conf owned by systemd-resolved.
+case "$1" in
+deconfig)
+  ip link set "$interface" up
+  ip -4 addr flush dev "$interface" 2>/dev/null || true
+  resolvectl revert "$interface" 2>/dev/null || true
+  ;;
+bound|renew)
+  ip -4 addr flush dev "$interface" 2>/dev/null || true
+  if [ -n "$subnet" ] && [ "$subnet" != "0.0.0.0" ]; then
+    ip addr add "$ip/$subnet" broadcast + dev "$interface" 2>/dev/null \
+      || ip addr add "$ip/24" broadcast + dev "$interface"
+  else
+    ip addr add "$ip/24" broadcast + dev "$interface"
+  fi
+  for r in $router; do
+    ip route replace default via "$r" dev "$interface" 2>/dev/null || true
+    break
+  done
+  # Register DNS with systemd-resolved (preferred path on Ubuntu 24.04).
+  if command -v resolvectl >/dev/null 2>&1; then
+    resolvectl dns "$interface" $dns 2>/dev/null || true
+    resolvectl domain "$interface" "~." 2>/dev/null || true
+    resolvectl default-route "$interface" yes 2>/dev/null || true
+  else
+    # Fallback for images without systemd-resolved: write a static resolv.conf.
+    if [ -L /etc/resolv.conf ]; then rm -f /etc/resolv.conf; fi
+    : >/etc/resolv.conf
+    for d in $dns; do echo "nameserver $d" >>/etc/resolv.conf; done
+    grep -q nameserver /etc/resolv.conf || echo "nameserver 1.1.1.1" >>/etc/resolv.conf
+  fi
+  ;;
+esac
+exit 0

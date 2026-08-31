@@ -1,0 +1,16 @@
+[Unit]
+Description=USB ACM serial gadget (host ttyACM* ↔ ttyGS0)
+After=local-fs.target sysinit.target rain-stable-boot.service
+Before=rain-serial-console.service
+Wants=rain-stable-boot.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=RAIN_USB_PHY=0
+ExecStart=/usr/local/sbin/usb-acm-gadget.sh
+# Do not Restart=always — rebind storms hang the SoC
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

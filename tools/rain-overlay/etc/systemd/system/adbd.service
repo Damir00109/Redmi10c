@@ -1,0 +1,22 @@
+[Unit]
+Description=Android Debug Bridge daemon (USB gadget)
+After=usb-adb-gadget.service local-fs.target
+Requires=usb-adb-gadget.service
+Conflicts=usb-acm-gadget.service rain-serial-console.service
+
+[Service]
+Type=simple
+Environment=ADB_VENDOR_KEYS=/etc/adb/adb_keys
+Environment=HOME=/var/lib/adbd
+# FunctionFS path used by Ubuntu/Debian adbd
+Environment=USB_FFS_ADB=/dev/usb-ffs/adb
+ExecStartPre=/bin/mkdir -p /var/lib/adbd /etc/adb
+ExecStart=/usr/lib/android-sdk/platform-tools/adbd
+# Bind UDC after adbd writes FFS descriptors
+ExecStartPost=/bin/bash -c 'sleep 0.5; /usr/local/sbin/usb-adb-gadget.sh bind'
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

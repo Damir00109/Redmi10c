@@ -1,0 +1,20 @@
+[Unit]
+Description=Rain WiFi (modem PAS + ath10k + wpa) — manual only
+Documentation=file:///usr/local/sbin/qcom-wifi-start.sh
+# Never pull this in at boot — RCU stalls if modem starts too early.
+DefaultDependencies=yes
+After=rain-stable-boot.service multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/local/sbin/qcom-wifi-start.sh
+ExecStart=/usr/local/sbin/qcom-wifi-connect.sh
+ExecStop=/usr/local/sbin/qcom-wifi-teardown.sh
+TimeoutStartSec=180
+TimeoutStopSec=30
+
+[Install]
+# Intentionally NOT WantedBy=multi-user.target
+WantedBy=

@@ -1,0 +1,45 @@
+#!/bin/bash
+# Park µSD (mmc0 / sdhci@4784000) so wifi connect doesn't trip sdhci_msm IRQ timeouts.
+# Crash evidence 2026-08-04: "Timeout waiting for hardware cmd interrupt" → RCU stall.
+set +e
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+MMC_DEV=4784000.mmc
+DRV=/sys/bus/platform/drivers/sdhci_msm
+
+case "${1:-off}" in
+  off|park)
+    # unmount anything on mmcblk*
+    for m in $(findmnt -nlo TARGET -S /dev/mmcblk* 2>/dev/null); do
+      umount -l "$m" 2>/dev/null || true
+    done
+    sync
+    if [ -e "/sys/bus/platform/devices/$MMC_DEV/driver" ]; then
+      echo "$MMC_DEV" >"$DRV/unbind" 2>/dev/null
+      echo "mmc: unbound $MMC_DEV"
+    else
+      echo "mmc: already unbound / missing"
+    fi
+    # keep UFS awake
+    echo on > /sys/class/scsi_host/host0/device/power/control 2>/dev/null || true
+    ;;
+  on|restore)
+    if [ ! -e "/sys/bus/platform/devices/$MMC_DEV/driver" ]; then
+      echo "$MMC_DEV" >"$DRV/bind" 2>/dev/null
+      echo "mmc: rebound $MMC_DEV"
+    else
+      echo "mmc: already bound"
+    fi
+    ;;
+  status)
+    if [ -e "/sys/bus/platform/devices/$MMC_DEV/driver" ]; then
+      echo "mmc: bound ($(basename "$(readlink -f /sys/bus/platform/devices/$MMC_DEV/driver)"))"
+    else
+      echo "mmc: unbound"
+    fi
+    ls /dev/mmcblk* 2>/dev/null || echo "no mmcblk"
+    ;;
+  *)
+    echo "usage: $0 off|on|status"; exit 1 ;;
+esac
+exit 0

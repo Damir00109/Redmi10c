@@ -1,0 +1,29 @@
+#!/bin/bash
+# Wrap shutdown(8): default "shutdown now" / -h → soft-off (rain-poweroff).
+# reboot stays: shutdown -r / reboot
+set +e
+export PATH=/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+
+MODE=poweroff
+for a in "$@"; do
+  case "$a" in
+    -r|--reboot) MODE=reboot ;;
+    -h|--halt|-P|--poweroff) MODE=poweroff ;;
+    -c|--cancel)
+      if [ -x /sbin/shutdown.debian ]; then
+        exec /sbin/shutdown.debian "$@"
+      fi
+      exec /bin/systemctl cancel
+      ;;
+  esac
+done
+
+if [ "$MODE" = reboot ]; then
+  if [ -x /sbin/shutdown.debian ]; then
+    exec /sbin/shutdown.debian "$@"
+  fi
+  exec /bin/systemctl reboot "$@"
+fi
+
+# Halt / poweroff / bare "shutdown now" → soft-off (no SoC reset reboot)
+exec /usr/local/sbin/rain-poweroff

@@ -1,0 +1,16 @@
+#!/bin/bash
+# NetworkManager dispatcher: keep ath10k quiet after every wifi event.
+# Runs as root for stock NM — no NM source patch required.
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+IFACE=$1
+ACTION=$2
+case "$IFACE" in
+  wlan*|wl*) ;;
+  *) exit 0 ;;
+esac
+case "$ACTION" in
+  pre-up|up|dhcp4-change|connectivity-change|reapply)
+    iw dev "$IFACE" set power_save off 2>/dev/null || true
+    ;;
+esac
+exit 0

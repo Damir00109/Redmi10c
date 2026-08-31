@@ -59,7 +59,7 @@ python3 "$ROOT/tools/mkbootimg/mkbootimg.py" \
   --kernel_offset 0x8000 --ramdisk_offset 0x1000000 \
   --tags_offset 0x100 --dtb_offset 0x1f00000 \
   --os_version 16.0.0 --os_patch_level 2026-06 \
-  --cmdline 'console=tty0 earlycon consoleblank=0 log_buf_len=2M pd_ignore_unused clk_ignore_unused root=PARTLABEL=cust rw rootwait' \
+  --cmdline 'console=tty0 console=ttyGS0,115200 earlycon consoleblank=0 log_buf_len=2M pd_ignore_unused clk_ignore_unused root=PARTLABEL=cust rw rootwait rcupdate.rcu_cpu_stall_timeout=300 rcupdate.rcu_cpu_stall_suppress=1 panic=0 nmi_watchdog=0 softlockup_panic=0' \
   --output "$IMG"
 
 python3 -c "import os; s=os.path.getsize('$IMG'); print('boot-linux.img', round(s/1048576,2), 'MiB', 'OK' if s<57500000 else 'TOO_BIG')"

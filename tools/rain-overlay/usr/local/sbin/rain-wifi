@@ -1,0 +1,261 @@
+#!/bin/bash
+# Simple Wi-Fi CLI for rain/fog (no NetworkManager).
+# Scan/status via wpa_cli only — raw `iw scan` (and often other iw nl80211)
+# can soft-hang ath10k_snoc on this board.
+set +e
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+SSID_DEFAULT="${WIFI_SSID:-2.4GHz_WiFi_219}"
+PASS_DEFAULT="${WIFI_PASS:-}"
+CTRL=/run/wpa_supplicant
+SCAN_CONF=/run/qcom-wpa-scan.conf
+CONN_CONF=/run/qcom-wpa.conf
+OEM_MAC="${WIFI_MAC:-f0:6c:5d:02:36:a2}"
+
+need_root() {
+  [ "$(id -u)" = 0 ] || { echo "Run as root: sudo $0 $*"; exit 1; }
+}
+
+set_stable_mac() {
+  # ath10k often picks random MAC; AP/WPA happier with OEM address
+  ip link set wlan0 down 2>/dev/null || true
+  ip link set wlan0 address "$OEM_MAC" 2>/dev/null || true
+  ip link set wlan0 up 2>/dev/null || true
+}
+
+ensure_wlan() {
+  if [ -x /usr/local/sbin/rain-mmc-park ]; then
+    /usr/local/sbin/rain-mmc-park off
+  fi
+  if ! ip link show wlan0 >/dev/null 2>&1 \
+     || [ "$(cat /sys/class/remoteproc/remoteproc0/state 2>/dev/null)" != running ]; then
+    echo "==> bringing modem + ath10k (first time ~15–25s)..." >&2
+    /usr/local/sbin/qcom-wifi-start.sh || return 1
+  else
+    echo "==> stack already up (fast path)" >&2
+  fi
+  set_stable_mac
+  return 0
+}
+
+wpa_cmd() {
+  wpa_cli -p "$CTRL" -i wlan0 "$@" 2>/dev/null \
+    || wpa_cli -i wlan0 "$@" 2>/dev/null
+}
+
+wpa_state() {
+  wpa_cmd status 2>/dev/null | sed -n 's/^wpa_state=//p'
+}
+
+# Write conf and (re)start wpa — only when no wpa yet.
+start_wpa_with_conf() {
+  local conf="$1"
+  mkdir -p "$CTRL"
+  chmod 775 "$CTRL"
+  chgrp netdev "$CTRL" 2>/dev/null || true
+  if pgrep -x wpa_supplicant >/dev/null; then
+    if wpa_cmd ping >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+  wpa_supplicant -B -i wlan0 -c "$conf" -P /run/wpa_supplicant-wlan0.pid \
+    -f /var/log/wpa_supplicant-wlan0.log
+  sleep 1
+  pgrep -x wpa_supplicant >/dev/null
+}
+
+ensure_wpa() {
+  if ! pgrep -x wpa_supplicant >/dev/null; then
+    cat >"$SCAN_CONF" <<CFG
+ctrl_interface=$CTRL
+ctrl_interface_group=netdev
+update_config=0
+ap_scan=1
+CFG
+    chmod 600 "$SCAN_CONF"
+    start_wpa_with_conf "$SCAN_CONF" || return 1
+  fi
+  pgrep -x wpa_supplicant >/dev/null
+}
+
+cmd_scan() {
+  need_root
+  ensure_wlan || exit 1
+  ensure_wpa || { echo "FATAL: wpa_supplicant"; exit 1; }
+  echo "==> wpa scan (safe)..." >&2
+  wpa_cmd scan >/dev/null
+  for i in 1 2 3 4 5 6; do
+    sleep 1
+    n=$(wpa_cmd scan_results 2>/dev/null | tail -n +2 | wc -l)
+    echo "  t+${i}s networks=$n" >&2
+    [ "$n" -gt 0 ] && [ "$i" -ge 2 ] && break
+  done
+  wpa_cmd scan_results 2>/dev/null | awk -F'\t' 'NR>1 && $5!="" {
+    ssid=$5; sig=$3; bssid=$1;
+    gsub(/\r/,"",ssid);
+    if (ssid ~ /[^[:print:]]/) next;
+    if (ssid == "") next;
+    printf "%s\t%s dBm\t%s\n", ssid, sig, bssid
+  }' | sort -t$'\t' -k2 -n -r | uniq
+}
+
+cmd_list() {
+  cmd_scan | nl -ba -w2 -s') '
+}
+
+# Conf-file assoc (wpa_cli set_network quoting broke SSID → stuck SCANNING)
+assoc_via_conf() {
+  local ssid="$1" pass="$2"
+  echo "==> write $CONN_CONF and start wpa (conf-based)..."
+  pkill -x wpa_supplicant 2>/dev/null || true
+  sleep 1
+  mkdir -p "$CTRL"
+  cat >"$CONN_CONF" <<EOF
+ctrl_interface=$CTRL
+ctrl_interface_group=netdev
+update_config=0
+ap_scan=1
+
+network={
+	ssid="$ssid"
+	psk="$pass"
+	key_mgmt=WPA-PSK
+}
+EOF
+  chmod 600 "$CONN_CONF"
+  set_stable_mac
+  wpa_supplicant -B -i wlan0 -c "$CONN_CONF" -P /run/wpa_supplicant-wlan0.pid \
+    -f /var/log/wpa_supplicant-wlan0.log
+  sleep 2
+  echo "associating to $ssid ..."
+  local i st
+  for i in $(seq 1 30); do
+    st=$(wpa_state)
+    echo "t+${i}s wpa_state=${st:-?}"
+    [ "$st" = COMPLETED ] && return 0
+    sleep 1
+  done
+  echo "FATAL: association timeout (wpa_state=$(wpa_state))"
+  wpa_cmd status 2>&1 | head -20
+  return 1
+}
+
+do_dhcp() {
+  local BB=/usr/local/bin/busybox
+  [ -x "$BB" ] || BB=busybox
+  "$BB" udhcpc -i wlan0 -n -q -t 10 -T 3 -s /usr/local/sbin/udhcpc-wlan.script
+}
+
+cmd_connect() {
+  need_root
+  local ssid="$1" pass="$2"
+  if [ -z "$ssid" ]; then
+    if [ -t 0 ]; then
+      echo -n "SSID [$SSID_DEFAULT]: "
+      read -r ssid
+      ssid=${ssid:-$SSID_DEFAULT}
+    else
+      ssid=$SSID_DEFAULT
+    fi
+  fi
+  if [ -z "$pass" ]; then
+    if [ -t 0 ]; then
+      echo -n "Password: "
+      stty -echo 2>/dev/null
+      read -r pass
+      stty echo 2>/dev/null
+      echo
+    else
+      pass=$PASS_DEFAULT
+    fi
+  fi
+  [ -n "$ssid" ] || { echo "FATAL: empty SSID"; exit 1; }
+  [ -n "$pass" ] || { echo "FATAL: empty password"; exit 1; }
+
+  systemctl stop NetworkManager 2>/dev/null || true
+  systemctl mask NetworkManager NetworkManager-wait-online ModemManager 2>/dev/null || true
+
+  if [ -x /usr/local/sbin/rain-mmc-park ]; then
+    /usr/local/sbin/rain-mmc-park off
+  fi
+
+  ensure_wlan || exit 1
+
+  if ! assoc_via_conf "$ssid" "$pass"; then
+    echo "FATAL: association failed"
+    exit 1
+  fi
+  do_dhcp
+  echo
+  ip -br addr show wlan0
+  ip route | head -3
+  timeout 8 ping -c2 -W2 1.1.1.1 && echo OK || echo "WARN: ping failed"
+}
+
+cmd_menu() {
+  need_root
+  local tmp choice ssid pass
+  tmp=$(mktemp)
+  cmd_scan >"$tmp"
+  if [ ! -s "$tmp" ]; then
+    echo "No networks via wpa scan. Try: sudo rain-wifi connect '$SSID_DEFAULT'"
+    rm -f "$tmp"
+    exit 1
+  fi
+  echo "Available networks:"
+  nl -ba -w2 -s') ' <"$tmp"
+  echo -n "Number (or full SSID): "
+  read -r choice
+  if [[ "$choice" =~ ^[0-9]+$ ]]; then
+    ssid=$(sed -n "${choice}p" "$tmp" | cut -f1)
+  else
+    ssid=$choice
+  fi
+  rm -f "$tmp"
+  [ -n "$ssid" ] || { echo "empty"; exit 1; }
+  echo -n "Password for '$ssid': "
+  stty -echo 2>/dev/null
+  read -r pass
+  stty echo 2>/dev/null
+  echo
+  # connect without a second scan
+  cmd_connect "$ssid" "$pass"
+}
+
+cmd_status() {
+  echo "modem: $(cat /sys/class/remoteproc/remoteproc0/state 2>/dev/null || echo n/a)"
+  ip -br link show wlan0 2>/dev/null || echo "wlan0: absent"
+  echo "wpa_state: $(wpa_state 2>/dev/null || echo n/a)"
+  wpa_cmd status 2>/dev/null | grep -E '^(ssid|bssid|wpa_state|ip_address)=' || true
+  ip -br addr show wlan0 2>/dev/null
+  ip route | head -5
+  ping -c1 -W2 1.1.1.1 2>&1 | tail -2
+}
+
+usage() {
+  cat <<EOF
+rain-wifi — Wi-Fi CLI (ath10k + wpa, no NetworkManager, no iw)
+
+  sudo rain-wifi scan              list SSIDs via wpa_cli
+  sudo rain-wifi menu              scan → pick → password
+  sudo rain-wifi connect [SSID] [PASS]
+  sudo rain-wifi status
+  sudo rain-wifi-tui               TUI wrapper
+
+Notes:
+  - Parks µSD (mmc0) during wifi — sdhci timeouts soft-hung the board
+  - Uses OEM MAC $OEM_MAC (override WIFI_MAC=)
+  - Connect writes wpa conf (not wpa_cli set_network quotes)
+EOF
+}
+
+case "${1:-menu}" in
+  scan) shift; cmd_scan "$@" ;;
+  list) shift; cmd_list "$@" ;;
+  menu) shift; cmd_menu "$@" ;;
+  connect|c) shift; cmd_connect "$@" ;;
+  status|st) shift; cmd_status "$@" ;;
+  -h|--help|help) usage ;;
+  *) usage; exit 1 ;;
+esac
+exit 0
