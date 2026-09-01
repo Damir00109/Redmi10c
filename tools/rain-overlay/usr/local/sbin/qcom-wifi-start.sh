@@ -48,14 +48,19 @@ if ! mountpoint -q /run/modem_partition; then
   }
 fi
 for f in /run/modem_partition/image/modem.b* \
-         /run/modem_partition/image/modem.mdt \
-         /run/modem_partition/image/wlanmdsp.mbn; do
+         /run/modem_partition/image/modem.mdt; do
   [ -f "$f" ] || continue
   ln -sfn "$f" "/run/modem_fw/$(basename "$f")"
+  ln -sfn "$f" "/lib/firmware/qcom/sm6225/$(basename "$f")"
 done
+cp -an /run/modem_partition/image/*.jsn /lib/firmware/ 2>/dev/null || true
+cp -an /run/modem_partition/image/*.jsn /lib/firmware/qcom/sm6225/ 2>/dev/null || true
+ln -sfn /run/modem_partition/image/modem_pr /lib/firmware/qcom/sm6225/modem_pr
 ln -sfn /run/modem_partition/image/bd3qvdfu.bin /run/ath10k_fw/board.bin
 ln -sfn /usr/lib/firmware/ath10k/WCN3990/hw1.0/qcm2290/firmware-5.bin \
   /run/ath10k_fw/firmware-5.bin
+ln -sfn /run/modem_partition/image/wlanmdsp.mbn \
+  /lib/firmware/qcom/sm6225/wlanmdsp.mbn
 mkdir -p /lib/firmware/ath10k/WCN3990/hw1.0
 ln -sfn /run/ath10k_fw/board.bin \
   /lib/firmware/ath10k/WCN3990/hw1.0/board.bin
@@ -98,6 +103,9 @@ done
 if lsmod 2>/dev/null | grep -q '^ath10k_snoc'; then
   echo "rmmod ath10k_snoc before modem restart"
   rmmod ath10k_snoc 2>/dev/null || true
+  sleep 0.5
+elif [ -L /sys/bus/platform/drivers/ath10k_snoc/c800000.wifi ]; then
+  echo c800000.wifi > /sys/bus/platform/drivers/ath10k_snoc/unbind
   sleep 0.5
 fi
 
@@ -161,8 +169,13 @@ sleep 8
 [ "$(cat "$RP/state")" = running ] || { echo "FATAL: modem dropped in settle"; return 1; }
 echo "MARK_INSMOD_SNOC"
 
-lsmod | grep -q '^ath10k_snoc' || \
-  modprobe ath10k_snoc || { echo "FATAL: snoc"; return 1; }
+if [ -d /sys/bus/platform/drivers/ath10k_snoc ] && \
+   [ ! -L /sys/bus/platform/drivers/ath10k_snoc/c800000.wifi ]; then
+  echo c800000.wifi > /sys/bus/platform/drivers/ath10k_snoc/bind || { echo "FATAL: snoc bind"; return 1; }
+else
+  lsmod | grep -q '^ath10k_snoc' || \
+    modprobe ath10k_snoc || { echo "FATAL: snoc"; return 1; }
+fi
 echo "MARK_SNOC_LOADED"
 
 wlan=0
