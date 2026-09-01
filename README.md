@@ -60,17 +60,17 @@ Boot time: **27.5 секунд** (kernel 9.8s + userspace 17.7s).
 | Sensors (lm-sensors) | ✅ | Температуры |
 | GPU Adreno 610 | ⚠️ 70% | Headless render ✅, DPU scanout crash |
 | Vulkan Turnip | ⚠️ 70% | vulkaninfo ✅, vkcube swapchain crash |
-| Wi-Fi | ❌ | Нет modem firmware |
+| Wi-Fi | ✅ | Полноценная работа и интеграция с nmcli |
 | Modem | ❌ | remoteproc offline |
 | Audio | ❌ | Не настроен |
-| Bluetooth | ❌ | WCN3990, не начато |
+| Bluetooth | ❌ | в процессе |
 | GPS | ❌ | Не начато |
 | Camera | ❌ | Не начато |
 | Fingerprint | ❌ | FPC/Silead |
-| NFC | ❌ | NQ-NCI, не начато |
+| NFC | ❌ | поиск прошивки |
 | Boot time | ✅ 27.5s | Kernel 9.8s + userspace 17.7s |
 
-**Общий прогресс: ~70%** (пользовательская функциональность ~55%)
+**Общий прогресс: ~80%** (пользовательская функциональность ~70%)
 
 ---
 
