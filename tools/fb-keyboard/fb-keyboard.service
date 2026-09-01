@@ -8,6 +8,10 @@ Type=simple
 ExecStart=/usr/local/bin/fb-keyboard
 Restart=always
 RestartSec=2
+StandardInput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
 
 [Install]
 WantedBy=multi-user.target
