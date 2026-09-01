@@ -125,11 +125,15 @@ $BB mdev -s 2>/dev/null || true
 $BB sleep 1
 if ! $BB mount -t ext4 -o rw "$CUST" /newroot 2>/tmp/mnt.err; then
   echo "mount cust failed: $($BB cat /tmp/mnt.err)"
-  $BB fsck.ext4 -y "$CUST" 2>/dev/null || true
-  $BB mount -t ext4 -o rw "$CUST" /newroot || exec $BB sh
+  echo "FATAL: check cust with e2fsck from recovery"
+  exec $BB sh
 fi
 
-if [ ! -x /newroot/sbin/init ] && [ ! -x /newroot/usr/lib/systemd/systemd ]; then
+INIT=/sbin/init
+if [ ! -x "/newroot$INIT" ]; then
+  INIT=/usr/lib/systemd/systemd
+fi
+if [ ! -x "/newroot$INIT" ]; then
   echo "FATAL: no init in rootfs"
   exec $BB sh
 fi
@@ -155,16 +159,17 @@ $BB umount /tmp 2>/dev/null
 # /dev/kmsg always reaches the framebuffer console via printk, so log
 # the pre-flight checks there regardless of where the console is.
 kdbg() { echo "pivot-dbg: $*" >/dev/kmsg 2>/dev/null; }
-kdbg "init resolved: $($BB readlink -f /newroot/sbin/init 2>&1)"
-kdbg "init file: $($BB test -x /newroot/sbin/init && echo exists-exec || echo MISSING-OR-NOT-EXEC)"
+kdbg "init selected: $INIT"
+kdbg "init resolved: $($BB readlink -f "/newroot$INIT" 2>&1)"
+kdbg "init file: $($BB test -x "/newroot$INIT" && echo exists-exec || echo MISSING-OR-NOT-EXEC)"
 
 # IMPORTANT: switch_root refuses to run unless it IS pid 1 (getpid()==1).
 # Calling it as a plain command forks a child (pid != 1) and it silently
 # bails out to its usage text instead of a real error. It must be `exec`d
 # directly from the pid-1 shell, never wrapped/subshelled/piped.
-kdbg "switch_root -> /sbin/init (exec, no return expected)"
+kdbg "switch_root -> $INIT (exec, no return expected)"
 # Unbind UDC so rootfs usb-adb-gadget.service can bind it cleanly
 echo "" >"$G/UDC" 2>/dev/null
-exec $BB switch_root /newroot /sbin/init
+exec $BB switch_root /newroot "$INIT"
 echo "FATAL: switch_root exec itself failed to run" >/dev/kmsg 2>/dev/null
 exec $BB sh
