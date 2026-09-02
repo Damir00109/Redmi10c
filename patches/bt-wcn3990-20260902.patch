@@ -1,0 +1,4174 @@
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 4ba8e7306..0b76ae3c2 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -330,6 +330,9 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sdx75-idp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm4250-oneplus-billie2.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm4450-qrd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm6115-fxtec-pro1x.dtb
++dtb-$(CONFIG_ARCH_QCOM) += sm6225-xiaomi-fog.dtb
++dtb-$(CONFIG_ARCH_QCOM) += sm6225-xiaomi-fog-sm6115.dtb
++dtb-$(CONFIG_ARCH_QCOM) += sm6225-xiaomi-rain.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm6115p-lenovo-j606f.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm6125-sony-xperia-seine-pdx201.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm6125-xiaomi-ginkgo.dtb
+diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
+index 244447195..f8437bd8e 100644
+--- a/drivers/bluetooth/hci_qca.c
++++ b/drivers/bluetooth/hci_qca.c
+@@ -1760,6 +1760,9 @@ static int qca_port_reopen(struct hci_uart *hu)
+ 
+ 	hci_uart_set_flow_control(hu, false);
+ 
++	/* Re-apply init speed: ttyport_open resets termios to defaults */
++	qca_set_speed(hu, QCA_INIT_SPEED);
++
+ 	return 0;
+ }
+ 
+@@ -1768,7 +1771,6 @@ static int qca_regulator_init(struct hci_uart *hu)
+ 	enum qca_btsoc_type soc_type = qca_soc_type(hu);
+ 	struct qca_serdev *qcadev;
+ 	int ret;
+-	bool sw_ctrl_state;
+ 
+ 	/* Check for vregs status, may be hci down has turned
+ 	 * off the voltage regulator.
+@@ -1781,40 +1783,49 @@ static int qca_regulator_init(struct hci_uart *hu)
+ 		if (ret)
+ 			return ret;
+ 
++		/* Give the controller time to stabilize after power on */
++		msleep(200);
++
+ 		ret = serdev_device_open(hu->serdev);
+ 		if (ret) {
+ 			bt_dev_err(hu->hdev, "failed to open port");
+ 			return ret;
+ 		}
+-	}
+ 
+-	switch (soc_type) {
+-	case QCA_WCN3950:
+-	case QCA_WCN3988:
+-	case QCA_WCN3990:
+-	case QCA_WCN3991:
+-	case QCA_WCN3998:
+-		/* Forcefully enable wcn399x to enter in to boot mode. */
+-		host_set_baudrate(hu, 2400);
+-		ret = qca_send_power_pulse(hu, false);
+-		if (ret)
+-			return ret;
+-		break;
++		/* Controller just powered on — it's already in boot mode.
++		 * Skip the power-off pulse, just send power-on pulse below.
++		 */
++	} else {
++		switch (soc_type) {
++		case QCA_WCN3950:
++		case QCA_WCN3988:
++		case QCA_WCN3990:
++		case QCA_WCN3991:
++		case QCA_WCN3998:
++			/* Forcefully enable wcn399x to enter in to boot mode. */
++			host_set_baudrate(hu, 2400);
++			ret = qca_send_power_pulse(hu, false);
++			if (ret)
++				return ret;
++			break;
+ 
+-	default:
+-		break;
++		default:
++			break;
++		}
+ 	}
+ 
+-	/* For wcn6750 need to enable gpio bt_en */
+-	if (qcadev->bt_en) {
++	/* Toggle bt_en only for SoCs that use GPIO power control (wcn6750+).
++	 * WCN399x uses regulators + power pulses, bt_en toggle resets the
++	 * controller at the wrong time and breaks re-init.
++	 */
++	if (qcadev->bt_en &&
++	    (soc_type == QCA_WCN6750 ||
++	     soc_type == QCA_WCN6855 ||
++	     soc_type == QCA_WCN7850)) {
+ 		gpiod_set_value_cansleep(qcadev->bt_en, 0);
+ 		msleep(50);
+ 		gpiod_set_value_cansleep(qcadev->bt_en, 1);
+-		msleep(50);
+-		if (qcadev->sw_ctrl) {
+-			sw_ctrl_state = gpiod_get_value_cansleep(qcadev->sw_ctrl);
+-			bt_dev_dbg(hu->hdev, "SW_CTRL is %d", sw_ctrl_state);
+-		}
++		msleep(200);
+ 	}
+ 
+ 	qca_set_speed(hu, QCA_INIT_SPEED);
+@@ -1828,7 +1839,12 @@ static int qca_regulator_init(struct hci_uart *hu)
+ 		ret = qca_send_power_pulse(hu, true);
+ 		if (ret)
+ 			return ret;
+-		break;
++		/* Controller needs time to boot after power-on pulse
++		 * before it can respond to HCI commands.
++		 */
++		msleep(200);
++		hci_uart_set_flow_control(hu, false);
++		return 0;
+ 
+ 	default:
+ 		break;
+@@ -1905,6 +1921,15 @@ static int qca_configure_hfp_offload(struct hci_dev *hdev)
+ 	return 0;
+ }
+ 
++static int qca_post_init(struct hci_dev *hdev)
++{
++	/* IBS disabled for WCN399x: controller crashes when IBS sleep
++	 * interacts with auto-off / re-init. Power saving is not critical
++	 * for mainline bringup.
++	 */
++	return 0;
++}
++
+ static int qca_setup(struct hci_uart *hu)
+ {
+ 	struct hci_dev *hdev = hu->hdev;
+@@ -2029,7 +2054,8 @@ static int qca_setup(struct hci_uart *hu)
+ 	ret = qca_uart_setup(hdev, qca_baudrate, soc_type, ver,
+ 			firmware_name, rampatch_name);
+ 	if (!ret) {
+-		clear_bit(QCA_IBS_DISABLED, &qca->flags);
++		/* IBS will be enabled in post_init after hci_init_sync */
++		hdev->post_init = qca_post_init;
+ 		qca_debugfs_init(hdev);
+ 		hu->hdev->hw_error = qca_hw_error;
+ 		hu->hdev->reset = qca_reset;
+@@ -2299,9 +2325,20 @@ static int qca_hci_shutdown(struct hci_dev *hdev)
+ 	timer_delete_sync(&qca->wake_retrans_timer);
+ 	timer_delete_sync(&qca->tx_idle_timer);
+ 
+-	/* Stop sending shutdown command if soc crashes. */
++	/* Disable IBS before shutdown so controller is awake for power off.
++	 * Skip preshutdown_cmd for WCN399x — power off via regulators/bt_en
++	 * fully resets the controller, and the HCI command times out when
++	 * IBS has put the chip to sleep.
++	 */
++	set_bit(QCA_IBS_DISABLED, &qca->flags);
++
+ 	if (soc_type != QCA_ROME
+-		&& qca->memdump_state == QCA_MEMDUMP_IDLE) {
++	    && soc_type != QCA_WCN3950
++	    && soc_type != QCA_WCN3988
++	    && soc_type != QCA_WCN3990
++	    && soc_type != QCA_WCN3991
++	    && soc_type != QCA_WCN3998
++	    && qca->memdump_state == QCA_MEMDUMP_IDLE) {
+ 		qca_send_pre_shutdown_cmd(hdev);
+ 		usleep_range(8000, 10000);
+ 	}
+diff --git a/drivers/pinctrl/qcom/pinctrl-msm.c b/drivers/pinctrl/qcom/pinctrl-msm.c
+index 45b3a2763..8a378a449 100644
+--- a/drivers/pinctrl/qcom/pinctrl-msm.c
++++ b/drivers/pinctrl/qcom/pinctrl-msm.c
+@@ -1045,6 +1045,9 @@ static void msm_gpio_irq_init_valid_mask(struct gpio_chip *gc,
+ 		if (g->intr_detection_width != 1 &&
+ 		    g->intr_detection_width != 2)
+ 			clear_bit(i, valid_mask);
++		/* Khaje: skip EAST/SOUTH reserved lines (MMIO hang). */
++		if (!gpiochip_line_is_valid(gc, i))
++			clear_bit(i, valid_mask);
+ 	}
+ }
+ 
+@@ -1400,6 +1403,52 @@ static const struct irq_chip msm_gpio_irq_chip = {
+ 				   IRQCHIP_IMMUTABLE),
+ };
+ 
++static bool msm_gpio_is_reserved(struct msm_pinctrl *pctrl, unsigned int gpio)
++{
++	const int *reserved = pctrl->soc->reserved_gpios;
++	int i;
++
++	if (!reserved)
++		return false;
++
++	for (i = 0; reserved[i] >= 0; i++) {
++		if ((unsigned int)reserved[i] == gpio)
++			return true;
++	}
++
++	return false;
++}
++
++/*
++ * Mask+ack IRQs on safe GPIOs before gpiochip_add enables the summary IRQ.
++ * Do not touch reserved tiles (khaje EAST/SOUTH MMIO hangs).
++ */
++static void msm_gpio_irq_quiesce(struct msm_pinctrl *pctrl)
++{
++	const struct msm_pingroup *g;
++	unsigned int i, ngpio = pctrl->soc->ngpios;
++	unsigned long flags;
++	u32 val;
++
++	for (i = 0; i < ngpio; i++) {
++		if (msm_gpio_is_reserved(pctrl, i))
++			continue;
++
++		g = &pctrl->soc->groups[i];
++		if (g->intr_detection_width != 1 &&
++		    g->intr_detection_width != 2)
++			continue;
++
++		raw_spin_lock_irqsave(&pctrl->lock, flags);
++		val = msm_readl_intr_cfg(pctrl, g);
++		val &= ~BIT(g->intr_enable_bit);
++		val &= ~BIT(g->intr_raw_status_bit);
++		msm_writel_intr_cfg(val, pctrl, g);
++		msm_ack_intr_status(pctrl, g);
++		raw_spin_unlock_irqrestore(&pctrl->lock, flags);
++	}
++}
++
+ static int msm_gpio_init(struct msm_pinctrl *pctrl)
+ {
+ 	struct gpio_chip *chip;
+@@ -1440,19 +1489,23 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
+ 		}
+ 	}
+ 
+-	girq = &chip->irq;
+-	gpio_irq_chip_set_chip(girq, &msm_gpio_irq_chip);
+-	girq->parent_handler = msm_gpio_irq_handler;
+-	girq->fwnode = dev_fwnode(pctrl->dev);
+-	girq->num_parents = 1;
+-	girq->parents = devm_kcalloc(pctrl->dev, 1, sizeof(*girq->parents),
+-				     GFP_KERNEL);
+-	if (!girq->parents)
+-		return -ENOMEM;
+-	girq->default_type = IRQ_TYPE_NONE;
+-	girq->handler = handle_bad_irq;
+-	girq->parents[0] = pctrl->irq;
+-	girq->init_valid_mask = msm_gpio_irq_init_valid_mask;
++	if (pctrl->irq >= 0) {
++		msm_gpio_irq_quiesce(pctrl);
++
++		girq = &chip->irq;
++		gpio_irq_chip_set_chip(girq, &msm_gpio_irq_chip);
++		girq->parent_handler = msm_gpio_irq_handler;
++		girq->fwnode = dev_fwnode(pctrl->dev);
++		girq->num_parents = 1;
++		girq->parents = devm_kcalloc(pctrl->dev, 1, sizeof(*girq->parents),
++					     GFP_KERNEL);
++		if (!girq->parents)
++			return -ENOMEM;
++		girq->default_type = IRQ_TYPE_NONE;
++		girq->handler = handle_bad_irq;
++		girq->parents[0] = pctrl->irq;
++		girq->init_valid_mask = msm_gpio_irq_init_valid_mask;
++	}
+ 
+ 	ret = devm_gpiochip_add_data(pctrl->dev, &pctrl->chip, pctrl);
+ 	if (ret) {
+@@ -1581,9 +1634,10 @@ int msm_pinctrl_probe(struct platform_device *pdev,
+ 
+ 	msm_pinctrl_setup_pm_reset(pctrl);
+ 
+-	pctrl->irq = platform_get_irq(pdev, 0);
+-	if (pctrl->irq < 0)
+-		return pctrl->irq;
++	/* Optional: rain/khaje bisect — pinmux without summary IRQ (irq storm / BACK_FB). */
++	pctrl->irq = platform_get_irq_optional(pdev, 0);
++	if (pctrl->irq == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
+ 
+ 	pctrl->desc.owner = THIS_MODULE;
+ 	pctrl->desc.pctlops = &msm_pinctrl_ops;
+@@ -1607,13 +1661,17 @@ int msm_pinctrl_probe(struct platform_device *pdev,
+ 			return ret;
+ 	}
+ 
+-	ret = msm_gpio_init(pctrl);
+-	if (ret)
+-		return ret;
++	ret = 0;
++	if (soc_data->ngpios) {
++		ret = msm_gpio_init(pctrl);
++		if (ret)
++			return ret;
++	}
+ 
+ 	platform_set_drvdata(pdev, pctrl);
+ 
+-	dev_dbg(&pdev->dev, "Probed Qualcomm pinctrl driver\n");
++	dev_info(&pdev->dev, "Probed Qualcomm pinctrl (irq=%d ngpios=%u)\n",
++		 pctrl->irq, soc_data->ngpios);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/tty/serial/qcom_geni_serial.c b/drivers/tty/serial/qcom_geni_serial.c
+index 3b0f836a9..c0def03cd 100644
+--- a/drivers/tty/serial/qcom_geni_serial.c
++++ b/drivers/tty/serial/qcom_geni_serial.c
+@@ -783,6 +783,9 @@ static void qcom_geni_serial_handle_rx_fifo(struct uart_port *uport, bool drop)
+ 		total_bytes += last_word_byte_cnt;
+ 	else
+ 		total_bytes += BYTES_PER_FIFO_WORD;
++	/* For non-console ports, don't drop data on GP IRQs (framing/parity) */
++	if (!uart_console(uport))
++		drop = false;
+ 	handle_rx_console(uport, total_bytes, drop);
+ }
+ 
+@@ -1783,10 +1786,10 @@ static const struct uart_ops qcom_geni_console_pops = {
+ 
+ static const struct uart_ops qcom_geni_uart_pops = {
+ 	.tx_empty = qcom_geni_serial_tx_empty,
+-	.stop_tx = qcom_geni_serial_stop_tx_dma,
+-	.start_tx = qcom_geni_serial_start_tx_dma,
+-	.start_rx = qcom_geni_serial_start_rx_dma,
+-	.stop_rx = qcom_geni_serial_stop_rx_dma,
++	.stop_tx = qcom_geni_serial_stop_tx_fifo,
++	.start_tx = qcom_geni_serial_start_tx_fifo,
++	.start_rx = qcom_geni_serial_start_rx_fifo,
++	.stop_rx = qcom_geni_serial_stop_rx_fifo,
+ 	.set_termios = qcom_geni_serial_set_termios,
+ 	.startup = qcom_geni_serial_startup,
+ 	.request_port = qcom_geni_serial_request_port,
+@@ -2011,7 +2014,7 @@ static const struct qcom_geni_device_data qcom_geni_console_data = {
+ 
+ static const struct qcom_geni_device_data qcom_geni_uart_data = {
+ 	.console = false,
+-	.mode = GENI_SE_DMA,
++	.mode = GENI_SE_FIFO,
+ 	.resources_init = geni_serial_resource_init,
+ 	.set_rate = geni_serial_set_rate,
+ 	.power_state = geni_serial_resource_state,
+
+diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
+new file mode 100644
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
++0a1,620
++> // SPDX-License-Identifier: GPL-2.0-only
++> /*
++>  * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++>  * https://github.com/Damir00109/Redmi10c
++>  */
++> /* Thin fog/rain + SPMI/pm6125 + RPM regulators (no GCC yet). */
++> /dts-v1/;
++> #include "sm6225.dtsi"
++> #include "pm6125.dtsi"
++> #include <dt-bindings/gpio/gpio.h>
++> #include <dt-bindings/input/linux-event-codes.h>
++> #include <dt-bindings/clock/qcom,rpmcc.h>
++> #include <dt-bindings/interrupt-controller/irq.h>
++> 
++> / {
++> 	qcom,msm-id = <0x206 0x10000>;
++> 	qcom,board-id = <0x60022 0x00>;
++> 	model = "Xiaomi Redmi 10C fog/rain";
++> 	compatible = "xiaomi,fog", "qcom,sm6225";
++> 	chassis-type = "handset";
++> 
++> 	aliases {
++> 		serial0 = &uart3;
++> 	};
++> 
++> 	/* Bringup: exercise TLMM summary IRQ + gpio93 (Type-C INT) */
++> 	gpio-keys {
++> 		compatible = "gpio-keys";
++> 		pinctrl-names = "default";
++> 		pinctrl-0 = <&vol_up_default>;
++> 
++> 		vol_up {
++> 			label = "volume_up";
++> 			gpios = <&pm6125_gpios 5 GPIO_ACTIVE_LOW>;
++> 			linux,input-type = <EV_KEY>;
++> 			linux,code = <KEY_VOLUMEUP>;
++> 			debounce-interval = <10>;
++> 		};
++> 	};
++> 
++> 	chosen {
++> 		#address-cells = <2>;
++> 		#size-cells = <2>;
++> 		ranges;
++> 		/* Panel is 720x1650 (Android 0x2d0 x 0x672); ABL leaves FB here. */
++> 		stdout-path = "framebuffer0";
++> 		bootargs = "console=tty0 consoleblank=0 earlycon clk_ignore_unused pd_ignore_unused cpuidle.max_cstate=1";
++> 		framebuffer0: framebuffer@5c000000 {
++> 			compatible = "simple-framebuffer";
++> 			reg = <0 0x5c000000 0 (1650 * 720 * 4)>;
++> 			width = <720>;
++> 			height = <1650>;
++> 			stride = <(720 * 4)>;
++> 			format = "a8r8g8b8";
++> 		};
++> 	};
++> 
++> 	reserved-memory {
++> 		#address-cells = <2>;
++> 		#size-cells = <2>;
++> 		ranges;
++> 		framebuffer-region@5c000000 {
++> 			reg = <0 0x5c000000 0 0x1000000>;
++> 			no-map;
++> 		};
++> 	};
++> };
++> 
++> &usb_dwc3 {
++> 	status = "okay";
++> 	dr_mode = "peripheral";
++> 	maximum-speed = "high-speed";
++> };
++> 
++> &pon_pwrkey {
++> 	status = "okay";
++> };
++> 
++> &pon_resin {
++> 	linux,code = <KEY_VOLUMEDOWN>;
++> 	status = "okay";
++> };
++> 
++> /* Full pm6125 peripherals (were disabled while drivers were =m / no modules). */
++> &pm6125_adc {
++> 	status = "okay";
++> };
++> 
++> &pm6125_temp {
++> 	status = "okay";
++> };
++> 
++> &pm6125_rtc {
++> 	status = "okay";
++> };
++> 
++> &pm6125_gpios {
++> 	status = "okay";
++> 
++> 	vol_up_default: vol-up-default-state {
++> 		pins = "gpio5";
++> 		function = "normal";
++> 		input-enable;
++> 		bias-pull-up;
++> 	};
++> 
++> 	/*
++> 	 * Android disp_lcd_bias_en = PMIC gpio9 (func1 / vin0 / out).
++> 	 * SPMI MODE_CTL/EN_CTL writes return -EPERM here — do not claim.
++> 	 */
++> };
++> 
++> /*
++>  * LCM ENP (gpio98) / ENN (gpio101) pinctrl states live in sm6225.dtsi
++>  * (lcm_enp_default / lcm_enn_default). Do NOT apply at boot: SOUTH TLMM
++>  * MMIO can hang the SoC (same class as reserved_gpios get_direction).
++>  * ABL splash usually leaves panel bias already enabled.
++>  */
++> 
++> /*
++>  * RPM regulators — UFS rails keep proven fixed µV; other LDOs expose Android
++>  * ranges so consumers (display/audio/…) can vote later without always-on.
++>  */
++> &rpm_requests {
++> 	regulators-0 {
++> 		compatible = "qcom,rpm-pm6125-regulators";
++> 
++> 		pm6125_s6a: s6 {
++> 			regulator-min-microvolt = <320000>;
++> 			regulator-max-microvolt = <1456000>;
++> 		};
++> 
++> 		pm6125_s7a: s7 {
++> 			regulator-min-microvolt = <1280000>;
++> 			regulator-max-microvolt = <2040000>;
++> 		};
++> 
++> 		pm6125_s8a: s8 {
++> 			regulator-min-microvolt = <1064000>;
++> 			regulator-max-microvolt = <1304000>;
++> 		};
++> 
++> 		pm6125_l1a: l1 {
++> 			regulator-min-microvolt = <952000>;
++> 			regulator-max-microvolt = <1152000>;
++> 		};
++> 
++> 		pm6125_l2a: l2 {
++> 			regulator-min-microvolt = <488000>;
++> 			regulator-max-microvolt = <1000000>;
++> 		};
++> 
++> 		pm6125_l3a: l3 {
++> 			regulator-min-microvolt = <488000>;
++> 			regulator-max-microvolt = <1000000>;
++> 		};
++> 
++> 		/* UFS PHY — live Lineage 0.88 V */
++> 		pm6125_l4a: l4 {
++> 			regulator-min-microvolt = <880000>;
++> 			regulator-max-microvolt = <880000>;
++> 		};
++> 
++> 		pm6125_l5a: l5 {
++> 			regulator-min-microvolt = <1648000>;
++> 			regulator-max-microvolt = <3304000>;
++> 			regulator-allow-set-load;
++> 		};
++> 
++> 		pm6125_l6a: l6 {
++> 			regulator-min-microvolt = <576000>;
++> 			regulator-max-microvolt = <656000>;
++> 		};
++> 
++> 		pm6125_l7a: l7 {
++> 			regulator-min-microvolt = <1200000>;
++> 			regulator-max-microvolt = <1304000>;
++> 		};
++> 
++> 		pm6125_l8a: l8 {
++> 			regulator-min-microvolt = <400000>;
++> 			regulator-max-microvolt = <728000>;
++> 		};
++> 
++> 		pm6125_l9a: l9 {
++> 			regulator-min-microvolt = <1800000>;
++> 			regulator-max-microvolt = <2000000>;
++> 			regulator-always-on;
++> 		};
++> 
++> 		pm6125_l10a: l10 {
++> 			regulator-min-microvolt = <1704000>;
++> 			regulator-max-microvolt = <1904000>;
++> 		};
++> 
++> 		/* UFS VCCQ2 — 1.8 V */
++> 		pm6125_l11a: l11 {
++> 			regulator-min-microvolt = <1800000>;
++> 			regulator-max-microvolt = <1800000>;
++> 			regulator-allow-set-load;
++> 		};
++> 
++> 		pm6125_l12a: l12 {
++> 			regulator-min-microvolt = <1624000>;
++> 			regulator-max-microvolt = <1984000>;
++> 		};
++> 
++> 		pm6125_l13a: l13 {
++> 			regulator-min-microvolt = <1504000>;
++> 			regulator-max-microvolt = <1952000>;
++> 		};
++> 
++> 		pm6125_l14a: l14 {
++> 			regulator-min-microvolt = <1704000>;
++> 			regulator-max-microvolt = <1904000>;
++> 		};
++> 
++> 		pm6125_l15a: l15 {
++> 			regulator-min-microvolt = <2920000>;
++> 			regulator-max-microvolt = <3232000>;
++> 		};
++> 
++> 		pm6125_l16a: l16 {
++> 			regulator-min-microvolt = <1800000>;
++> 			regulator-max-microvolt = <1904000>;
++> 		};
++> 
++> 		pm6125_l17a: l17 {
++> 			regulator-min-microvolt = <1300000>;
++> 			regulator-max-microvolt = <1304000>;
++> 		};
++> 
++> 		/* UFS VDDP-REF / PHY PLL — 1.232 V */
++> 		pm6125_l18a: l18 {
++> 			regulator-min-microvolt = <1232000>;
++> 			regulator-max-microvolt = <1232000>;
++> 		};
++> 
++> 		pm6125_l19a: l19 {
++> 			regulator-min-microvolt = <1624000>;
++> 			regulator-max-microvolt = <3304000>;
++> 		};
++> 
++> 		pm6125_l20a: l20 {
++> 			regulator-min-microvolt = <1624000>;
++> 			regulator-max-microvolt = <3304000>;
++> 		};
++> 
++> 		pm6125_l21a: l21 {
++> 			regulator-min-microvolt = <2400000>;
++> 			regulator-max-microvolt = <3544000>;
++> 		};
++> 
++> 		pm6125_l22a: l22 {
++> 			regulator-min-microvolt = <2952000>;
++> 			regulator-max-microvolt = <3304000>;
++> 			regulator-allow-set-load;
++> 		};
++> 
++> 		pm6125_l23a: l23 {
++> 			regulator-min-microvolt = <3296000>;
++> 			regulator-max-microvolt = <3304000>;
++> 			regulator-always-on;
++> 		};
++> 
++> 		/* UFS VCC — 2.95–2.96 V */
++> 		pm6125_l24a: l24 {
++> 			regulator-min-microvolt = <2950000>;
++> 			regulator-max-microvolt = <2960000>;
++> 			regulator-allow-set-load;
++> 		};
++> 	};
++> };
++> 
++> /*
++>  * UFS from Android vendor_boot+dtbo59 (notes/dt-adapt/from-images/).
++>  * Device: WDC SDINDDK4-64G UFS 2.2. Host PHY: qmp-v4 (SoC IP, not UFS 4/5).
++>  * vdd-hba = GDSC via power-domains. Reset = pinctrl ufs_reset (ACTIVE_LOW);
++>  * TLMM stub crashed — reset-gpios deferred.
++>  */
++> &ufs_mem_hc {
++> 	vcc-supply = <&pm6125_l24a>;
++> 	vccq2-supply = <&pm6125_l11a>;
++> 	/* Downstream bengal-qrd uses 800000 */
++> 	vcc-max-microamp = <800000>;
++> 	vccq2-max-microamp = <800000>;
++> 	/* Android: qcom,vddp-ref-clk-supply = L18 @ 1.232V */
++> 	qcom,vddp-ref-clk-supply = <&pm6125_l18a>;
++> 	qcom,vddp-ref-clk-min-uV = <1232000>;
++> 	qcom,vddp-ref-clk-max-uV = <1232000>;
++> 	qcom,vddp-ref-clk-max-microamp = <100>;
++> 	qcom,force-legacy-dme-quirks;
++> 	/* Gear transitions time out on this controller; keep UFS at negotiated gear. */
++> 	qcom,disable-devfreq;
++> 	qcom,auto-hibern8-us = <5000>;
++> 
++> 	pinctrl-names = "default";
++> 	pinctrl-0 = <&ufs_reset_default>;
++> 	reset-gpios = <&tlmm 120 GPIO_ACTIVE_LOW>;
++> 	status = "okay";
++> };
++> 
++> &ufs_mem_phy {
++> 	vdda-phy-supply = <&pm6125_l4a>;
++> 	vdda-phy-max-microamp = <85700>;
++> 	vdda-pll-supply = <&pm6125_l18a>;
++> 	vdda-pll-max-microamp = <18300>;
++> 	status = "okay";
++> };
++> 
++> /*
++>  * External µSD — Android sdhc2 @4784000.
++>  * CD is TLMM gpio88 (EAST, currently reserved — get_direction hang risk).
++>  * Use broken-cd while card is inserted; enable cd-gpios after unreserving 88.
++>  */
++> &sdhc_2 {
++> 	pinctrl-names = "default", "sleep";
++> 	pinctrl-0 = <&sdc2_state_on>;
++> 	pinctrl-1 = <&sdc2_state_off>;
++> 
++> 	vmmc-supply = <&pm6125_l22a>;
++> 	vqmmc-supply = <&pm6125_l5a>;
++> 
++> 	bus-width = <4>;
++> 	broken-cd;
++> 	cap-sd-highspeed;
++> 	sd-uhs-sdr12;
++> 	sd-uhs-sdr25;
++> 	sd-uhs-sdr50;
++> 	sd-uhs-ddr50;
++> 	sd-uhs-sdr104;
++> 	max-frequency = <202000000>;
++> 
++> 	status = "disabled";
++> };
++> 
++> &tlmm {
++> 	/* Android fog uses TLMM gpio106 for lcmblen; extend range.
++> 	 * Pin 120 is UFS_RESET (output-only); extend gpio-range to 121.
++> 	 */
++> 	gpio-ranges = <&tlmm 0 0 121>;
++> 
++> 	ufs_reset_default: ufs-reset-default {
++> 		config {
++> 			pins = "ufs_reset";
++> 			bias-pull-down;
++> 			drive-strength = <8>;
++> 			output-high;
++> 		};
++> 	};
++> 
++> 	wusb3801_int_default: wusb3801-int-default-state {
++> 		pins = "gpio93";
++> 		function = "gpio";
++> 		input-enable;
++> 		bias-pull-up;
++> 	};
++> 
++> 	qup_uart3_default: qup-uart3-default-state {
++> 		/* CTS+RX: gpio8, gpio11 */
++> 		pins = "gpio8", "gpio9", "gpio10", "gpio11";
++> 		function = "qup3";
++> 		drive-strength = <2>;
++> 		bias-disable;
++> 	};
++> 
++> 	qup_uart3_ctsrx: qup-uart3-ctsrx-state {
++> 		pins = "gpio8", "gpio11";
++> 		function = "qup3";
++> 		drive-strength = <2>;
++> 		bias-disable;
++> 	};
++> 
++> 	qup_uart3_rts: qup-uart3-rts-state {
++> 		pins = "gpio9";
++> 		function = "qup3";
++> 		drive-strength = <2>;
++> 		bias-pull-down;
++> 	};
++> 
++> 	qup_uart3_tx: qup-uart3-tx-state {
++> 		pins = "gpio10";
++> 		function = "qup3";
++> 		drive-strength = <2>;
++> 		bias-pull-up;
++> 	};
++> 
++> 	qup_uart3_sleep: qup-uart3-sleep-state {
++> 		pins = "gpio8", "gpio9", "gpio10", "gpio11";
++> 		function = "gpio";
++> 		drive-strength = <2>;
++> 		bias-pull-down;
++> 	};
++> 
++> 	bt_sw_ctrl_default: bt-sw-ctrl-default-state {
++> 		pins = "gpio87";
++> 		function = "gpio";
++> 		drive-strength = <2>;
++> 		bias-disable;
++> 		output-high;
++> 	};
++> 
++> 	/* lcmblen — backlight boost HWEN on gpio106 (Android pmx_lcmblen) */
++> 	lcmblen_default: lcmblen-default-state {
++> 		pins = "gpio106";
++> 		function = "gpio";
++> 		drive-strength = <2>;
++> 		bias-pull-up;
++> 		output-high;
++> 	};
++> 
++> 	/* lcm1p8en — panel 1.8V discrete LDO enable on gpio103
++> 	 * (Android pmx_lcm1p8en; vendor vddio is a dummy regulator) */
++> 	lcm1p8en_default: lcm1p8en-default-state {
++> 		pins = "gpio103";
++> 		function = "gpio";
++> 		drive-strength = <2>;
++> 		bias-pull-up;
++> 		output-high;
++> 	};
++> 
++> 	/* TE from panel to MDP vsync on gpio81 */
++> 	sde_te_default: sde-te-default-state {
++> 		pins = "gpio81";
++> 		function = "mdp_vsync";
++> 		drive-strength = <2>;
++> 		bias-pull-down;
++> 	};
++> };
++> 
++> /*
++>  * Vibrator — Android vibrator_gpio / qcom,qpnp-vibrator-ldo:
++>  * enable on TLMM gpio36 (ACTIVE_HIGH). No separate VCC rail in vendor DT.
++>  * Do not also list gpio36 in pinctrl-0 — gpiod claims the pin alone.
++>  */
++> / {
++> 	vibrator {
++> 		compatible = "gpio-vibrator";
++> 		enable-gpios = <&tlmm 36 GPIO_ACTIVE_HIGH>;
++> 	};
++> };
++> 
++> /*
++>  * Touch: GENI SE0 SPI has FIFO fused off; GPI DMA hangs this platform.
++>  * Use spi-gpio bitbang on the same pins (idle levels: CLK low, CS high →
++>  * gpio2=SCK, gpio3=CS, gpio0=MOSI, gpio1=MISO).
++>  */
++> &qupv3_id_0 {
++> 	status = "okay";
++> };
++> 
++> &gpi_dma0 {
++> 	status = "disabled";
++> };
++> 
++> &spi0 {
++> 	status = "disabled";
++> };
++> 
++> / {
++> 	spi_gpio_ts: spi {
++> 		compatible = "spi-gpio";
++> 		#address-cells = <1>;
++> 		#size-cells = <0>;
++> 
++> 		/* QUP lane map: L0=MISO L1=MOSI L2=SCLK L3=CS */
++> 		sck-gpios = <&tlmm 2 GPIO_ACTIVE_HIGH>;
++> 		mosi-gpios = <&tlmm 1 GPIO_ACTIVE_HIGH>;
++> 		miso-gpios = <&tlmm 0 GPIO_ACTIVE_HIGH>;
++> 		cs-gpios = <&tlmm 3 GPIO_ACTIVE_LOW>;
++> 		num-chipselects = <1>;
++> 
++> 		touch@0 {
++> 			compatible = "focaltech,fts";
++> 			reg = <0>;
++> 			/* bitbang — keep modest */
++> 			spi-max-frequency = <1000000>;
++> 
++> 			interrupt-parent = <&tlmm>;
++> 			interrupts = <80 IRQ_TYPE_EDGE_FALLING>;
++> 			/* pull-up on IRQ only — reset via gpiod alone */
++> 			pinctrl-names = "default";
++> 			pinctrl-0 = <&ts_int_default>;
++> 
++> 			reset-gpios = <&tlmm 86 GPIO_ACTIVE_HIGH>;
++> 			/* irq via interrupts= + pinctrl pull-up; skip irq-gpios
++> 			 * (double-claim with pinctrl). Driver uses spi->irq. */
++> 
++> 			focaltech,max-touch-number = <10>;
++> 			focaltech,display-coords = <0 0 719 1649>;
++> 		};
++> 	};
++> };
++> 
++> &i2c1 {
++> 	status = "okay";
++> 	clock-frequency = <400000>;
++> 
++> 	sh366101@55 {
++> 		compatible = "sh,sh366101";
++> 		reg = <0x55>;
++> 	};
++> 
++> 	/*
++> 	 * No backlight/bias I2C devices here: chips at 0x36 (bkl-bl) and
++> 	 * 0x3e (lcm-bias) never ACK on the bus even in stock Android
++> 	 * (verified with i2cget/i2ctransfer as root, screen on). Android's
++> 	 * "lcm-bias" driver is a GPIO-only stub. Backlight boost only needs
++> 	 * HWEN (gpio106) high; brightness goes via DSI DCS 0x51 to FT8006S.
++> 	 */
++> };
++> 
++> &i2c2 {
++> 	status = "disabled";
++> 	clock-frequency = <400000>;
++> 
++> 	smb1351@55 {
++> 		compatible = "qcom,smb1351-charger-bringup";
++> 		reg = <0x55>;
++> 	};
++> 
++> 	wusb3801@60 {
++> 		compatible = "willsemi,wusb3801";
++> 		reg = <0x60>;
++> 		interrupt-parent = <&tlmm>;
++> 		interrupts = <93 IRQ_TYPE_LEVEL_LOW>;
++> 		pinctrl-names = "default";
++> 		pinctrl-0 = <&wusb3801_int_default>;
++> 
++> 		connector {
++> 			compatible = "usb-c-connector";
++> 			label = "USB-C";
++> 			power-role = "dual";
++> 			try-power-role = "sink";
++> 			data-role = "dual";
++> 			typec-power-opmode = "default";
++> 			pd-disable;
++> 		};
++> 	};
++> };
++> 
++> /*
++>  * GPU-first + Wi-Fi bringup: Adreno + ath10k_snoc (WCN3990).
++>  * MDSS/DSI/panel stay off — ABL/simplefb only for display.
++>  */
++> &gpu_zap_shader {
++> 	firmware-name = "qcom/sm6225/a610_zap.mdt";
++> };
++> 
++> &gpu {
++> 	status = "okay";
++> };
++> 
++> /*
++>  * DRM/DSI display disabled — causes boot hangs / panel driver crash.
++>  * Using ABL simple-framebuffer handoff only (see chosen/framebuffer0 above).
++>  * Re-enabling requires fixing SMMU/video-done issues in dsi_host.c/dpu_kms.c.
++>  */
++> &dispcc {
++> 	status = "disabled";
++> };
++> 
++> &mdss {
++> 	status = "disabled";
++> };
++> 
++> &mdss_dsi0 {
++> 	status = "disabled";
++> };
++> 
++> &mdss_dsi0_phy {
++> 	status = "disabled";
++> };
++> 
++> /*
++>  * Modem PAS + WCN3990 via mainline ath10k_snoc (not Android icnss/qcacld).
++>  * Same rails as Motregen / Fxtec WCN3990.
++>  */
++> &rmtfs_mem {
++> 	reg = <0x00 0x89b01000 0x00 0x400000>;
++> 	qcom,use-guard-pages;
++> };
++> 
++> &remoteproc_mpss {
++> 	firmware-name = "qcom/sm6225/modem.mdt";
++> 	status = "okay";
++> };
++> 
++> &uart3 {
++> 	pinctrl-names = "default";
++> 	pinctrl-0 = <&qup_uart3_ctsrx>, <&qup_uart3_rts>, <&qup_uart3_tx>;
++> 	status = "okay";
++> 
++> 	bluetooth {
++> 		compatible = "qcom,wcn3990-bt";
++> 		firmware-name = "cmnv13t.bin",
++> 				"cmbtfw13.tlv";
++> 		max-speed = <3200000>;
++> 		local-bd-address = [9f 36 02 5d 6c f0];
++> 		enable-gpios = <&tlmm 87 GPIO_ACTIVE_HIGH>;
++> 		vddio-supply = <&pm6125_l9a>;
++> 		vddxo-supply = <&pm6125_l16a>;
++> 		vddrf-supply = <&pm6125_l17a>;
++> 		vddch0-supply = <&pm6125_l23a>;
++> 	};
++> };
++> 
++> &wifi {
++> 	vdd-0.8-cx-mx-supply = <&pm6125_l8a>;
++> 	vdd-1.8-xo-supply = <&pm6125_l16a>;
++> 	vdd-1.3-rfa-supply = <&pm6125_l17a>;
++> 	vdd-3.3-ch0-supply = <&pm6125_l23a>;
++> 	/* OEM WLAN MAC from Android (ath10k otherwise randomizes) */
++> 	local-mac-address = [f0 6c 5d 02 36 a2];
++> 	qcom,calibration-variant = "Xiaomi_fog";
++> 	/* ath10k_snoc is built as module (=m) — driver loads after modem up */
++> 	status = "okay";
++> };
++> 
++> /* Exclusive with &wifi — same MMIO @ 0xc800000 */
+diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
+new file mode 100644
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
++0a1,1518
++> // SPDX-License-Identifier: GPL-2.0-only
++> /*
++>  * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
++>  * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++>  * https://github.com/Damir00109/Redmi10c
++>  */
++> 
++> #include <dt-bindings/firmware/qcom,scm.h>
++> #include <dt-bindings/interrupt-controller/arm-gic.h>
++> #include <dt-bindings/power/qcom-rpmpd.h>
++> #include <dt-bindings/clock/qcom,rpmcc.h>
++> #include <dt-bindings/clock/qcom,gcc-sm6115.h>
++> #include <dt-bindings/clock/qcom,sm6115-gpucc.h>
++> #include <dt-bindings/clock/qcom,sm6375-dispcc.h>
++> #include <dt-bindings/clock/qcom,dsi-phy-28nm.h>
++> #include <dt-bindings/dma/qcom-gpi.h>
++> 
++> / {
++> 	interrupt-parent = <&intc>;
++> 	#address-cells = <2>;
++> 	#size-cells = <2>;
++> 
++> 	chosen { };
++> 
++> 	clocks {
++> 		xo_board: xo-board {
++> 			compatible = "fixed-clock";
++> 			#clock-cells = <0>;
++> 			clock-frequency = <19200000>;
++> 			clock-output-names = "xo_board";
++> 		};
++> 
++> 		sleep_clk: sleep-clk {
++> 			compatible = "fixed-clock";
++> 			#clock-cells = <0>;
++> 			clock-frequency = <32764>;
++> 			clock-output-names = "sleep_clk";
++> 		};
++> 
++> 		usb3_phy_wrapper_gcc_usb30_pipe_clk: usb3_phy_wrapper_gcc_usb30_pipe_clk {
++> 			compatible = "fixed-clock";
++> 			#clock-cells = <0>;
++> 			clock-frequency = <1000>;
++> 			clock-output-names = "usb3_phy_wrapper_gcc_usb30_pipe_clk";
++> 		};
++> 	};
++> 
++> 	cpus {
++> 		#address-cells = <2>;
++> 		#size-cells = <0>;
++> 
++> 		CPU0: cpu@0 {
++> 			device_type = "cpu";
++> 			compatible = "qcom,kryo260";
++> 			reg = <0x0 0x0>;
++> 			enable-method = "psci";
++> 			capacity-dmips-mhz = <1024>;
++> 			next-level-cache = <&L2_0>;
++> 			L2_0: l2-cache {
++> 				compatible = "cache";
++> 			};
++> 		};
++> 
++> 		CPU1: cpu@1 {
++> 			device_type = "cpu";
++> 			compatible = "qcom,kryo260";
++> 			reg = <0x0 0x1>;
++> 			enable-method = "psci";
++> 			capacity-dmips-mhz = <1024>;
++> 			next-level-cache = <&L2_0>;
++> 		};
++> 
++> 		CPU2: cpu@2 {
++> 			device_type = "cpu";
++> 			compatible = "qcom,kryo260";
++> 			reg = <0x0 0x2>;
++> 			enable-method = "psci";
++> 			capacity-dmips-mhz = <1024>;
++> 			next-level-cache = <&L2_0>;
++> 		};
++> 
++> 		CPU3: cpu@3 {
++> 			device_type = "cpu";
++> 			compatible = "qcom,kryo260";
++> 			reg = <0x0 0x3>;
++> 			enable-method = "psci";
++> 			capacity-dmips-mhz = <1024>;
++> 			next-level-cache = <&L2_0>;
++> 		};
++> 
++> 		CPU4: cpu@100 {
++> 			device_type = "cpu";
++> 			compatible = "qcom,kryo260";
++> 			reg = <0x0 0x100>;
++> 			enable-method = "psci";
++> 			capacity-dmips-mhz = <1638>;
++> 			next-level-cache = <&L2_1>;
++> 			L2_1: l2-cache {
++> 				compatible = "cache";
++> 			};
++> 		};
++> 
++> 		CPU5: cpu@101 {
++> 			device_type = "cpu";
++> 			compatible = "qcom,kryo260";
++> 			reg = <0x0 0x101>;
++> 			enable-method = "psci";
++> 			capacity-dmips-mhz = <1638>;
++> 			next-level-cache = <&L2_1>;
++> 		};
++> 
++> 		CPU6: cpu@102 {
++> 			device_type = "cpu";
++> 			compatible = "qcom,kryo260";
++> 			reg = <0x0 0x102>;
++> 			enable-method = "psci";
++> 			capacity-dmips-mhz = <1638>;
++> 			next-level-cache = <&L2_1>;
++> 		};
++> 
++> 		CPU7: cpu@103 {
++> 			device_type = "cpu";
++> 			compatible = "qcom,kryo260";
++> 			reg = <0x0 0x103>;
++> 			enable-method = "psci";
++> 			capacity-dmips-mhz = <1638>;
++> 			next-level-cache = <&L2_1>;
++> 		};
++> 
++> 		cpu-map {
++> 			cluster0 {
++> 				core0 {
++> 					cpu = <&CPU0>;
++> 				};
++> 
++> 				core1 {
++> 					cpu = <&CPU1>;
++> 				};
++> 
++> 				core2 {
++> 					cpu = <&CPU2>;
++> 				};
++> 
++> 				core3 {
++> 					cpu = <&CPU3>;
++> 				};
++> 			};
++> 
++> 			cluster1 {
++> 				core0 {
++> 					cpu = <&CPU4>;
++> 				};
++> 
++> 				core1 {
++> 					cpu = <&CPU5>;
++> 				};
++> 
++> 				core2 {
++> 					cpu = <&CPU6>;
++> 				};
++> 
++> 				core3 {
++> 					cpu = <&CPU7>;
++> 				};
++> 			};
++> 		};
++> 	};
++> 
++> 	firmware {
++> 		scm {
++> 			compatible = "qcom,scm-sm6115", "qcom,scm";
++> 		};
++> 	};
++> 
++> 	memory@40000000 {
++> 		/* We expect the bootloader to fill in the size */
++> 		reg = <0x0 0x40000000 0x0 0x0>;
++> 		device_type = "memory";
++> 	};
++> 
++> 	pmu {
++> 		compatible = "arm,armv8-pmuv3";
++> 		interrupts = <GIC_PPI 6 IRQ_TYPE_LEVEL_HIGH>;
++> 	};
++> 
++> 	psci {
++> 		compatible = "arm,psci-1.0";
++> 		method = "smc";
++> 	};
++> 
++> 	reserved_memory: reserved-memory {
++> 		#address-cells = <2>;
++> 		#size-cells = <2>;
++> 		ranges;
++> 
++> 		hyp_mem: memory@45700000 {
++> 			reg = <0x0 0x45700000 0x0 0x600000>;
++> 			no-map;
++> 		};
++> 
++> 		xbl_aop_mem: memory@45e00000 {
++> 			reg = <0x0 0x45e00000 0x0 0x140000>;
++> 			no-map;
++> 		};
++> 
++> 		sec_apps_mem: memory@45fff000 {
++> 			reg = <0x0 0x45fff000 0x0 0x1000>;
++> 			no-map;
++> 		};
++> 
++> 		smem_mem: memory@46000000 {
++> 			reg = <0x00 0x46000000 0x00 0x200000>;
++> 			no-map;
++> 		};
++> 
++> 		pil_modem_mem: modem_mem: memory@4ab00000 {
++> 			reg = <0x00 0x4ab00000 0x00 0x6900000>;
++> 			no-map;
++> 		};
++> 
++> 		pil_video_mem: memory@51400000 {
++> 			reg = <0x00 0x51400000 0x00 0x500000>;
++> 			no-map;
++> 		};
++> 
++> 		wlan_msa_mem: wlan_msa_region: memory@51900000 {
++> 			reg = <0x00 0x51900000 0x00 0x100000>;
++> 			no-map;
++> 		};
++> 
++> 		/*
++> 		 * Modem EFS/NV shared memory — serviced by userspace rmtfsd
++> 		 * over QMI. Without this the modem's NV-dependent init stalls
++> 		 * and its internal watchdog fires ("DOG detects stalled
++> 		 * initialization"). Address is free space (not from Android,
++> 		 * which uses a dynamically-allocated downstream equivalent).
++> 		 */
++> 		rmtfs_mem: memory@89b01000 {
++> 			compatible = "qcom,rmtfs-mem";
++> 			reg = <0x00 0x89b01000 0x00 0x400000>;
++> 			no-map;
++> 
++> 			qcom,client-id = <1>;
++> 			qcom,vmid = <QCOM_SCM_VMID_MSS_MSA QCOM_SCM_VMID_NAV>;
++> 		};
++> 
++> 		cdsp_mem: memory@46200000 {
++> 			reg = <0x00 0x46200000 0x00 0x1e00000>;
++> 			no-map;
++> 		};
++> 
++> 		cdsp_regions_mem: memory@51a00000 {
++> 			reg = <0x00 0x51a00000 0x00 0x1e00000>;
++> 			no-map;
++> 		};
++> 
++> 		pil_adsp_region: memory@53800000 {
++> 			reg = <0x00 0x53800000 0x00 0x2e00000>;
++> 			no-map;
++> 		};
++> 
++> 		ipa_fw_region: memory@56600000 {
++> 			reg = <0x00 0x56600000 0x00 0x10000>;
++> 			no-map;
++> 		};
++> 
++> 		ipa_gsi_region: memory@56610000 {
++> 			reg = <0x00 0x56610000 0x00 0x5000>;
++> 			no-map;
++> 		};
++> 
++> 		/* Android rain: gpu_region@56615000 (zap PIL); was wrong @55615000 */
++> 		pil_gpu_mem: gpu_region: memory@56615000 {
++> 			reg = <0x00 0x56615000 0x00 0x2000>;
++> 			no-map;
++> 		};
++> 
++> 		cont_splash_mem: memory@5c000000 {
++> 			reg = <0x0 0x5c000000 0x0 0x00f00000>;
++> 			no-map;
++> 		};
++> 
++> 		dfps_data_mem: memory@5cf00000 {
++> 			reg = <0x0 0x5cf00000 0x0 0x0100000>;
++> 			no-map;
++> 		};
++> 
++> 		qseecom_mem: memory@5e400000 {
++> 			reg = <0x0 0x5e400000 0x0 0x1400000>;
++> 			no-map;
++> 		};
++> 
++> 		removed_mem: memory@60000000 {
++> 			reg = <0x0 0x60000000 0x0 0x3900000>;
++> 			no-map;
++> 		};
++> 
++> 		sdsp_mem: memory@f3000000 {
++> 			reg = <0x0 0xf3000000 0x0 0x400000>;
++> 			no-map;
++> 		};
++> 
++> 		adsp_mem: memory@f3400000 {
++> 			reg = <0x0 0xf3400000 0x0 0x800000>;
++> 			no-map;
++> 		};
++> 
++> 		qseecom_ta_mem: memory@13fc00000 {
++> 			reg = <0x1 0x3fc00000 0x0 0x400000>;
++> 			no-map;
++> 		};
++> 
++> 		/* ramoops: persist kernel log across modem-induced reboots */
++> 		ramoops_mem: memory@9ff00000 {
++> 			reg = <0x0 0x9ff00000 0x0 0x100000>;
++> 			no-map;
++> 		};
++> 	};
++> 
++> 	ramoops: ramoops@9ff00000 {
++> 		compatible = "ramoops";
++> 		reg = <0x0 0x9ff00000 0x0 0x100000>;
++> 		record-size = <0x8000>;
++> 		console-size = <0x80000>;
++> 		ftrace-size = <0x0>;
++> 		pmsg-size = <0x10000>;
++> 		ecc-size = <0x0>;
++> 	};
++> 
++> 	smem: smem {
++> 		compatible = "qcom,smem";
++> 		memory-region = <&smem_mem>;
++> 		hwlocks = <&tcsr_mutex 3>;
++> 		qcom,rpm-msg-ram = <&rpm_msg_ram>;
++> 	};
++> 
++> 	/*
++> 	 * Modem SMP2P — needed by remoteproc_mpss / ath10k_snoc (WCN3990).
++> 	 * Same layout as upstream sm6115.dtsi.
++> 	 */
++> 	smp2p-mpss {
++> 		compatible = "qcom,smp2p";
++> 		qcom,smem = <435>, <428>;
++> 		interrupts = <GIC_SPI 70 IRQ_TYPE_EDGE_RISING>;
++> 		mboxes = <&apcs_glb 14>;
++> 		qcom,local-pid = <0>;
++> 		qcom,remote-pid = <1>;
++> 
++> 		modem_smp2p_out: master-kernel {
++> 			qcom,entry-name = "master-kernel";
++> 			#qcom,smem-state-cells = <1>;
++> 		};
++> 
++> 		modem_smp2p_in: slave-kernel {
++> 			qcom,entry-name = "slave-kernel";
++> 			interrupt-controller;
++> 			#interrupt-cells = <2>;
++> 		};
++> 
++> 		/* WLAN early-crash / fatal from MPSS (Android icnss) */
++> 		smp2p_wlan_1_in: wlan {
++> 			qcom,entry-name = "wlan";
++> 			interrupt-controller;
++> 			#interrupt-cells = <2>;
++> 		};
++> 	};
++> 
++> 	/* RPM over GLINK — step 2 PMIC regulators (no GCC yet) */
++> 	rpm: remoteproc {
++> 		compatible = "qcom,sm6115-rpm-proc", "qcom,rpm-proc";
++> 
++> 		glink-edge {
++> 			compatible = "qcom,glink-rpm";
++> 			interrupts = <GIC_SPI 194 IRQ_TYPE_EDGE_RISING>;
++> 			qcom,rpm-msg-ram = <&rpm_msg_ram>;
++> 			mboxes = <&apcs_glb 0>;
++> 
++> 			rpm_requests: rpm-requests {
++> 				compatible = "qcom,rpm-sm6115", "qcom,glink-smd-rpm";
++> 				qcom,glink-channels = "rpm_requests";
++> 
++> 				rpmcc: clock-controller {
++> 					compatible = "qcom,rpmcc-sm6115", "qcom,rpmcc";
++> 					clocks = <&xo_board>;
++> 					clock-names = "xo";
++> 					#clock-cells = <1>;
++> 				};
++> 
++> 				rpmpd: power-controller {
++> 					compatible = "qcom,sm6115-rpmpd";
++> 					#power-domain-cells = <1>;
++> 					operating-points-v2 = <&rpmpd_opp_table>;
++> 
++> 					rpmpd_opp_table: opp-table {
++> 						compatible = "operating-points-v2";
++> 
++> 						rpmpd_opp_min_svs: opp1 {
++> 							opp-level = <RPM_SMD_LEVEL_MIN_SVS>;
++> 						};
++> 						rpmpd_opp_low_svs: opp2 {
++> 							opp-level = <RPM_SMD_LEVEL_LOW_SVS>;
++> 						};
++> 						rpmpd_opp_svs: opp3 {
++> 							opp-level = <RPM_SMD_LEVEL_SVS>;
++> 						};
++> 						rpmpd_opp_svs_plus: opp4 {
++> 							opp-level = <RPM_SMD_LEVEL_SVS_PLUS>;
++> 						};
++> 						rpmpd_opp_nom: opp5 {
++> 							opp-level = <RPM_SMD_LEVEL_NOM>;
++> 						};
++> 						rpmpd_opp_nom_plus: opp6 {
++> 							opp-level = <RPM_SMD_LEVEL_NOM_PLUS>;
++> 						};
++> 						rpmpd_opp_turbo: opp7 {
++> 							opp-level = <RPM_SMD_LEVEL_TURBO>;
++> 						};
++> 						rpmpd_opp_turbo_plus: opp8 {
++> 							opp-level = <RPM_SMD_LEVEL_TURBO_NO_CPR>;
++> 						};
++> 					};
++> 				};
++> 			};
++> 		};
++> 	};
++> 
++> 		soc {
++> 		#address-cells = <1>;
++> 		#size-cells = <1>;
++> 		ranges = <0x00 0x00 0x00 0xffffffff>;
++> 		compatible = "simple-bus";
++> 
++> 		/*
++> 		 * Khaje TLMM — Android rain: qcom,khaje-pinctrl @0x400000/0xc00000.
++> 		 * sm6115 tiled @0x5/9/d00000 caused BACK_FB even without IRQ.
++> 		 */
++> 		tlmm: pinctrl@400000 {
++> 			compatible = "qcom,khaje-pinctrl";
++> 			reg = <0x00400000 0xc00000>;
++> 			/* Android rain: <0 0xe3 4> == GIC_SPI 227 LEVEL_HIGH */
++> 			interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>;
++> 			gpio-controller;
++> 			#gpio-cells = <2>;
++> 			gpio-ranges = <&tlmm 0 0 102>;
++> 			interrupt-controller;
++> 			#interrupt-cells = <2>;
++> 			/* wakeup-parent/PDC later — summary only for bringup */
++> 
++> 			qup_i2c1_default: qup-i2c1-default-state {
++> 				pins = "gpio4", "gpio5";
++> 				function = "qup1";
++> 				drive-strength = <2>;
++> 				bias-pull-up;
++> 			};
++> 
++> 			qup_i2c2_default: qup-i2c2-default-state {
++> 				pins = "gpio6", "gpio7";
++> 				function = "qup2";
++> 				drive-strength = <2>;
++> 				bias-pull-up;
++> 			};
++> 
++> 			/* SPI0 pins as GPIO for spi-gpio bitbang (GENI FIFO fused off) */
++> 			qup_spi0_gpio: qup-spi0-gpio-state {
++> 				pins = "gpio0", "gpio1", "gpio2", "gpio3";
++> 				function = "gpio";
++> 				drive-strength = <6>;
++> 				bias-disable;
++> 			};
++> 
++> 			/* SPI0 (GENI SE0) — Android rain qupv3_se0_spi: gpio0-3 qup0 */
++> 			qup_spi0_default: qup-spi0-default-state {
++> 				pins = "gpio0", "gpio1", "gpio2", "gpio3";
++> 				function = "qup0";
++> 				drive-strength = <6>;
++> 				bias-disable;
++> 			};
++> 
++> 			/* Focaltech FT8006S IRQ / RESET — Android pmx_ts_* */
++> 			ts_int_default: ts-int-default-state {
++> 				pins = "gpio80";
++> 				function = "gpio";
++> 				drive-strength = <8>;
++> 				bias-pull-up;
++> 				input-enable;
++> 			};
++> 
++> 			ts_reset_default: ts-reset-default-state {
++> 				pins = "gpio86";
++> 				function = "gpio";
++> 				drive-strength = <8>;
++> 				bias-disable;
++> 				output-high;
++> 			};
++> 
++> 			/* Android pmx_lcm_enp / pmx_lcm_enn — VSP/VSN switches */
++> 			lcm_enp_default: lcm-enp-default-state {
++> 				pins = "gpio98";
++> 				function = "gpio";
++> 				drive-strength = <2>;
++> 				bias-pull-up;
++> 				output-high;
++> 			};
++> 
++> 			lcm_enn_default: lcm-enn-default-state {
++> 				pins = "gpio101";
++> 				function = "gpio";
++> 				drive-strength = <2>;
++> 				bias-pull-up;
++> 				output-high;
++> 			};
++> 
++> 			typec_int_default: typec-int-default-state {
++> 				pins = "gpio93";
++> 				function = "gpio";
++> 				drive-strength = <2>;
++> 				bias-pull-up;
++> 				input-enable;
++> 			};
++> 
++> 			/* External SD (sdhc2) — SDC QDSD pads + CD gpio88 (Android rain) */
++> 			sdc2_state_on: sdc2-on-state {
++> 				clk-pins {
++> 					pins = "sdc2_clk";
++> 					bias-disable;
++> 					drive-strength = <16>;
++> 				};
++> 
++> 				cmd-pins {
++> 					pins = "sdc2_cmd";
++> 					bias-pull-up;
++> 					drive-strength = <10>;
++> 				};
++> 
++> 				data-pins {
++> 					pins = "sdc2_data";
++> 					bias-pull-up;
++> 					drive-strength = <10>;
++> 				};
++> 			};
++> 
++> 			sdc2_state_off: sdc2-off-state {
++> 				clk-pins {
++> 					pins = "sdc2_clk";
++> 					bias-disable;
++> 					drive-strength = <2>;
++> 				};
++> 
++> 				cmd-pins {
++> 					pins = "sdc2_cmd";
++> 					bias-pull-up;
++> 					drive-strength = <2>;
++> 				};
++> 
++> 				data-pins {
++> 					pins = "sdc2_data";
++> 					bias-pull-up;
++> 					drive-strength = <2>;
++> 				};
++> 			};
++> 
++> 			sdc2_cd_default: sdc2-cd-default-state {
++> 				pins = "gpio88";
++> 				function = "gpio";
++> 				drive-strength = <2>;
++> 				bias-pull-up;
++> 				input-enable;
++> 			};
++> 
++> 			/* Android vibrator_gpio: vib,en-gpio = gpio36 */
++> 			vib_en_default: vib-en-default-state {
++> 				pins = "gpio36";
++> 				function = "gpio";
++> 				drive-strength = <2>;
++> 				bias-disable;
++> 				output-low;
++> 			};
++> 
++> 			/* Panel reset — Android rain c3q_43_03_0b */
++> 			mdss_dsi_reset: mdss-dsi-reset-state {
++> 				pins = "gpio82";
++> 				function = "gpio";
++> 				drive-strength = <8>;
++> 				bias-disable;
++> 			};
++> 		};
++> 
++> 		tcsr_mutex: hwlock@340000 {
++> 			compatible = "qcom,tcsr-mutex";
++> 			reg = <0x00340000 0x20000>;
++> 			#hwlock-cells = <1>;
++> 		};
++> 
++> 		rpm_msg_ram: sram@45f0000 {
++> 			compatible = "qcom,rpm-msg-ram";
++> 			reg = <0x045f0000 0x7000>;
++> 		};
++> 
++> 		apcs_glb: mailbox@f111000 {
++> 			compatible = "qcom,sm6115-apcs-hmss-global",
++> 				     "qcom,msm8994-apcs-kpss-global";
++> 			reg = <0x0f111000 0x1000>;
++> 			#mbox-cells = <1>;
++> 		};
++> 
++> 		timer@f120000 {
++> 			compatible = "arm,armv7-timer-mem";
++> 			#address-cells = <1>;
++> 			#size-cells = <1>;
++> 			ranges;
++> 			reg = <0x0f120000 0x1000>;
++> 			clock-frequency = <19200000>;
++> 
++> 			frame@f121000 {
++> 				frame-number = <0>;
++> 				interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
++> 					     <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
++> 				reg = <0x0f121000 0x1000>,
++> 				      <0x0f122000 0x1000>;
++> 			};
++> 
++> 			frame@f123000 {
++> 				frame-number = <1>;
++> 				interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
++> 				reg = <0x0f123000 0x1000>;
++> 				status = "disabled";
++> 			};
++> 
++> 			frame@f124000 {
++> 				frame-number = <2>;
++> 				interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
++> 				reg = <0x0f124000 0x1000>;
++> 				status = "disabled";
++> 			};
++> 
++> 			frame@f125000 {
++> 				frame-number = <3>;
++> 				interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
++> 				reg = <0x0f125000 0x1000>;
++> 				status = "disabled";
++> 			};
++> 
++> 			frame@f126000 {
++> 				frame-number = <4>;
++> 				interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
++> 				reg = <0x0f126000 0x1000>;
++> 				status = "disabled";
++> 			};
++> 
++> 			frame@f127000 {
++> 				frame-number = <5>;
++> 				interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
++> 				reg = <0x0f127000 0x1000>;
++> 				status = "disabled";
++> 			};
++> 
++> 			frame@f128000 {
++> 				frame-number = <6>;
++> 				interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
++> 				reg = <0x0f128000 0x1000>;
++> 				status = "disabled";
++> 			};
++> 		};
++> 
++> 		intc: interrupt-controller@f200000 {
++> 			compatible = "arm,gic-v3";
++> 			reg = <0xf200000 0x10000>,
++> 			      <0xf300000 0x100000>;
++> 			#interrupt-cells = <3>;
++> 			interrupt-controller;
++> 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
++> 		};
++> 
++> 		/*
++> 		 * PMIC arbiter — step 1 PMIC bring-up (no GCC/RPM yet).
++> 		 * Same map as sm6115; ABL leaves SPMI alive.
++> 		 */
++> 		spmi_bus: spmi@1c40000 {
++> 			compatible = "qcom,spmi-pmic-arb";
++> 			reg = <0x01c40000 0x1100>,
++> 			      <0x01e00000 0x2000000>,
++> 			      <0x03e00000 0x100000>,
++> 			      <0x03f00000 0xa0000>,
++> 			      <0x01c0a000 0x26000>;
++> 			reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
++> 			interrupt-names = "periph_irq";
++> 			interrupts = <GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>;
++> 			qcom,ee = <0>;
++> 			qcom,channel = <0>;
++> 			#address-cells = <2>;
++> 			#size-cells = <0>;
++> 			interrupt-controller;
++> 			#interrupt-cells = <4>;
++> 		};
++> 
++> 		/*
++> 		 * Minimal GCC — needs rpmcc XO (step 2).
++> 		 * USB still MMIO-assisted (femto + init). Protect those clocks so
++> 		 * gcc probe does not gate them and kill ACM data after enum.
++> 		 */
++> 		gcc: clock-controller@1400000 {
++> 			compatible = "qcom,gcc-sm6115";
++> 			reg = <0x01400000 0x1f0000>;
++> 			clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>, <&sleep_clk>;
++> 			clock-names = "bi_tcxo", "sleep_clk";
++> 			#clock-cells = <1>;
++> 			#reset-cells = <1>;
++> 			#power-domain-cells = <1>;
++> 			protected-clocks = <GCC_USB30_PRIM_MASTER_CLK>,
++> 					   <GCC_USB30_PRIM_MASTER_CLK_SRC>,
++> 					   <GCC_USB30_PRIM_MOCK_UTMI_CLK>,
++> 					   <GCC_USB30_PRIM_MOCK_UTMI_CLK_SRC>,
++> 					   <GCC_USB30_PRIM_MOCK_UTMI_POSTDIV_CLK_SRC>,
++> 					   <GCC_USB30_PRIM_SLEEP_CLK>,
++> 					   <GCC_USB3_PRIM_CLKREF_CLK>,
++> 					   <GCC_USB3_PRIM_PHY_AUX_CLK_SRC>,
++> 					   <GCC_USB3_PRIM_PHY_COM_AUX_CLK>,
++> 					   <GCC_USB3_PRIM_PHY_PIPE_CLK>,
++> 					   <GCC_AHB2PHY_USB_CLK>;
++> 			/* QUP/UFS protect-list deferred — expand caused NO_ACM 2026-07-28 */
++> 		};
++> 
++> 		/*
++> 		 * Minimal apps_smmu for UFS only (full sm6115 dump historically
++> 		 * broke USB/boot). Same stream ID as upstream sm6115 UFS.
++> 		 */
++> 		apps_smmu: iommu@c600000 {
++> 			compatible = "qcom,sm6115-smmu-500", "qcom,smmu-500", "arm,mmu-500";
++> 			reg = <0x0c600000 0x80000>;
++> 			#iommu-cells = <2>;
++> 			#global-interrupts = <1>;
++> 			interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
++> 		};
++> 
++> 		/*
++> 		 * QUP wrap0:
++> 		 *  SE0 spi@4a80000 — Focaltech FT8006S touch (gpio0-3 qup0)
++> 		 *  SE1 i2c@4a84000 — sh366101 FG @0x55 (gpio4/5 qup1, ABL mux)
++> 		 *  SE2 i2c@4a88000 — smb1351 charger @0x55 (gpio6/7 qup2, ABL mux)
++> 		 * SE0 has FIFO_IF_DISABLE in HW — needs GPI DMA (sm6115-alike).
++> 		 */
++> 		gpi_dma0: dma-controller@4a00000 {
++> 			compatible = "qcom,sm6115-gpi-dma", "qcom,sm6350-gpi-dma";
++> 			reg = <0x04a00000 0x60000>;
++> 			interrupts = <GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>;
++> 			dma-channels = <10>;
++> 			dma-channel-mask = <0xf>;
++> 			/* Android rain SID 0xf6 — required for GPI DMA transfers */
++> 			iommus = <&apps_smmu 0xf6 0x0>;
++> 			#dma-cells = <3>;
++> 			status = "disabled";
++> 		};
++> 
++> 		qupv3_id_0: geniqup@4ac0000 {
++> 			compatible = "qcom,geni-se-qup";
++> 			reg = <0x04ac0000 0x2000>;
++> 			clock-names = "m-ahb", "s-ahb";
++> 			clocks = <&gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
++> 				 <&gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
++> 			#address-cells = <1>;
++> 			#size-cells = <1>;
++> 			ranges;
++> 			status = "disabled";
++> 
++> 			/* Android rain: GIC_SPI 0x147 == 327 */
++> 			spi0: spi@4a80000 {
++> 				compatible = "qcom,geni-spi";
++> 				reg = <0x04a80000 0x4000>;
++> 				clock-names = "se";
++> 				clocks = <&gcc GCC_QUPV3_WRAP0_S0_CLK>;
++> 				pinctrl-names = "default";
++> 				pinctrl-0 = <&qup_spi0_default>;
++> 				interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>;
++> 				dmas = <&gpi_dma0 0 0 QCOM_GPI_SPI>,
++> 				       <&gpi_dma0 1 0 QCOM_GPI_SPI>;
++> 				dma-names = "tx", "rx";
++> 				#address-cells = <1>;
++> 				#size-cells = <0>;
++> 				status = "disabled";
++> 			};
++> 
++> 			i2c1: i2c@4a84000 {
++> 				compatible = "qcom,geni-i2c";
++> 				reg = <0x04a84000 0x4000>;
++> 				clock-names = "se";
++> 				clocks = <&gcc GCC_QUPV3_WRAP0_S1_CLK>;
++> 				pinctrl-names = "default";
++> 				pinctrl-0 = <&qup_i2c1_default>;
++> 				interrupts = <GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>;
++> 				#address-cells = <1>;
++> 				#size-cells = <0>;
++> 				status = "disabled";
++> 			};
++> 
++> 			i2c2: i2c@4a88000 {
++> 				compatible = "qcom,geni-i2c";
++> 				reg = <0x04a88000 0x4000>;
++> 				clock-names = "se";
++> 				clocks = <&gcc GCC_QUPV3_WRAP0_S2_CLK>;
++> 				pinctrl-names = "default";
++> 				pinctrl-0 = <&qup_i2c2_default>;
++> 				interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>;
++> 				#address-cells = <1>;
++> 				#size-cells = <0>;
++> 				status = "disabled";
++> 			};
++> 
++> 			uart3: serial@4a8c000 {
++> 				compatible = "qcom,geni-uart";
++> 				reg = <0x04a8c000 0x4000>;
++> 				clocks = <&gcc GCC_QUPV3_WRAP0_S3_CLK>;
++> 				clock-names = "se";
++> 				interrupts = <GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>;
++> 				status = "disabled";
++> 			};
++> 		};
++> 
++> 		/*
++> 		 * SDHC2 — external µSD (Android sdhci@4784000). Same IP as
++> 		 * sm6115; interconnects omitted (not modeled in this dtsi yet).
++> 		 */
++> 		sdhc_2: mmc@4784000 {
++> 			compatible = "qcom,sm6115-sdhci", "qcom,sdhci-msm-v5";
++> 			reg = <0x04784000 0x1000>;
++> 			reg-names = "hc";
++> 
++> 			interrupts = <GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>;
++> 			interrupt-names = "hc_irq", "pwr_irq";
++> 
++> 			clocks = <&gcc GCC_SDCC2_AHB_CLK>,
++> 				 <&gcc GCC_SDCC2_APPS_CLK>,
++> 				 <&rpmcc RPM_SMD_XO_CLK_SRC>;
++> 			clock-names = "iface", "core", "xo";
++> 
++> 			resets = <&gcc GCC_SDCC2_BCR>;
++> 			power-domains = <&rpmpd SM6115_VDDCX>;
++> 			operating-points-v2 = <&sdhc2_opp_table>;
++> 			iommus = <&apps_smmu 0x00a0 0x0>;
++> 
++> 			bus-width = <4>;
++> 			qcom,dll-config = <0x0007642c>;
++> 			qcom,ddr-config = <0x80040868>;
++> 			status = "disabled";
++> 
++> 			sdhc2_opp_table: opp-table {
++> 				compatible = "operating-points-v2";
++> 
++> 				opp-100000000 {
++> 					opp-hz = /bits/ 64 <100000000>;
++> 					required-opps = <&rpmpd_opp_low_svs>;
++> 				};
++> 
++> 				opp-202000000 {
++> 					opp-hz = /bits/ 64 <202000000>;
++> 					required-opps = <&rpmpd_opp_nom>;
++> 				};
++> 			};
++> 		};
++> 
++> 		/* UFS — facts from rain live FDT (notes/dt-adapt/). */
++> 		ufs_mem_hc: ufshc@4804000 {
++> 			compatible = "qcom,sm6225-ufshc", "qcom,sm6350-ufshc",
++> 				     "qcom,ufshc", "jedec,ufs-2.0";
++> 			reg = <0x04804000 0x3000>, <0x04810000 0x8000>;
++> 			reg-names = "std", "ice";
++> 			interrupts = <GIC_SPI 356 IRQ_TYPE_LEVEL_HIGH>;
++> 			phys = <&ufs_mem_phy>;
++> 			phy-names = "ufsphy";
++> 			lanes-per-direction = <2>;
++> 			non-removable;
++> 			#reset-cells = <1>;
++> 			resets = <&gcc GCC_UFS_PHY_BCR>;
++> 			reset-names = "rst";
++> 			power-domains = <&gcc GCC_UFS_PHY_GDSC>;
++> 			iommus = <&apps_smmu 0x100 0>;
++> 			clocks = <&gcc GCC_UFS_PHY_AXI_CLK>,
++> 				 <&gcc GCC_SYS_NOC_UFS_PHY_AXI_CLK>,
++> 				 <&gcc GCC_UFS_PHY_AHB_CLK>,
++> 				 <&gcc GCC_UFS_PHY_UNIPRO_CORE_CLK>,
++> 				 <&rpmcc RPM_SMD_XO_CLK_SRC>,
++> 				 <&gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK>,
++> 				 <&gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK>,
++> 				 <&gcc GCC_UFS_PHY_RX_SYMBOL_1_CLK>,
++> 				 <&gcc GCC_UFS_PHY_ICE_CORE_CLK>;
++> 			clock-names = "core_clk",
++> 				      "bus_aggr_clk",
++> 				      "iface_clk",
++> 				      "core_clk_unipro",
++> 				      "ref_clk",
++> 				      "tx_lane0_sync_clk",
++> 				      "rx_lane0_sync_clk",
++> 				      "rx_lane1_sync_clk",
++> 				      "ice_core_clk";
++> 			freq-table-hz = <50000000 200000000>,
++> 					<0 0>,
++> 					<0 0>,
++> 					<37500000 150000000>,
++> 					<0 0>,
++> 					<0 0>,
++> 					<0 0>,
++> 					<0 0>,
++> 					<75000000 300000000>;
++> 			status = "disabled";
++> 		};
++> 
++> 
++> 		/*
++> 		 * Flat PHY; clocks match spes/khaje downstream order:
++> 		 * XO (ref), PHY_AUX (ref_aux), CLKREF (qref).
++> 		 */
++> 		ufs_mem_phy: phy@4807000 {
++> 			compatible = "qcom,sm6225-qmp-ufs-phy", "qcom,sm6115-qmp-ufs-phy";
++> 			/* Downstream qcom,ufs-phy-qmp-v4 mapping size. */
++> 			reg = <0x04807000 0x0e00>;
++> 			#phy-cells = <0>;
++> 			clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
++> 				 <&gcc GCC_UFS_PHY_PHY_AUX_CLK>,
++> 				 <&gcc GCC_UFS_CLKREF_CLK>;
++> 			clock-names = "ref", "ref_aux", "qref";
++> 			power-domains = <&gcc GCC_UFS_PHY_GDSC>;
++> 			resets = <&ufs_mem_hc 0>;
++> 			reset-names = "ufsphy";
++> 			status = "disabled";
++> 		};
++> 
++> 
++> 		vreg_vbus: regulator-vbus {
++> 			compatible = "regulator-fixed";
++> 			regulator-name = "vbus";
++> 			regulator-min-microvolt = <5000000>;
++> 			regulator-max-microvolt = <5000000>;
++> 			regulator-boot-on;
++> 		};
++> 
++> 		vreg_usb_1p8: regulator-usb-1p8 {
++> 			compatible = "regulator-fixed";
++> 			regulator-name = "usb_1p8";
++> 			regulator-min-microvolt = <1800000>;
++> 			regulator-max-microvolt = <1800000>;
++> 			regulator-always-on;
++> 		};
++> 
++> 		vreg_usb_3p3: regulator-usb-3p3 {
++> 			compatible = "regulator-fixed";
++> 			regulator-name = "usb_3p3";
++> 			regulator-min-microvolt = <3300000>;
++> 			regulator-max-microvolt = <3300000>;
++> 			regulator-always-on;
++> 		};
++> 
++> 		/*
++> 		 * Adreno 610 — from sm6115.dtsi, 1-cell regs (our soc).
++> 		 * Zap carveout = Android rain @0x56615000. All disabled until
++> 		 * bisect: gpucc → adreno_smmu → gpu (TLMM/GCC-expand still risky).
++> 		 */
++> 		gpu: gpu@5900000 {
++> 			compatible = "qcom,adreno-610.0", "qcom,adreno";
++> 			reg = <0x05900000 0x40000>,
++> 			      <0x0599e000 0x1000>,
++> 			      <0x05961000 0x800>;
++> 			reg-names = "kgsl_3d0_reg_memory",
++> 				    "cx_mem",
++> 				    "cx_dbgc";
++> 			clocks = <&gpucc GPU_CC_GX_GFX3D_CLK>,
++> 				 <&gpucc GPU_CC_AHB_CLK>,
++> 				 <&gcc GCC_BIMC_GPU_AXI_CLK>,
++> 				 <&gcc GCC_GPU_MEMNOC_GFX_CLK>,
++> 				 <&gpucc GPU_CC_CX_GMU_CLK>,
++> 				 <&gpucc GPU_CC_CXO_CLK>;
++> 			clock-names = "core",
++> 				      "iface",
++> 				      "mem_iface",
++> 				      "alt_mem_iface",
++> 				      "gmu",
++> 				      "xo";
++> 			interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
++> 			iommus = <&adreno_smmu 0 1>;
++> 			operating-points-v2 = <&gpu_opp_table>;
++> 			power-domains = <&rpmpd SM6115_VDDCX>;
++> 			qcom,gmu = <&gmu_wrapper>;
++> 			#cooling-cells = <2>;
++> 			status = "disabled";
++> 
++> 			gpu_zap_shader: zap-shader {
++> 				memory-region = <&pil_gpu_mem>;
++> 			};
++> 
++> 			gpu_opp_table: opp-table {
++> 				compatible = "operating-points-v2";
++> 
++> 				opp-320000000 {
++> 					opp-hz = /bits/ 64 <320000000>;
++> 					required-opps = <&rpmpd_opp_low_svs>;
++> 				};
++> 
++> 				opp-465000000 {
++> 					opp-hz = /bits/ 64 <465000000>;
++> 					required-opps = <&rpmpd_opp_svs>;
++> 				};
++> 
++> 				opp-600000000 {
++> 					opp-hz = /bits/ 64 <600000000>;
++> 					required-opps = <&rpmpd_opp_svs_plus>;
++> 				};
++> 
++> 				opp-785000000 {
++> 					opp-hz = /bits/ 64 <785000000>;
++> 					required-opps = <&rpmpd_opp_nom>;
++> 				};
++> 
++> 				opp-820000000 {
++> 					opp-hz = /bits/ 64 <820000000>;
++> 					required-opps = <&rpmpd_opp_nom_plus>;
++> 				};
++> 
++> 				opp-980000000 {
++> 					opp-hz = /bits/ 64 <980000000>;
++> 					required-opps = <&rpmpd_opp_turbo>;
++> 				};
++> 			};
++> 		};
++> 
++> 		gmu_wrapper: gmu@596a000 {
++> 			compatible = "qcom,adreno-gmu-wrapper";
++> 			reg = <0x0596a000 0x30000>;
++> 			reg-names = "gmu";
++> 			power-domains = <&gpucc GPU_CX_GDSC>,
++> 					<&gpucc GPU_GX_GDSC>;
++> 			power-domain-names = "cx", "gx";
++> 			status = "okay";
++> 		};
++> 
++> 		gpucc: clock-controller@5990000 {
++> 			compatible = "qcom,sm6225-gpucc";
++> 			reg = <0x05990000 0x9000>;
++> 			clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
++> 				 <&gcc GCC_GPU_GPLL0_CLK_SRC>,
++> 				 <&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
++> 			power-domains = <&rpmpd SM6115_VDDCX>;
++> 			#clock-cells = <1>;
++> 			#reset-cells = <1>;
++> 			#power-domain-cells = <1>;
++> 			status = "okay";
++> 		};
++> 
++> 		adreno_smmu: iommu@59a0000 {
++> 			compatible = "qcom,sm6115-smmu-500", "qcom,adreno-smmu",
++> 				     "qcom,smmu-500", "arm,mmu-500";
++> 			reg = <0x059a0000 0x10000>;
++> 			interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
++> 			clocks = <&gcc GCC_GPU_MEMNOC_GFX_CLK>,
++> 				 <&gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>,
++> 				 <&gcc GCC_GPU_SNOC_DVM_GFX_CLK>;
++> 			clock-names = "mem",
++> 				      "hlos",
++> 				      "iface";
++> 			power-domains = <&gpucc GPU_CX_GDSC>;
++> 			#global-interrupts = <1>;
++> 			#iommu-cells = <2>;
++> 			status = "okay";
++> 		};
++> 
++> 		/*
++> 		 * Display (from sm6115.dtsi, 1-cell regs). Interconnects omitted
++> 		 * for bringup — msm_mdss treats missing ICC as optional.
++> 		 * Rain panel: c3q_43_03_0b / ft8006s 720x1650 video (Android).
++> 		 */
++> 		mdss: display-subsystem@5e00000 {
++> 			compatible = "qcom,sm6115-mdss";
++> 			reg = <0x05e00000 0x1000>;
++> 			reg-names = "mdss";
++> 
++> 			/*
++> 			 * Real vendor DT mdss_core_gdsc is at dispcc+0x1004
++> 			 * (0x5f01004), qcom,support-hw-trigger — matches
++> 			 * mainline's dispcc-sm6375.c mdss_gdsc (gdscr=0x1004,
++> 			 * flags=HW_CTRL) exactly. Re-enabled 2026-08-13 (was
++> 			 * previously skipped on the mistaken assumption the
++> 			 * GDSC lived inside the MDSS block at 0x5e03000 like
++> 			 * sm6115's, and stayed permanently off there).
++> 			 *
++> 			 * CORE_BCR reset at dispcc+0x1000 (DISP_CC_MDSS_CORE_BCR)
++> 			 * is present in upstream sm6125/sm6375 and is required to
++> 			 * bring the MDSS out of the state ABL left it in. Without
++> 			 * it the DSI0 VIDEO_DONE/CMD_DMA_DONE interrupt never fires,
++> 			 * so panel DCS commands time out. This will tear down the
++> 			 * ABL splash, but the 7nm DSI PHY driver should re-lock the
++> 			 * PLL and the DRM stack will take over the display.
++> 			 */
++> 			resets = <&dispcc DISP_CC_MDSS_CORE_BCR>;
++> 			power-domains = <&dispcc MDSS_GDSC>;
++> 
++> 			clocks = <&gcc GCC_DISP_AHB_CLK>,
++> 				 <&gcc GCC_DISP_HF_AXI_CLK>,
++> 				 <&dispcc DISP_CC_MDSS_MDP_CLK>;
++> 
++> 			interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
++> 			interrupt-controller;
++> 			#interrupt-cells = <1>;
++> 
++> 			iommus = <&apps_smmu 0x420 0x2>,
++> 				 <&apps_smmu 0x421 0x0>;
++> 
++> 			#address-cells = <1>;
++> 			#size-cells = <1>;
++> 			ranges;
++> 
++> 			status = "disabled";
++> 
++> 			mdp: display-controller@5e01000 {
++> 				compatible = "qcom,sm6115-dpu";
++> 				reg = <0x05e01000 0x8f000>,
++> 				      <0x05eb0000 0x3000>;
++> 				reg-names = "mdp", "vbif";
++> 
++> 				clocks = <&gcc GCC_DISP_HF_AXI_CLK>,
++> 					 <&dispcc DISP_CC_MDSS_AHB_CLK>,
++> 					 <&dispcc DISP_CC_MDSS_MDP_CLK>,
++> 					 <&dispcc DISP_CC_MDSS_MDP_LUT_CLK>,
++> 					 <&dispcc DISP_CC_MDSS_ROT_CLK>,
++> 					 <&dispcc DISP_CC_MDSS_VSYNC_CLK>;
++> 				clock-names = "bus",
++> 					      "iface",
++> 					      "core",
++> 					      "lut",
++> 					      "rot",
++> 					      "vsync";
++> 
++> 				operating-points-v2 = <&mdp_opp_table>;
++> 				power-domains = <&rpmpd SM6115_VDDCX>;
++> 
++> 				interrupt-parent = <&mdss>;
++> 				interrupts = <0>;
++> 
++> 				ports {
++> 					#address-cells = <1>;
++> 					#size-cells = <0>;
++> 
++> 					port@0 {
++> 						reg = <0>;
++> 						dpu_intf1_out: endpoint {
++> 							remote-endpoint = <&mdss_dsi0_in>;
++> 						};
++> 					};
++> 				};
++> 
++> 				mdp_opp_table: opp-table {
++> 					compatible = "operating-points-v2";
++> 
++> 					/* Khaje dispcc Lucid rates (Android / sm6375) */
++> 					opp-19200000 {
++> 						opp-hz = /bits/ 64 <19200000>;
++> 						required-opps = <&rpmpd_opp_min_svs>;
++> 					};
++> 
++> 					opp-200000000 {
++> 						opp-hz = /bits/ 64 <200000000>;
++> 						required-opps = <&rpmpd_opp_low_svs>;
++> 					};
++> 
++> 					opp-300000000 {
++> 						opp-hz = /bits/ 64 <300000000>;
++> 						required-opps = <&rpmpd_opp_svs>;
++> 					};
++> 
++> 					opp-383000000 {
++> 						opp-hz = /bits/ 64 <383000000>;
++> 						required-opps = <&rpmpd_opp_svs_plus>;
++> 					};
++> 
++> 					opp-470000000 {
++> 						opp-hz = /bits/ 64 <470000000>;
++> 						required-opps = <&rpmpd_opp_nom>;
++> 					};
++> 
++> 					opp-560000000 {
++> 						opp-hz = /bits/ 64 <560000000>;
++> 						required-opps = <&rpmpd_opp_turbo>;
++> 					};
++> 				};
++> 			};
++> 
++> 			mdss_dsi0: dsi@5e94000 {
++> 				compatible = "qcom,sm6115-dsi-ctrl", "qcom,mdss-dsi-ctrl";
++> 				reg = <0x05e94000 0x400>;
++> 				reg-names = "dsi_ctrl";
++> 
++> 				interrupt-parent = <&mdss>;
++> 				interrupts = <4>;
++> 
++> 				clocks = <&dispcc DISP_CC_MDSS_BYTE0_CLK>,
++> 					 <&dispcc DISP_CC_MDSS_BYTE0_INTF_CLK>,
++> 					 <&dispcc DISP_CC_MDSS_PCLK0_CLK>,
++> 					 <&dispcc DISP_CC_MDSS_ESC0_CLK>,
++> 					 <&dispcc DISP_CC_MDSS_AHB_CLK>,
++> 					 <&gcc GCC_DISP_HF_AXI_CLK>;
++> 				clock-names = "byte",
++> 					      "byte_intf",
++> 					      "pixel",
++> 					      "core",
++> 					      "iface",
++> 					      "bus";
++> 
++> 				assigned-clocks = <&dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
++> 						  <&dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
++> 				assigned-clock-parents = <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
++> 							 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>;
++> 
++> 				operating-points-v2 = <&dsi_opp_table>;
++> 				power-domains = <&rpmpd SM6115_VDDCX>;
++> 				phys = <&mdss_dsi0_phy>;
++> 
++> 				#address-cells = <1>;
++> 				#size-cells = <0>;
++> 
++> 				status = "disabled";
++> 
++> 				ports {
++> 					#address-cells = <1>;
++> 					#size-cells = <0>;
++> 
++> 					port@0 {
++> 						reg = <0>;
++> 						mdss_dsi0_in: endpoint {
++> 							remote-endpoint = <&dpu_intf1_out>;
++> 						};
++> 					};
++> 
++> 					port@1 {
++> 						reg = <1>;
++> 						mdss_dsi0_out: endpoint {
++> 						};
++> 					};
++> 				};
++> 
++> 				dsi_opp_table: opp-table {
++> 					compatible = "operating-points-v2";
++> 
++> 					opp-19200000 {
++> 						opp-hz = /bits/ 64 <19200000>;
++> 						required-opps = <&rpmpd_opp_min_svs>;
++> 					};
++> 
++> 					opp-164000000 {
++> 						opp-hz = /bits/ 64 <164000000>;
++> 						required-opps = <&rpmpd_opp_low_svs>;
++> 					};
++> 
++> 					opp-187500000 {
++> 						opp-hz = /bits/ 64 <187500000>;
++> 						required-opps = <&rpmpd_opp_svs>;
++> 					};
++> 				};
++> 			};
++> 
++> 			/*
++> 			 * Khaje Android: qcom,dsi-phy-v4.1 (= 7nm V4.1), not
++> 			 * sm6115's 14nm-2290. Same map as sm6375 @ 0x5e94400.
++> 			 */
++> 			mdss_dsi0_phy: phy@5e94400 {
++> 				compatible = "qcom,sm6225-dsi-phy-7nm";
++> 				reg = <0x05e94400 0x200>,
++> 				      <0x05e94600 0x280>,
++> 				      <0x05e94900 0x264>;
++> 				reg-names = "dsi_phy",
++> 					    "dsi_phy_lane",
++> 					    "dsi_pll";
++> 
++> 				#clock-cells = <1>;
++> 				#phy-cells = <0>;
++> 
++> 				clocks = <&dispcc DISP_CC_MDSS_AHB_CLK>,
++> 					 <&rpmcc RPM_SMD_XO_CLK_SRC>;
++> 				clock-names = "iface", "ref";
++> 
++> 				status = "disabled";
++> 			};
++> 		};
++> 
++> 		dispcc: clock-controller@5f00000 {
++> 			/*
++> 			 * Khaje = Lucid PLL + 0x10xx RCGs (Android dispcc-khaje),
++> 			 * same as mainline sm6375-dispcc — not sm6115 Spark/0x20xx.
++> 			 */
++> 			compatible = "qcom,sm6225-dispcc";
++> 			reg = <0x05f00000 0x20000>;
++> 			clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
++> 				 <&gcc GCC_DISP_GPLL0_DIV_CLK_SRC>,
++> 				 <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
++> 				 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>;
++> 			#clock-cells = <1>;
++> 			#reset-cells = <1>;
++> 			#power-domain-cells = <1>;
++> 			status = "disabled";
++> 		};
++> 
++> 		/*
++> 		 * Khaje HS PHY = SNPS Femto (khaje-usb.dtsi).
++> 		 * GCC not in DT (broke UDC); clocks forced from init via devmem.
++> 		 */
++> 		usb_hsphy: phy@1613000 {
++> 			compatible = "qcom,usb-snps-femto-v2-phy";
++> 			reg = <0x01613000 0x400>;
++> 			#phy-cells = <0>;
++> 			clocks = <&xo_board>;
++> 			clock-names = "ref";
++> 			vdda-pll-supply = <&vreg_usb_1p8>;
++> 			vdda18-supply = <&vreg_usb_1p8>;
++> 			vdda33-supply = <&vreg_usb_3p3>;
++> 		};
++> 
++> 		usb_dwc3: usb@4e00000 {
++> 			compatible = "snps,dwc3";
++> 			reg = <0x04e00000 0xcd00>;
++> 			interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
++> 			dr_mode = "peripheral";
++> 			maximum-speed = "high-speed";
++> 			phys = <&usb_hsphy>;
++> 			phy-names = "usb2-phy";
++> 			snps,dis_u2_susphy_quirk;
++> 			snps,dis_enblslpm_quirk;
++> 			snps,dis_del_phy_power_chg_quirk;
++> 			status = "okay";
++> 		};
++> 
++> 		/*
++> 		 * Modem PAS — loads modem.mdt; ath10k then TQFTPs wlanmdsp.mbn.
++> 		 * From upstream sm6115.dtsi (1-cell regs for this soc bus).
++> 		 */
++> 		remoteproc_mpss: remoteproc@6080000 {
++> 			compatible = "qcom,sm6115-mpss-pas";
++> 			reg = <0x06080000 0x10000>;
++> 
++> 			interrupts-extended = <&intc GIC_SPI 307 IRQ_TYPE_EDGE_RISING>,
++> 					      <&modem_smp2p_in 0 IRQ_TYPE_EDGE_RISING>,
++> 					      <&modem_smp2p_in 1 IRQ_TYPE_EDGE_RISING>,
++> 					      <&modem_smp2p_in 2 IRQ_TYPE_EDGE_RISING>,
++> 					      <&modem_smp2p_in 3 IRQ_TYPE_EDGE_RISING>,
++> 					      <&modem_smp2p_in 7 IRQ_TYPE_EDGE_RISING>;
++> 			interrupt-names = "wdog", "fatal", "ready", "handover",
++> 					  "stop-ack", "shutdown-ack";
++> 
++> 			clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>;
++> 			clock-names = "xo";
++> 
++> 			power-domains = <&rpmpd SM6115_VDDCX>;
++> 
++> 			memory-region = <&pil_modem_mem>;
++> 
++> 			qcom,smem-states = <&modem_smp2p_out 0>;
++> 			qcom,smem-state-names = "stop";
++> 
++> 			status = "disabled";
++> 
++> 			glink-edge {
++> 				interrupts = <GIC_SPI 68 IRQ_TYPE_EDGE_RISING>;
++> 				label = "mpss";
++> 				qcom,remote-pid = <1>;
++> 				mboxes = <&apcs_glb 12>;
++> 			};
++> 		};
++> 
++> 		/*
++> 		 * WCN3990 window — two mutually exclusive host drivers:
++> 		 *  - wifi@… / qcom,wcn3990-wifi → ath10k_snoc (legacy Ubuntu path)
++> 		 *  - icnss@… / qcom,icnss → Android qcacld host (preferred)
++> 		 * Never enable both (same MMIO / SMMU stream).
++> 		 */
++> 		wifi: wifi@c800000 {
++> 			compatible = "qcom,wcn3990-wifi";
++> 			reg = <0x0c800000 0x800000>;
++> 			reg-names = "membase";
++> 			memory-region = <&wlan_msa_mem>;
++> 			interrupts = <GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 362 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>;
++> 			iommus = <&apps_smmu 0x1a0 0x1>;
++> 			qcom,msa-fixed-perm;
++> 			status = "disabled";
++> 		};
++> 
++> 		icnss: icnss@c800000 {
++> 			compatible = "qcom,icnss";
++> 			reg = <0x0c800000 0x800000>,
++> 			      <0xb0000000 0x10000>;
++> 			reg-names = "membase", "smmu_iova_ipa";
++> 			interrupts = <GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 362 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
++> 				     <GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>;
++> 			iommus = <&apps_smmu 0x1a0 0x1>;
++> 			memory-region = <&wlan_msa_mem>;
++> 			qcom,wlan-msa-fixed-region = <&wlan_msa_mem>;
++> 			/* Match Motregen/bengal.dtsi — Android live dump 2026-08-04 */
++> 			qcom,iommu-dma-addr-pool = <0xa0000000 0x10000000>;
++> 			qcom,iommu-dma = "fastmap";
++> 			qcom,iommu-faults = "stall-disable", "HUPCF";
++> 			qcom,iommu-geometry = <0xa0000000 0x10010000>;
++> 			/* No IPA/SMMU WLAN CB on mainline yet — force host path */
++> 			wlan-ipa-disabled;
++> 			status = "disabled";
++> 			qcom,smp2p_map_wlan_1_in {
++> 				interrupts-extended = <&smp2p_wlan_1_in 0 0>,
++> 						      <&smp2p_wlan_1_in 1 0>;
++> 				interrupt-names = "qcom,smp2p-force-fatal-error",
++> 						  "qcom,smp2p-early-crash-ind";
++> 			};
++> 		};
++> 	};
++> 
++> 	timer {
++> 		compatible = "arm,armv8-timer";
++> 		interrupts = <GIC_PPI 1 0xf08
++> 			      GIC_PPI 2 0xf08
++> 			      GIC_PPI 3 0xf08
++> 			      GIC_PPI 0 0xf08>;
++> 		clock-frequency = <19200000>;
++> 	};
++> };
+diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
++0a1,1671
++> // SPDX-License-Identifier: GPL-2.0-only
++> /*
++>  * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
++>  * https://github.com/Damir00109/Redmi10c
++>  */
++> /*
++>  * Qualcomm Khaje TLMM — ported from Xiaomi sm6225 downstream for mainline.
++>  * Flat MMIO @0x400000 size 0xc00000 (not sm6115 tiled).
++>  */
++> 
++> #include <linux/module.h>
++> #include <linux/of.h>
++> #include <linux/platform_device.h>
++> #include <linux/pinctrl/pinctrl.h>
++> 
++> #include "pinctrl-msm.h"
++> 
++> #define FUNCTION(fname) \
++> 	[msm_mux_##fname] = PINCTRL_PINFUNCTION(#fname, fname##_groups, ARRAY_SIZE(fname##_groups))
++> 
++> #define SOUTH		0x00500000
++> #define WEST		0x00100000
++> #define EAST		0x00900000
++> #define DUMMY		0x0
++> #define REG_SIZE	0x1000
++> #define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9, wake_off, bit)	\
++> 	{						\
++> 		.grp = PINCTRL_PINGROUP("gpio" #id, 	\
++> 			gpio##id##_pins, 		\
++> 			ARRAY_SIZE(gpio##id##_pins)),	\
++> 		.funcs = (int[]){			\
++> 			msm_mux_gpio,			\
++> 			msm_mux_##f1,			\
++> 			msm_mux_##f2,			\
++> 			msm_mux_##f3,			\
++> 			msm_mux_##f4,			\
++> 			msm_mux_##f5,			\
++> 			msm_mux_##f6,			\
++> 			msm_mux_##f7,			\
++> 			msm_mux_##f8,			\
++> 			msm_mux_##f9			\
++> 		},					\
++> 		.nfuncs = 10,				\
++> 		.ctl_reg = base + REG_SIZE * (id),	\
++> 		.io_reg = base + 0x4 + REG_SIZE * (id),	\
++> 		.intr_cfg_reg = base + 0x8 + REG_SIZE * (id),	\
++> 		.intr_status_reg = base + 0xc + REG_SIZE * (id),	\
++> 		.intr_target_reg = base + 0x8 + REG_SIZE * (id),	\
++> 		.mux_bit = 2,			\
++> 		.pull_bit = 0,			\
++> 		.drv_bit = 6,			\
++> 		.oe_bit = 9,			\
++> 		.in_bit = 0,			\
++> 		.out_bit = 1,			\
++> 		.intr_enable_bit = 0,		\
++> 		.intr_status_bit = 0,		\
++> 		.intr_target_bit = 5,		\
++> 		.intr_target_kpss_val = 3,	\
++> 		.intr_raw_status_bit = 4,	\
++> 		.intr_polarity_bit = 1,		\
++> 		.intr_detection_bit = 2,	\
++> 		.intr_detection_width = 2,	\
++> 	}
++> 
++> #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
++> 	{						\
++> 		.grp = PINCTRL_PINGROUP(#pg_name, 	\
++> 			pg_name##_pins, 		\
++> 			ARRAY_SIZE(pg_name##_pins)),	\
++> 		.ctl_reg = ctl,				\
++> 		.io_reg = 0,				\
++> 		.intr_cfg_reg = 0,			\
++> 		.intr_status_reg = 0,			\
++> 		.intr_target_reg = 0,			\
++> 		.mux_bit = -1,				\
++> 		.pull_bit = pull,			\
++> 		.drv_bit = drv,				\
++> 		.oe_bit = -1,				\
++> 		.in_bit = -1,				\
++> 		.out_bit = -1,				\
++> 		.intr_enable_bit = -1,			\
++> 		.intr_status_bit = -1,			\
++> 		.intr_target_bit = -1,			\
++> 		.intr_raw_status_bit = -1,		\
++> 		.intr_polarity_bit = -1,		\
++> 		.intr_detection_bit = -1,		\
++> 		.intr_detection_width = -1,		\
++> 	}
++> 
++> #define UFS_RESET(pg_name, offset)			\
++> 	{						\
++> 		.grp = PINCTRL_PINGROUP(#pg_name, 	\
++> 			pg_name##_pins, 		\
++> 			ARRAY_SIZE(pg_name##_pins)),	\
++> 		.ctl_reg = offset,			\
++> 		.io_reg = offset + 0x4,			\
++> 		.intr_cfg_reg = 0,			\
++> 		.intr_status_reg = 0,			\
++> 		.intr_target_reg = 0,			\
++> 		.mux_bit = -1,				\
++> 		.pull_bit = 3,				\
++> 		.drv_bit = 0,				\
++> 		.oe_bit = -1,				\
++> 		.in_bit = -1,				\
++> 		.out_bit = 0,				\
++> 		.intr_enable_bit = -1,			\
++> 		.intr_status_bit = -1,			\
++> 		.intr_target_bit = -1,			\
++> 		.intr_raw_status_bit = -1,		\
++> 		.intr_polarity_bit = -1,		\
++> 		.intr_detection_bit = -1,		\
++> 		.intr_detection_width = -1,		\
++> 	}
++> 
++> static const struct pinctrl_pin_desc khaje_pins[] = {
++> 	PINCTRL_PIN(0, "GPIO_0"),
++> 	PINCTRL_PIN(1, "GPIO_1"),
++> 	PINCTRL_PIN(2, "GPIO_2"),
++> 	PINCTRL_PIN(3, "GPIO_3"),
++> 	PINCTRL_PIN(4, "GPIO_4"),
++> 	PINCTRL_PIN(5, "GPIO_5"),
++> 	PINCTRL_PIN(6, "GPIO_6"),
++> 	PINCTRL_PIN(7, "GPIO_7"),
++> 	PINCTRL_PIN(8, "GPIO_8"),
++> 	PINCTRL_PIN(9, "GPIO_9"),
++> 	PINCTRL_PIN(10, "GPIO_10"),
++> 	PINCTRL_PIN(11, "GPIO_11"),
++> 	PINCTRL_PIN(12, "GPIO_12"),
++> 	PINCTRL_PIN(13, "GPIO_13"),
++> 	PINCTRL_PIN(14, "GPIO_14"),
++> 	PINCTRL_PIN(15, "GPIO_15"),
++> 	PINCTRL_PIN(16, "GPIO_16"),
++> 	PINCTRL_PIN(17, "GPIO_17"),
++> 	PINCTRL_PIN(18, "GPIO_18"),
++> 	PINCTRL_PIN(19, "GPIO_19"),
++> 	PINCTRL_PIN(20, "GPIO_20"),
++> 	PINCTRL_PIN(21, "GPIO_21"),
++> 	PINCTRL_PIN(22, "GPIO_22"),
++> 	PINCTRL_PIN(23, "GPIO_23"),
++> 	PINCTRL_PIN(24, "GPIO_24"),
++> 	PINCTRL_PIN(25, "GPIO_25"),
++> 	PINCTRL_PIN(26, "GPIO_26"),
++> 	PINCTRL_PIN(27, "GPIO_27"),
++> 	PINCTRL_PIN(28, "GPIO_28"),
++> 	PINCTRL_PIN(29, "GPIO_29"),
++> 	PINCTRL_PIN(30, "GPIO_30"),
++> 	PINCTRL_PIN(31, "GPIO_31"),
++> 	PINCTRL_PIN(32, "GPIO_32"),
++> 	PINCTRL_PIN(33, "GPIO_33"),
++> 	PINCTRL_PIN(34, "GPIO_34"),
++> 	PINCTRL_PIN(35, "GPIO_35"),
++> 	PINCTRL_PIN(36, "GPIO_36"),
++> 	PINCTRL_PIN(37, "GPIO_37"),
++> 	PINCTRL_PIN(38, "GPIO_38"),
++> 	PINCTRL_PIN(39, "GPIO_39"),
++> 	PINCTRL_PIN(40, "GPIO_40"),
++> 	PINCTRL_PIN(41, "GPIO_41"),
++> 	PINCTRL_PIN(42, "GPIO_42"),
++> 	PINCTRL_PIN(43, "GPIO_43"),
++> 	PINCTRL_PIN(44, "GPIO_44"),
++> 	PINCTRL_PIN(45, "GPIO_45"),
++> 	PINCTRL_PIN(46, "GPIO_46"),
++> 	PINCTRL_PIN(47, "GPIO_47"),
++> 	PINCTRL_PIN(48, "GPIO_48"),
++> 	PINCTRL_PIN(49, "GPIO_49"),
++> 	PINCTRL_PIN(50, "GPIO_50"),
++> 	PINCTRL_PIN(51, "GPIO_51"),
++> 	PINCTRL_PIN(52, "GPIO_52"),
++> 	PINCTRL_PIN(53, "GPIO_53"),
++> 	PINCTRL_PIN(54, "GPIO_54"),
++> 	PINCTRL_PIN(55, "GPIO_55"),
++> 	PINCTRL_PIN(56, "GPIO_56"),
++> 	PINCTRL_PIN(57, "GPIO_57"),
++> 	PINCTRL_PIN(58, "GPIO_58"),
++> 	PINCTRL_PIN(59, "GPIO_59"),
++> 	PINCTRL_PIN(60, "GPIO_60"),
++> 	PINCTRL_PIN(61, "GPIO_61"),
++> 	PINCTRL_PIN(62, "GPIO_62"),
++> 	PINCTRL_PIN(63, "GPIO_63"),
++> 	PINCTRL_PIN(64, "GPIO_64"),
++> 	PINCTRL_PIN(65, "GPIO_65"),
++> 	PINCTRL_PIN(66, "GPIO_66"),
++> 	PINCTRL_PIN(67, "GPIO_67"),
++> 	PINCTRL_PIN(68, "GPIO_68"),
++> 	PINCTRL_PIN(69, "GPIO_69"),
++> 	PINCTRL_PIN(70, "GPIO_70"),
++> 	PINCTRL_PIN(71, "GPIO_71"),
++> 	PINCTRL_PIN(72, "GPIO_72"),
++> 	PINCTRL_PIN(73, "GPIO_73"),
++> 	PINCTRL_PIN(74, "GPIO_74"),
++> 	PINCTRL_PIN(75, "GPIO_75"),
++> 	PINCTRL_PIN(76, "GPIO_76"),
++> 	PINCTRL_PIN(77, "GPIO_77"),
++> 	PINCTRL_PIN(78, "GPIO_78"),
++> 	PINCTRL_PIN(79, "GPIO_79"),
++> 	PINCTRL_PIN(80, "GPIO_80"),
++> 	PINCTRL_PIN(81, "GPIO_81"),
++> 	PINCTRL_PIN(82, "GPIO_82"),
++> 	PINCTRL_PIN(83, "GPIO_83"),
++> 	PINCTRL_PIN(84, "GPIO_84"),
++> 	PINCTRL_PIN(85, "GPIO_85"),
++> 	PINCTRL_PIN(86, "GPIO_86"),
++> 	PINCTRL_PIN(87, "GPIO_87"),
++> 	PINCTRL_PIN(88, "GPIO_88"),
++> 	PINCTRL_PIN(89, "GPIO_89"),
++> 	PINCTRL_PIN(90, "GPIO_90"),
++> 	PINCTRL_PIN(91, "GPIO_91"),
++> 	PINCTRL_PIN(92, "GPIO_92"),
++> 	PINCTRL_PIN(93, "GPIO_93"),
++> 	PINCTRL_PIN(94, "GPIO_94"),
++> 	PINCTRL_PIN(95, "GPIO_95"),
++> 	PINCTRL_PIN(96, "GPIO_96"),
++> 	PINCTRL_PIN(97, "GPIO_97"),
++> 	PINCTRL_PIN(98, "GPIO_98"),
++> 	PINCTRL_PIN(99, "GPIO_99"),
++> 	PINCTRL_PIN(100, "GPIO_100"),
++> 	PINCTRL_PIN(101, "GPIO_101"),
++> 	PINCTRL_PIN(102, "GPIO_102"),
++> 	PINCTRL_PIN(103, "GPIO_103"),
++> 	PINCTRL_PIN(104, "GPIO_104"),
++> 	PINCTRL_PIN(105, "GPIO_105"),
++> 	PINCTRL_PIN(106, "GPIO_106"),
++> 	PINCTRL_PIN(107, "GPIO_107"),
++> 	PINCTRL_PIN(108, "GPIO_108"),
++> 	PINCTRL_PIN(109, "GPIO_109"),
++> 	PINCTRL_PIN(110, "GPIO_110"),
++> 	PINCTRL_PIN(111, "GPIO_111"),
++> 	PINCTRL_PIN(112, "GPIO_112"),
++> 	PINCTRL_PIN(113, "SDC1_RCLK"),
++> 	PINCTRL_PIN(114, "SDC1_CLK"),
++> 	PINCTRL_PIN(115, "SDC1_CMD"),
++> 	PINCTRL_PIN(116, "SDC1_DATA"),
++> 	PINCTRL_PIN(117, "SDC2_CLK"),
++> 	PINCTRL_PIN(118, "SDC2_CMD"),
++> 	PINCTRL_PIN(119, "SDC2_DATA"),
++> 	PINCTRL_PIN(120, "UFS_RESET"),
++> };
++> 
++> #define DECLARE_MSM_GPIO_PINS(pin) \
++> static const unsigned int gpio##pin##_pins[] = { pin }
++> DECLARE_MSM_GPIO_PINS(0);
++> DECLARE_MSM_GPIO_PINS(1);
++> DECLARE_MSM_GPIO_PINS(2);
++> DECLARE_MSM_GPIO_PINS(3);
++> DECLARE_MSM_GPIO_PINS(4);
++> DECLARE_MSM_GPIO_PINS(5);
++> DECLARE_MSM_GPIO_PINS(6);
++> DECLARE_MSM_GPIO_PINS(7);
++> DECLARE_MSM_GPIO_PINS(8);
++> DECLARE_MSM_GPIO_PINS(9);
++> DECLARE_MSM_GPIO_PINS(10);
++> DECLARE_MSM_GPIO_PINS(11);
++> DECLARE_MSM_GPIO_PINS(12);
++> DECLARE_MSM_GPIO_PINS(13);
++> DECLARE_MSM_GPIO_PINS(14);
++> DECLARE_MSM_GPIO_PINS(15);
++> DECLARE_MSM_GPIO_PINS(16);
++> DECLARE_MSM_GPIO_PINS(17);
++> DECLARE_MSM_GPIO_PINS(18);
++> DECLARE_MSM_GPIO_PINS(19);
++> DECLARE_MSM_GPIO_PINS(20);
++> DECLARE_MSM_GPIO_PINS(21);
++> DECLARE_MSM_GPIO_PINS(22);
++> DECLARE_MSM_GPIO_PINS(23);
++> DECLARE_MSM_GPIO_PINS(24);
++> DECLARE_MSM_GPIO_PINS(25);
++> DECLARE_MSM_GPIO_PINS(26);
++> DECLARE_MSM_GPIO_PINS(27);
++> DECLARE_MSM_GPIO_PINS(28);
++> DECLARE_MSM_GPIO_PINS(29);
++> DECLARE_MSM_GPIO_PINS(30);
++> DECLARE_MSM_GPIO_PINS(31);
++> DECLARE_MSM_GPIO_PINS(32);
++> DECLARE_MSM_GPIO_PINS(33);
++> DECLARE_MSM_GPIO_PINS(34);
++> DECLARE_MSM_GPIO_PINS(35);
++> DECLARE_MSM_GPIO_PINS(36);
++> DECLARE_MSM_GPIO_PINS(37);
++> DECLARE_MSM_GPIO_PINS(38);
++> DECLARE_MSM_GPIO_PINS(39);
++> DECLARE_MSM_GPIO_PINS(40);
++> DECLARE_MSM_GPIO_PINS(41);
++> DECLARE_MSM_GPIO_PINS(42);
++> DECLARE_MSM_GPIO_PINS(43);
++> DECLARE_MSM_GPIO_PINS(44);
++> DECLARE_MSM_GPIO_PINS(45);
++> DECLARE_MSM_GPIO_PINS(46);
++> DECLARE_MSM_GPIO_PINS(47);
++> DECLARE_MSM_GPIO_PINS(48);
++> DECLARE_MSM_GPIO_PINS(49);
++> DECLARE_MSM_GPIO_PINS(50);
++> DECLARE_MSM_GPIO_PINS(51);
++> DECLARE_MSM_GPIO_PINS(52);
++> DECLARE_MSM_GPIO_PINS(53);
++> DECLARE_MSM_GPIO_PINS(54);
++> DECLARE_MSM_GPIO_PINS(55);
++> DECLARE_MSM_GPIO_PINS(56);
++> DECLARE_MSM_GPIO_PINS(57);
++> DECLARE_MSM_GPIO_PINS(58);
++> DECLARE_MSM_GPIO_PINS(59);
++> DECLARE_MSM_GPIO_PINS(60);
++> DECLARE_MSM_GPIO_PINS(61);
++> DECLARE_MSM_GPIO_PINS(62);
++> DECLARE_MSM_GPIO_PINS(63);
++> DECLARE_MSM_GPIO_PINS(64);
++> DECLARE_MSM_GPIO_PINS(65);
++> DECLARE_MSM_GPIO_PINS(66);
++> DECLARE_MSM_GPIO_PINS(67);
++> DECLARE_MSM_GPIO_PINS(68);
++> DECLARE_MSM_GPIO_PINS(69);
++> DECLARE_MSM_GPIO_PINS(70);
++> DECLARE_MSM_GPIO_PINS(71);
++> DECLARE_MSM_GPIO_PINS(72);
++> DECLARE_MSM_GPIO_PINS(73);
++> DECLARE_MSM_GPIO_PINS(74);
++> DECLARE_MSM_GPIO_PINS(75);
++> DECLARE_MSM_GPIO_PINS(76);
++> DECLARE_MSM_GPIO_PINS(77);
++> DECLARE_MSM_GPIO_PINS(78);
++> DECLARE_MSM_GPIO_PINS(79);
++> DECLARE_MSM_GPIO_PINS(80);
++> DECLARE_MSM_GPIO_PINS(81);
++> DECLARE_MSM_GPIO_PINS(82);
++> DECLARE_MSM_GPIO_PINS(83);
++> DECLARE_MSM_GPIO_PINS(84);
++> DECLARE_MSM_GPIO_PINS(85);
++> DECLARE_MSM_GPIO_PINS(86);
++> DECLARE_MSM_GPIO_PINS(87);
++> DECLARE_MSM_GPIO_PINS(88);
++> DECLARE_MSM_GPIO_PINS(89);
++> DECLARE_MSM_GPIO_PINS(90);
++> DECLARE_MSM_GPIO_PINS(91);
++> DECLARE_MSM_GPIO_PINS(92);
++> DECLARE_MSM_GPIO_PINS(93);
++> DECLARE_MSM_GPIO_PINS(94);
++> DECLARE_MSM_GPIO_PINS(95);
++> DECLARE_MSM_GPIO_PINS(96);
++> DECLARE_MSM_GPIO_PINS(97);
++> DECLARE_MSM_GPIO_PINS(98);
++> DECLARE_MSM_GPIO_PINS(99);
++> DECLARE_MSM_GPIO_PINS(100);
++> DECLARE_MSM_GPIO_PINS(101);
++> DECLARE_MSM_GPIO_PINS(102);
++> DECLARE_MSM_GPIO_PINS(103);
++> DECLARE_MSM_GPIO_PINS(104);
++> DECLARE_MSM_GPIO_PINS(105);
++> DECLARE_MSM_GPIO_PINS(106);
++> DECLARE_MSM_GPIO_PINS(107);
++> DECLARE_MSM_GPIO_PINS(108);
++> DECLARE_MSM_GPIO_PINS(109);
++> DECLARE_MSM_GPIO_PINS(110);
++> DECLARE_MSM_GPIO_PINS(111);
++> DECLARE_MSM_GPIO_PINS(112);
++> 
++> static const unsigned int sdc1_rclk_pins[] = { 113 };
++> static const unsigned int sdc1_clk_pins[] = { 114 };
++> static const unsigned int sdc1_cmd_pins[] = { 115 };
++> static const unsigned int sdc1_data_pins[] = { 116 };
++> static const unsigned int sdc2_clk_pins[] = { 117 };
++> static const unsigned int sdc2_cmd_pins[] = { 118 };
++> static const unsigned int sdc2_data_pins[] = { 119 };
++> static const unsigned int ufs_reset_pins[] = { 120 };
++> 
++> enum khaje_functions {
++> 	msm_mux_gpio,
++> 	msm_mux_qup0,
++> 	msm_mux_usb2phy_ac,
++> 	msm_mux_ddr_bist,
++> 	msm_mux_m_voc,
++> 	msm_mux_phase_flag0,
++> 	msm_mux_qdss_gpio8,
++> 	msm_mux_atest_tsens,
++> 	msm_mux_mpm_pwr,
++> 	msm_mux_phase_flag1,
++> 	msm_mux_qdss_gpio9,
++> 	msm_mux_atest_tsens2,
++> 	msm_mux_phase_flag2,
++> 	msm_mux_qdss_gpio10,
++> 	msm_mux_dac_calib0,
++> 	msm_mux_atest_usb10,
++> 	msm_mux_phase_flag3,
++> 	msm_mux_qdss_gpio11,
++> 	msm_mux_dac_calib1,
++> 	msm_mux_atest_usb11,
++> 	msm_mux_qup1,
++> 	msm_mux_CRI_TRNG0,
++> 	msm_mux_phase_flag4,
++> 	msm_mux_dac_calib2,
++> 	msm_mux_atest_usb12,
++> 	msm_mux_CRI_TRNG1,
++> 	msm_mux_phase_flag5,
++> 	msm_mux_dac_calib3,
++> 	msm_mux_atest_usb13,
++> 	msm_mux_qup2,
++> 	msm_mux_phase_flag6,
++> 	msm_mux_dac_calib4,
++> 	msm_mux_atest_usb1,
++> 	msm_mux_qup3,
++> 	msm_mux_pbs_out,
++> 	msm_mux_PLL_BIST,
++> 	msm_mux_qdss_gpio,
++> 	msm_mux_tsense_pwm,
++> 	msm_mux_AGERA_PLL,
++> 	msm_mux_pbs0,
++> 	msm_mux_qdss_gpio0,
++> 	msm_mux_pbs1,
++> 	msm_mux_qdss_gpio1,
++> 	msm_mux_qup4,
++> 	msm_mux_tgu_ch0,
++> 	msm_mux_tgu_ch1,
++> 	msm_mux_qup5,
++> 	msm_mux_tgu_ch2,
++> 	msm_mux_phase_flag7,
++> 	msm_mux_qdss_gpio4,
++> 	msm_mux_dac_calib5,
++> 	msm_mux_tgu_ch3,
++> 	msm_mux_phase_flag8,
++> 	msm_mux_qdss_gpio5,
++> 	msm_mux_dac_calib6,
++> 	msm_mux_phase_flag9,
++> 	msm_mux_qdss_gpio6,
++> 	msm_mux_dac_calib7,
++> 	msm_mux_phase_flag10,
++> 	msm_mux_qdss_gpio7,
++> 	msm_mux_dac_calib8,
++> 	msm_mux_SDC2_TB,
++> 	msm_mux_CRI_TRNG,
++> 	msm_mux_pbs2,
++> 	msm_mux_qdss_gpio2,
++> 	msm_mux_SDC1_TB,
++> 	msm_mux_pbs3,
++> 	msm_mux_qdss_gpio3,
++> 	msm_mux_cam_mclk,
++> 	msm_mux_pbs4,
++> 	msm_mux_adsp_ext,
++> 	msm_mux_pbs5,
++> 	msm_mux_cci_i2c,
++> 	msm_mux_prng_rosc,
++> 	msm_mux_pbs6,
++> 	msm_mux_phase_flag11,
++> 	msm_mux_dac_calib9,
++> 	msm_mux_atest_usb20,
++> 	msm_mux_pbs7,
++> 	msm_mux_phase_flag12,
++> 	msm_mux_dac_calib10,
++> 	msm_mux_atest_usb21,
++> 	msm_mux_CCI_TIMER1,
++> 	msm_mux_GCC_GP1,
++> 	msm_mux_pbs8,
++> 	msm_mux_phase_flag13,
++> 	msm_mux_dac_calib11,
++> 	msm_mux_atest_usb22,
++> 	msm_mux_cci_async,
++> 	msm_mux_CCI_TIMER0,
++> 	msm_mux_pbs9,
++> 	msm_mux_phase_flag14,
++> 	msm_mux_dac_calib12,
++> 	msm_mux_atest_usb23,
++> 	msm_mux_pbs10,
++> 	msm_mux_phase_flag15,
++> 	msm_mux_dac_calib13,
++> 	msm_mux_atest_usb2,
++> 	msm_mux_vsense_trigger,
++> 	msm_mux_qdss_cti,
++> 	msm_mux_CCI_TIMER2,
++> 	msm_mux_phase_flag16,
++> 	msm_mux_dac_calib14,
++> 	msm_mux_atest_char,
++> 	msm_mux_phase_flag17,
++> 	msm_mux_dac_calib15,
++> 	msm_mux_atest_char0,
++> 	msm_mux_GP_PDM0,
++> 	msm_mux_phase_flag18,
++> 	msm_mux_dac_calib16,
++> 	msm_mux_atest_char1,
++> 	msm_mux_CCI_TIMER3,
++> 	msm_mux_GP_PDM1,
++> 	msm_mux_phase_flag19,
++> 	msm_mux_dac_calib17,
++> 	msm_mux_atest_char2,
++> 	msm_mux_GP_PDM2,
++> 	msm_mux_phase_flag20,
++> 	msm_mux_dac_calib18,
++> 	msm_mux_atest_char3,
++> 	msm_mux_phase_flag21,
++> 	msm_mux_qdss_gpio14,
++> 	msm_mux_phase_flag22,
++> 	msm_mux_qdss_gpio15,
++> 	msm_mux_NAV_GPIO,
++> 	msm_mux_phase_flag23,
++> 	msm_mux_phase_flag24,
++> 	msm_mux_phase_flag25,
++> 	msm_mux_pbs14,
++> 	msm_mux_vfr_1,
++> 	msm_mux_pbs15,
++> 	msm_mux_PA_INDICATOR,
++> 	msm_mux_gsm1_tx,
++> 	msm_mux_SSBI_WTR1,
++> 	msm_mux_pll_clk,
++> 	msm_mux_pll_bypassnl,
++> 	msm_mux_pll_reset,
++> 	msm_mux_phase_flag26,
++> 	msm_mux_ddr_pxi0,
++> 	msm_mux_gsm0_tx,
++> 	msm_mux_phase_flag27,
++> 	msm_mux_GCC_GP2,
++> 	msm_mux_qdss_gpio12,
++> 	msm_mux_ddr_pxi1,
++> 	msm_mux_GCC_GP3,
++> 	msm_mux_qdss_gpio13,
++> 	msm_mux_dbg_out,
++> 	msm_mux_uim2_data,
++> 	msm_mux_uim2_clk,
++> 	msm_mux_uim2_reset,
++> 	msm_mux_uim2_present,
++> 	msm_mux_uim1_data,
++> 	msm_mux_uim1_clk,
++> 	msm_mux_uim1_reset,
++> 	msm_mux_uim1_present,
++> 	msm_mux_dac_calib19,
++> 	msm_mux_mdp_vsync,
++> 	msm_mux_mdp_vsync_out_0,
++> 	msm_mux_mdp_vsync_out_1,
++> 	msm_mux_dac_calib20,
++> 	msm_mux_dac_calib21,
++> 	msm_mux_atest_bbrx1,
++> 	msm_mux_pbs11,
++> 	msm_mux_usb_phy,
++> 	msm_mux_atest_bbrx0,
++> 	msm_mux_mss_lte,
++> 	msm_mux_pbs12,
++> 	msm_mux_pbs13,
++> 	msm_mux_wlan1_adc0,
++> 	msm_mux_wlan1_adc1,
++> 	msm_mux_sd_write,
++> 	msm_mux_JITTER_BIST,
++> 	msm_mux_atest_gpsadc_dtest0_native,
++> 	msm_mux_atest_gpsadc_dtest1_native,
++> 	msm_mux_phase_flag28,
++> 	msm_mux_dac_calib22,
++> 	msm_mux_ddr_pxi2,
++> 	msm_mux_phase_flag29,
++> 	msm_mux_dac_calib23,
++> 	msm_mux_phase_flag30,
++> 	msm_mux_dac_calib24,
++> 	msm_mux_ddr_pxi3,
++> 	msm_mux_phase_flag31,
++> 	msm_mux_dac_calib25,
++> 	msm_mux_NA,
++> };
++> 
++> static const char * const gpio_groups[] = {
++> 	"gpio0", "gpio1", "gpio2", "gpio3", "gpio4", "gpio5", "gpio6", "gpio7",
++> 	"gpio8", "gpio9", "gpio10", "gpio11", "gpio12", "gpio13", "gpio14",
++> 	"gpio15", "gpio16", "gpio17", "gpio18", "gpio19", "gpio20", "gpio21",
++> 	"gpio22", "gpio23", "gpio24", "gpio25", "gpio26", "gpio27", "gpio28",
++> 	"gpio29", "gpio30", "gpio31", "gpio32", "gpio33", "gpio34", "gpio35",
++> 	"gpio36", "gpio37", "gpio38", "gpio39", "gpio40", "gpio41", "gpio42",
++> 	"gpio43", "gpio44", "gpio45", "gpio46", "gpio47", "gpio48", "gpio49",
++> 	"gpio50", "gpio51", "gpio52", "gpio53", "gpio54", "gpio55", "gpio56",
++> 	"gpio57", "gpio58", "gpio59", "gpio60", "gpio61", "gpio62", "gpio63",
++> 	"gpio64", "gpio65", "gpio66", "gpio67", "gpio68", "gpio69", "gpio70",
++> 	"gpio71", "gpio72", "gpio73", "gpio74", "gpio75", "gpio76", "gpio77",
++> 	"gpio78", "gpio79", "gpio80", "gpio81", "gpio82", "gpio83", "gpio84",
++> 	"gpio85", "gpio86", "gpio87", "gpio88", "gpio89", "gpio90", "gpio91",
++> 	"gpio92", "gpio93", "gpio94", "gpio95", "gpio96", "gpio97", "gpio98",
++> 	"gpio99", "gpio100", "gpio101", "gpio102", "gpio103", "gpio104",
++> 	"gpio105", "gpio106", "gpio107", "gpio108", "gpio109", "gpio110",
++> 	"gpio111", "gpio112",
++> };
++> static const char * const qup0_groups[] = {
++> 	"gpio0", "gpio1", "gpio2", "gpio3", "gpio82", "gpio86",
++> };
++> static const char * const usb2phy_ac_groups[] = {
++> 	"gpio0",
++> };
++> static const char * const ddr_bist_groups[] = {
++> 	"gpio0", "gpio1", "gpio2", "gpio3",
++> };
++> static const char * const m_voc_groups[] = {
++> 	"gpio0",
++> };
++> static const char * const phase_flag0_groups[] = {
++> 	"gpio0",
++> };
++> static const char * const qdss_gpio8_groups[] = {
++> 	"gpio0", "gpio24",
++> };
++> static const char * const atest_tsens_groups[] = {
++> 	"gpio0",
++> };
++> static const char * const mpm_pwr_groups[] = {
++> 	"gpio1",
++> };
++> static const char * const phase_flag1_groups[] = {
++> 	"gpio1",
++> };
++> static const char * const qdss_gpio9_groups[] = {
++> 	"gpio1", "gpio25",
++> };
++> static const char * const atest_tsens2_groups[] = {
++> 	"gpio1",
++> };
++> static const char * const phase_flag2_groups[] = {
++> 	"gpio2",
++> };
++> static const char * const qdss_gpio10_groups[] = {
++> 	"gpio2", "gpio26",
++> };
++> static const char * const dac_calib0_groups[] = {
++> 	"gpio2",
++> };
++> static const char * const atest_usb10_groups[] = {
++> 	"gpio2",
++> };
++> static const char * const phase_flag3_groups[] = {
++> 	"gpio3",
++> };
++> static const char * const qdss_gpio11_groups[] = {
++> 	"gpio3", "gpio87",
++> };
++> static const char * const dac_calib1_groups[] = {
++> 	"gpio3",
++> };
++> static const char * const atest_usb11_groups[] = {
++> 	"gpio3",
++> };
++> static const char * const qup1_groups[] = {
++> 	"gpio4", "gpio5", "gpio69", "gpio70",
++> };
++> static const char * const CRI_TRNG0_groups[] = {
++> 	"gpio4",
++> };
++> static const char * const phase_flag4_groups[] = {
++> 	"gpio4",
++> };
++> static const char * const dac_calib2_groups[] = {
++> 	"gpio4",
++> };
++> static const char * const atest_usb12_groups[] = {
++> 	"gpio4",
++> };
++> static const char * const CRI_TRNG1_groups[] = {
++> 	"gpio5",
++> };
++> static const char * const phase_flag5_groups[] = {
++> 	"gpio5",
++> };
++> static const char * const dac_calib3_groups[] = {
++> 	"gpio5",
++> };
++> static const char * const atest_usb13_groups[] = {
++> 	"gpio5",
++> };
++> static const char * const qup2_groups[] = {
++> 	"gpio6", "gpio7", "gpio71", "gpio80",
++> };
++> static const char * const phase_flag6_groups[] = {
++> 	"gpio6",
++> };
++> static const char * const dac_calib4_groups[] = {
++> 	"gpio6",
++> };
++> static const char * const atest_usb1_groups[] = {
++> 	"gpio6",
++> };
++> static const char * const qup3_groups[] = {
++> 	"gpio8", "gpio9", "gpio10", "gpio11",
++> };
++> static const char * const pbs_out_groups[] = {
++> 	"gpio8", "gpio9", "gpio52",
++> };
++> static const char * const PLL_BIST_groups[] = {
++> 	"gpio8", "gpio9",
++> };
++> static const char * const qdss_gpio_groups[] = {
++> 	"gpio8", "gpio9", "gpio105", "gpio106",
++> };
++> static const char * const tsense_pwm_groups[] = {
++> 	"gpio8",
++> };
++> static const char * const AGERA_PLL_groups[] = {
++> 	"gpio10", "gpio11",
++> };
++> static const char * const pbs0_groups[] = {
++> 	"gpio10",
++> };
++> static const char * const qdss_gpio0_groups[] = {
++> 	"gpio10", "gpio107",
++> };
++> static const char * const pbs1_groups[] = {
++> 	"gpio11",
++> };
++> static const char * const qdss_gpio1_groups[] = {
++> 	"gpio11", "gpio104",
++> };
++> static const char * const qup4_groups[] = {
++> 	"gpio12", "gpio13", "gpio96", "gpio97",
++> };
++> static const char * const tgu_ch0_groups[] = {
++> 	"gpio12",
++> };
++> static const char * const tgu_ch1_groups[] = {
++> 	"gpio13",
++> };
++> static const char * const qup5_groups[] = {
++> 	"gpio14", "gpio15", "gpio16", "gpio17",
++> };
++> static const char * const tgu_ch2_groups[] = {
++> 	"gpio14",
++> };
++> static const char * const phase_flag7_groups[] = {
++> 	"gpio14",
++> };
++> static const char * const qdss_gpio4_groups[] = {
++> 	"gpio14", "gpio20",
++> };
++> static const char * const dac_calib5_groups[] = {
++> 	"gpio14",
++> };
++> static const char * const tgu_ch3_groups[] = {
++> 	"gpio15",
++> };
++> static const char * const phase_flag8_groups[] = {
++> 	"gpio15",
++> };
++> static const char * const qdss_gpio5_groups[] = {
++> 	"gpio15", "gpio21",
++> };
++> static const char * const dac_calib6_groups[] = {
++> 	"gpio15",
++> };
++> static const char * const phase_flag9_groups[] = {
++> 	"gpio16",
++> };
++> static const char * const qdss_gpio6_groups[] = {
++> 	"gpio16", "gpio22",
++> };
++> static const char * const dac_calib7_groups[] = {
++> 	"gpio16",
++> };
++> static const char * const phase_flag10_groups[] = {
++> 	"gpio17",
++> };
++> static const char * const qdss_gpio7_groups[] = {
++> 	"gpio17", "gpio23",
++> };
++> static const char * const dac_calib8_groups[] = {
++> 	"gpio17",
++> };
++> static const char * const SDC2_TB_groups[] = {
++> 	"gpio18",
++> };
++> static const char * const CRI_TRNG_groups[] = {
++> 	"gpio18",
++> };
++> static const char * const pbs2_groups[] = {
++> 	"gpio18",
++> };
++> static const char * const qdss_gpio2_groups[] = {
++> 	"gpio18", "gpio109",
++> };
++> static const char * const SDC1_TB_groups[] = {
++> 	"gpio19",
++> };
++> static const char * const pbs3_groups[] = {
++> 	"gpio19",
++> };
++> static const char * const qdss_gpio3_groups[] = {
++> 	"gpio19", "gpio110",
++> };
++> static const char * const cam_mclk_groups[] = {
++> 	"gpio20", "gpio21", "gpio27", "gpio28",
++> };
++> static const char * const pbs4_groups[] = {
++> 	"gpio20",
++> };
++> static const char * const adsp_ext_groups[] = {
++> 	"gpio21",
++> };
++> static const char * const pbs5_groups[] = {
++> 	"gpio21",
++> };
++> static const char * const cci_i2c_groups[] = {
++> 	"gpio22", "gpio23", "gpio29", "gpio30",
++> };
++> static const char * const prng_rosc_groups[] = {
++> 	"gpio22", "gpio23",
++> };
++> static const char * const pbs6_groups[] = {
++> 	"gpio22",
++> };
++> static const char * const phase_flag11_groups[] = {
++> 	"gpio22",
++> };
++> static const char * const dac_calib9_groups[] = {
++> 	"gpio22",
++> };
++> static const char * const atest_usb20_groups[] = {
++> 	"gpio22",
++> };
++> static const char * const pbs7_groups[] = {
++> 	"gpio23",
++> };
++> static const char * const phase_flag12_groups[] = {
++> 	"gpio23",
++> };
++> static const char * const dac_calib10_groups[] = {
++> 	"gpio23",
++> };
++> static const char * const atest_usb21_groups[] = {
++> 	"gpio23",
++> };
++> static const char * const CCI_TIMER1_groups[] = {
++> 	"gpio24",
++> };
++> static const char * const GCC_GP1_groups[] = {
++> 	"gpio24", "gpio86",
++> };
++> static const char * const pbs8_groups[] = {
++> 	"gpio24",
++> };
++> static const char * const phase_flag13_groups[] = {
++> 	"gpio24",
++> };
++> static const char * const dac_calib11_groups[] = {
++> 	"gpio24",
++> };
++> static const char * const atest_usb22_groups[] = {
++> 	"gpio24",
++> };
++> static const char * const cci_async_groups[] = {
++> 	"gpio25",
++> };
++> static const char * const CCI_TIMER0_groups[] = {
++> 	"gpio25",
++> };
++> static const char * const pbs9_groups[] = {
++> 	"gpio25",
++> };
++> static const char * const phase_flag14_groups[] = {
++> 	"gpio25",
++> };
++> static const char * const dac_calib12_groups[] = {
++> 	"gpio25",
++> };
++> static const char * const atest_usb23_groups[] = {
++> 	"gpio25",
++> };
++> static const char * const pbs10_groups[] = {
++> 	"gpio26",
++> };
++> static const char * const phase_flag15_groups[] = {
++> 	"gpio26",
++> };
++> static const char * const dac_calib13_groups[] = {
++> 	"gpio26",
++> };
++> static const char * const atest_usb2_groups[] = {
++> 	"gpio26",
++> };
++> static const char * const vsense_trigger_groups[] = {
++> 	"gpio26",
++> };
++> static const char * const qdss_cti_groups[] = {
++> 	"gpio27", "gpio28", "gpio72", "gpio73", "gpio96", "gpio97",
++> };
++> static const char * const CCI_TIMER2_groups[] = {
++> 	"gpio28",
++> };
++> static const char * const phase_flag16_groups[] = {
++> 	"gpio29",
++> };
++> static const char * const dac_calib14_groups[] = {
++> 	"gpio29",
++> };
++> static const char * const atest_char_groups[] = {
++> 	"gpio29",
++> };
++> static const char * const phase_flag17_groups[] = {
++> 	"gpio30",
++> };
++> static const char * const dac_calib15_groups[] = {
++> 	"gpio30",
++> };
++> static const char * const atest_char0_groups[] = {
++> 	"gpio30",
++> };
++> static const char * const GP_PDM0_groups[] = {
++> 	"gpio31", "gpio95",
++> };
++> static const char * const phase_flag18_groups[] = {
++> 	"gpio31",
++> };
++> static const char * const dac_calib16_groups[] = {
++> 	"gpio31",
++> };
++> static const char * const atest_char1_groups[] = {
++> 	"gpio31",
++> };
++> static const char * const CCI_TIMER3_groups[] = {
++> 	"gpio32",
++> };
++> static const char * const GP_PDM1_groups[] = {
++> 	"gpio32", "gpio96",
++> };
++> static const char * const phase_flag19_groups[] = {
++> 	"gpio32",
++> };
++> static const char * const dac_calib17_groups[] = {
++> 	"gpio32",
++> };
++> static const char * const atest_char2_groups[] = {
++> 	"gpio32",
++> };
++> static const char * const GP_PDM2_groups[] = {
++> 	"gpio33", "gpio97",
++> };
++> static const char * const phase_flag20_groups[] = {
++> 	"gpio33",
++> };
++> static const char * const dac_calib18_groups[] = {
++> 	"gpio33",
++> };
++> static const char * const atest_char3_groups[] = {
++> 	"gpio33",
++> };
++> static const char * const phase_flag21_groups[] = {
++> 	"gpio35",
++> };
++> static const char * const qdss_gpio14_groups[] = {
++> 	"gpio35", "gpio94",
++> };
++> static const char * const phase_flag22_groups[] = {
++> 	"gpio36",
++> };
++> static const char * const qdss_gpio15_groups[] = {
++> 	"gpio36", "gpio95",
++> };
++> static const char * const NAV_GPIO_groups[] = {
++> 	"gpio42", "gpio47", "gpio52", "gpio95", "gpio96", "gpio97", "gpio106",
++> 	"gpio107", "gpio108",
++> };
++> static const char * const phase_flag23_groups[] = {
++> 	"gpio43",
++> };
++> static const char * const phase_flag24_groups[] = {
++> 	"gpio44",
++> };
++> static const char * const phase_flag25_groups[] = {
++> 	"gpio45",
++> };
++> static const char * const pbs14_groups[] = {
++> 	"gpio47",
++> };
++> static const char * const vfr_1_groups[] = {
++> 	"gpio48",
++> };
++> static const char * const pbs15_groups[] = {
++> 	"gpio48",
++> };
++> static const char * const PA_INDICATOR_groups[] = {
++> 	"gpio49",
++> };
++> static const char * const gsm1_tx_groups[] = {
++> 	"gpio53",
++> };
++> static const char * const SSBI_WTR1_groups[] = {
++> 	"gpio59", "gpio60",
++> };
++> static const char * const pll_clk_groups[] = {
++> 	"gpio61",
++> };
++> static const char * const pll_bypassnl_groups[] = {
++> 	"gpio62",
++> };
++> static const char * const pll_reset_groups[] = {
++> 	"gpio63",
++> };
++> static const char * const phase_flag26_groups[] = {
++> 	"gpio63",
++> };
++> static const char * const ddr_pxi0_groups[] = {
++> 	"gpio63", "gpio64",
++> };
++> static const char * const gsm0_tx_groups[] = {
++> 	"gpio64",
++> };
++> static const char * const phase_flag27_groups[] = {
++> 	"gpio64",
++> };
++> static const char * const GCC_GP2_groups[] = {
++> 	"gpio69", "gpio107",
++> };
++> static const char * const qdss_gpio12_groups[] = {
++> 	"gpio69", "gpio90",
++> };
++> static const char * const ddr_pxi1_groups[] = {
++> 	"gpio69", "gpio70",
++> };
++> static const char * const GCC_GP3_groups[] = {
++> 	"gpio70", "gpio106",
++> };
++> static const char * const qdss_gpio13_groups[] = {
++> 	"gpio70", "gpio91",
++> };
++> static const char * const dbg_out_groups[] = {
++> 	"gpio71",
++> };
++> static const char * const uim2_data_groups[] = {
++> 	"gpio72",
++> };
++> static const char * const uim2_clk_groups[] = {
++> 	"gpio73",
++> };
++> static const char * const uim2_reset_groups[] = {
++> 	"gpio74",
++> };
++> static const char * const uim2_present_groups[] = {
++> 	"gpio75",
++> };
++> static const char * const uim1_data_groups[] = {
++> 	"gpio76",
++> };
++> static const char * const uim1_clk_groups[] = {
++> 	"gpio77",
++> };
++> static const char * const uim1_reset_groups[] = {
++> 	"gpio78",
++> };
++> static const char * const uim1_present_groups[] = {
++> 	"gpio79",
++> };
++> static const char * const dac_calib19_groups[] = {
++> 	"gpio80",
++> };
++> static const char * const mdp_vsync_groups[] = {
++> 	"gpio81", "gpio96", "gpio97",
++> };
++> static const char * const mdp_vsync_out_0_groups[] = {
++> 	"gpio81",
++> };
++> static const char * const mdp_vsync_out_1_groups[] = {
++> 	"gpio81",
++> };
++> static const char * const dac_calib20_groups[] = {
++> 	"gpio81",
++> };
++> static const char * const dac_calib21_groups[] = {
++> 	"gpio82",
++> };
++> static const char * const atest_bbrx1_groups[] = {
++> 	"gpio86",
++> };
++> static const char * const pbs11_groups[] = {
++> 	"gpio87",
++> };
++> static const char * const usb_phy_groups[] = {
++> 	"gpio89",
++> };
++> static const char * const atest_bbrx0_groups[] = {
++> 	"gpio89",
++> };
++> static const char * const mss_lte_groups[] = {
++> 	"gpio90", "gpio91",
++> };
++> static const char * const pbs12_groups[] = {
++> 	"gpio90",
++> };
++> static const char * const pbs13_groups[] = {
++> 	"gpio91",
++> };
++> static const char * const wlan1_adc0_groups[] = {
++> 	"gpio94",
++> };
++> static const char * const wlan1_adc1_groups[] = {
++> 	"gpio95",
++> };
++> static const char * const sd_write_groups[] = {
++> 	"gpio96",
++> };
++> static const char * const JITTER_BIST_groups[] = {
++> 	"gpio96", "gpio97",
++> };
++> static const char * const atest_gpsadc_dtest0_native_groups[] = {
++> 	"gpio100",
++> };
++> static const char * const atest_gpsadc_dtest1_native_groups[] = {
++> 	"gpio101",
++> };
++> static const char * const phase_flag28_groups[] = {
++> 	"gpio102",
++> };
++> static const char * const dac_calib22_groups[] = {
++> 	"gpio102",
++> };
++> static const char * const ddr_pxi2_groups[] = {
++> 	"gpio102", "gpio103",
++> };
++> static const char * const phase_flag29_groups[] = {
++> 	"gpio103",
++> };
++> static const char * const dac_calib23_groups[] = {
++> 	"gpio103",
++> };
++> static const char * const phase_flag30_groups[] = {
++> 	"gpio104",
++> };
++> static const char * const dac_calib24_groups[] = {
++> 	"gpio104",
++> };
++> static const char * const ddr_pxi3_groups[] = {
++> 	"gpio104", "gpio105",
++> };
++> static const char * const phase_flag31_groups[] = {
++> 	"gpio105",
++> };
++> static const char * const dac_calib25_groups[] = {
++> 	"gpio105",
++> };
++> 
++> static const struct pinfunction khaje_functions[] = {
++> 	FUNCTION(gpio),
++> 	FUNCTION(qup0),
++> 	FUNCTION(usb2phy_ac),
++> 	FUNCTION(ddr_bist),
++> 	FUNCTION(m_voc),
++> 	FUNCTION(phase_flag0),
++> 	FUNCTION(qdss_gpio8),
++> 	FUNCTION(atest_tsens),
++> 	FUNCTION(mpm_pwr),
++> 	FUNCTION(phase_flag1),
++> 	FUNCTION(qdss_gpio9),
++> 	FUNCTION(atest_tsens2),
++> 	FUNCTION(phase_flag2),
++> 	FUNCTION(qdss_gpio10),
++> 	FUNCTION(dac_calib0),
++> 	FUNCTION(atest_usb10),
++> 	FUNCTION(phase_flag3),
++> 	FUNCTION(qdss_gpio11),
++> 	FUNCTION(dac_calib1),
++> 	FUNCTION(atest_usb11),
++> 	FUNCTION(qup1),
++> 	FUNCTION(CRI_TRNG0),
++> 	FUNCTION(phase_flag4),
++> 	FUNCTION(dac_calib2),
++> 	FUNCTION(atest_usb12),
++> 	FUNCTION(CRI_TRNG1),
++> 	FUNCTION(phase_flag5),
++> 	FUNCTION(dac_calib3),
++> 	FUNCTION(atest_usb13),
++> 	FUNCTION(qup2),
++> 	FUNCTION(phase_flag6),
++> 	FUNCTION(dac_calib4),
++> 	FUNCTION(atest_usb1),
++> 	FUNCTION(qup3),
++> 	FUNCTION(pbs_out),
++> 	FUNCTION(PLL_BIST),
++> 	FUNCTION(qdss_gpio),
++> 	FUNCTION(tsense_pwm),
++> 	FUNCTION(AGERA_PLL),
++> 	FUNCTION(pbs0),
++> 	FUNCTION(qdss_gpio0),
++> 	FUNCTION(pbs1),
++> 	FUNCTION(qdss_gpio1),
++> 	FUNCTION(qup4),
++> 	FUNCTION(tgu_ch0),
++> 	FUNCTION(tgu_ch1),
++> 	FUNCTION(qup5),
++> 	FUNCTION(tgu_ch2),
++> 	FUNCTION(phase_flag7),
++> 	FUNCTION(qdss_gpio4),
++> 	FUNCTION(dac_calib5),
++> 	FUNCTION(tgu_ch3),
++> 	FUNCTION(phase_flag8),
++> 	FUNCTION(qdss_gpio5),
++> 	FUNCTION(dac_calib6),
++> 	FUNCTION(phase_flag9),
++> 	FUNCTION(qdss_gpio6),
++> 	FUNCTION(dac_calib7),
++> 	FUNCTION(phase_flag10),
++> 	FUNCTION(qdss_gpio7),
++> 	FUNCTION(dac_calib8),
++> 	FUNCTION(SDC2_TB),
++> 	FUNCTION(CRI_TRNG),
++> 	FUNCTION(pbs2),
++> 	FUNCTION(qdss_gpio2),
++> 	FUNCTION(SDC1_TB),
++> 	FUNCTION(pbs3),
++> 	FUNCTION(qdss_gpio3),
++> 	FUNCTION(cam_mclk),
++> 	FUNCTION(pbs4),
++> 	FUNCTION(adsp_ext),
++> 	FUNCTION(pbs5),
++> 	FUNCTION(cci_i2c),
++> 	FUNCTION(prng_rosc),
++> 	FUNCTION(pbs6),
++> 	FUNCTION(phase_flag11),
++> 	FUNCTION(dac_calib9),
++> 	FUNCTION(atest_usb20),
++> 	FUNCTION(pbs7),
++> 	FUNCTION(phase_flag12),
++> 	FUNCTION(dac_calib10),
++> 	FUNCTION(atest_usb21),
++> 	FUNCTION(CCI_TIMER1),
++> 	FUNCTION(GCC_GP1),
++> 	FUNCTION(pbs8),
++> 	FUNCTION(phase_flag13),
++> 	FUNCTION(dac_calib11),
++> 	FUNCTION(atest_usb22),
++> 	FUNCTION(cci_async),
++> 	FUNCTION(CCI_TIMER0),
++> 	FUNCTION(pbs9),
++> 	FUNCTION(phase_flag14),
++> 	FUNCTION(dac_calib12),
++> 	FUNCTION(atest_usb23),
++> 	FUNCTION(pbs10),
++> 	FUNCTION(phase_flag15),
++> 	FUNCTION(dac_calib13),
++> 	FUNCTION(atest_usb2),
++> 	FUNCTION(vsense_trigger),
++> 	FUNCTION(qdss_cti),
++> 	FUNCTION(CCI_TIMER2),
++> 	FUNCTION(phase_flag16),
++> 	FUNCTION(dac_calib14),
++> 	FUNCTION(atest_char),
++> 	FUNCTION(phase_flag17),
++> 	FUNCTION(dac_calib15),
++> 	FUNCTION(atest_char0),
++> 	FUNCTION(GP_PDM0),
++> 	FUNCTION(phase_flag18),
++> 	FUNCTION(dac_calib16),
++> 	FUNCTION(atest_char1),
++> 	FUNCTION(CCI_TIMER3),
++> 	FUNCTION(GP_PDM1),
++> 	FUNCTION(phase_flag19),
++> 	FUNCTION(dac_calib17),
++> 	FUNCTION(atest_char2),
++> 	FUNCTION(GP_PDM2),
++> 	FUNCTION(phase_flag20),
++> 	FUNCTION(dac_calib18),
++> 	FUNCTION(atest_char3),
++> 	FUNCTION(phase_flag21),
++> 	FUNCTION(qdss_gpio14),
++> 	FUNCTION(phase_flag22),
++> 	FUNCTION(qdss_gpio15),
++> 	FUNCTION(NAV_GPIO),
++> 	FUNCTION(phase_flag23),
++> 	FUNCTION(phase_flag24),
++> 	FUNCTION(phase_flag25),
++> 	FUNCTION(pbs14),
++> 	FUNCTION(vfr_1),
++> 	FUNCTION(pbs15),
++> 	FUNCTION(PA_INDICATOR),
++> 	FUNCTION(gsm1_tx),
++> 	FUNCTION(SSBI_WTR1),
++> 	FUNCTION(pll_clk),
++> 	FUNCTION(pll_bypassnl),
++> 	FUNCTION(pll_reset),
++> 	FUNCTION(phase_flag26),
++> 	FUNCTION(ddr_pxi0),
++> 	FUNCTION(gsm0_tx),
++> 	FUNCTION(phase_flag27),
++> 	FUNCTION(GCC_GP2),
++> 	FUNCTION(qdss_gpio12),
++> 	FUNCTION(ddr_pxi1),
++> 	FUNCTION(GCC_GP3),
++> 	FUNCTION(qdss_gpio13),
++> 	FUNCTION(dbg_out),
++> 	FUNCTION(uim2_data),
++> 	FUNCTION(uim2_clk),
++> 	FUNCTION(uim2_reset),
++> 	FUNCTION(uim2_present),
++> 	FUNCTION(uim1_data),
++> 	FUNCTION(uim1_clk),
++> 	FUNCTION(uim1_reset),
++> 	FUNCTION(uim1_present),
++> 	FUNCTION(dac_calib19),
++> 	FUNCTION(mdp_vsync),
++> 	FUNCTION(mdp_vsync_out_0),
++> 	FUNCTION(mdp_vsync_out_1),
++> 	FUNCTION(dac_calib20),
++> 	FUNCTION(dac_calib21),
++> 	FUNCTION(atest_bbrx1),
++> 	FUNCTION(pbs11),
++> 	FUNCTION(usb_phy),
++> 	FUNCTION(atest_bbrx0),
++> 	FUNCTION(mss_lte),
++> 	FUNCTION(pbs12),
++> 	FUNCTION(pbs13),
++> 	FUNCTION(wlan1_adc0),
++> 	FUNCTION(wlan1_adc1),
++> 	FUNCTION(sd_write),
++> 	FUNCTION(JITTER_BIST),
++> 	FUNCTION(atest_gpsadc_dtest0_native),
++> 	FUNCTION(atest_gpsadc_dtest1_native),
++> 	FUNCTION(phase_flag28),
++> 	FUNCTION(dac_calib22),
++> 	FUNCTION(ddr_pxi2),
++> 	FUNCTION(phase_flag29),
++> 	FUNCTION(dac_calib23),
++> 	FUNCTION(phase_flag30),
++> 	FUNCTION(dac_calib24),
++> 	FUNCTION(ddr_pxi3),
++> 	FUNCTION(phase_flag31),
++> 	FUNCTION(dac_calib25),
++> };
++> 
++> /* Every pin is maintained as a single group, and missing or non-existing pin
++>  * would be maintained as dummy group to synchronize pin group index with
++>  * pin descriptor registered with pinctrl core.
++>  * Clients would not be able to request these dummy pin groups.
++>  */
++> static const struct msm_pingroup khaje_groups[] = {
++> 	[0] = PINGROUP(0, WEST, qup0, usb2phy_ac, m_voc, ddr_bist, NA,
++> 		       phase_flag0, qdss_gpio8, atest_tsens, NA, 0x71000, 1),
++> 	[1] = PINGROUP(1, WEST, qup0, mpm_pwr, ddr_bist, NA, phase_flag1,
++> 		       qdss_gpio9, atest_tsens2, NA, NA, 0, -1),
++> 	[2] = PINGROUP(2, WEST, qup0, ddr_bist, NA, phase_flag2, qdss_gpio10,
++> 		       dac_calib0, atest_usb10, NA, NA, 0, -1),
++> 	[3] = PINGROUP(3, WEST, qup0, ddr_bist, NA, phase_flag3, qdss_gpio11,
++> 		       dac_calib1, atest_usb11, NA, NA, 0x71000, 2),
++> 	[4] = PINGROUP(4, WEST, qup1, CRI_TRNG0, NA, phase_flag4, dac_calib2,
++> 		       atest_usb12, NA, NA, NA, 0x71000, 3),
++> 	[5] = PINGROUP(5, WEST, qup1, CRI_TRNG1, NA, phase_flag5, dac_calib3,
++> 		       atest_usb13, NA, NA, NA, 0, -1),
++> 	[6] = PINGROUP(6, WEST, qup2, NA, phase_flag6, dac_calib4, atest_usb1,
++> 		       NA, NA, NA, NA, 0x71000, 4),
++> 	[7] = PINGROUP(7, WEST, qup2, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[8] = PINGROUP(8, EAST, qup3, pbs_out, PLL_BIST, NA, qdss_gpio, NA,
++> 		       tsense_pwm, NA, NA, 0x71000, 0),
++> 	[9] = PINGROUP(9, EAST, qup3, pbs_out, PLL_BIST, NA, qdss_gpio, NA, NA,
++> 		       NA, NA, 0, -1),
++> 	[10] = PINGROUP(10, EAST, qup3, AGERA_PLL, NA, pbs0, qdss_gpio0, NA,
++> 			NA, NA, NA, 0, -1),
++> 	[11] = PINGROUP(11, EAST, qup3, AGERA_PLL, NA, pbs1, qdss_gpio1, NA,
++> 			NA, NA, NA, 0x71000, 1),
++> 	[12] = PINGROUP(12, WEST, qup4, tgu_ch0, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[13] = PINGROUP(13, WEST, qup4, tgu_ch1, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 5),
++> 	[14] = PINGROUP(14, WEST, qup5, tgu_ch2, NA, phase_flag7, qdss_gpio4,
++> 			dac_calib5, NA, NA, NA, 0x71000, 6),
++> 	[15] = PINGROUP(15, WEST, qup5, tgu_ch3, NA, phase_flag8, qdss_gpio5,
++> 			dac_calib6, NA, NA, NA, 0, -1),
++> 	[16] = PINGROUP(16, WEST, qup5, NA, phase_flag9, qdss_gpio6,
++> 			dac_calib7, NA, NA, NA, NA, 0, -1),
++> 	[17] = PINGROUP(17, WEST, qup5, NA, phase_flag10, qdss_gpio7,
++> 			dac_calib8, NA, NA, NA, NA, 0x71000, 7),
++> 	[18] = PINGROUP(18, EAST, SDC2_TB, CRI_TRNG, pbs2, qdss_gpio2, NA, NA,
++> 			NA, NA, NA, 0x71000, 2),
++> 	[19] = PINGROUP(19, EAST, SDC1_TB, pbs3, qdss_gpio3, NA, NA, NA, NA,
++> 			NA, NA, 0x71000, 3),
++> 	[20] = PINGROUP(20, EAST, cam_mclk, pbs4, qdss_gpio4, NA, NA, NA, NA,
++> 			NA, NA, 0, -1),
++> 	[21] = PINGROUP(21, EAST, cam_mclk, adsp_ext, pbs5, qdss_gpio5, NA, NA,
++> 			NA, NA, NA, 0, -1),
++> 	[22] = PINGROUP(22, EAST, cci_i2c, prng_rosc, NA, pbs6, phase_flag11,
++> 			qdss_gpio6, dac_calib9, atest_usb20, NA, 0, -1),
++> 	[23] = PINGROUP(23, EAST, cci_i2c, prng_rosc, NA, pbs7, phase_flag12,
++> 			qdss_gpio7, dac_calib10, atest_usb21, NA, 0, -1),
++> 	[24] = PINGROUP(24, EAST, CCI_TIMER1, GCC_GP1, NA, pbs8, phase_flag13,
++> 			qdss_gpio8, dac_calib11, atest_usb22, NA, 0x71000, 4),
++> 	[25] = PINGROUP(25, EAST, cci_async, CCI_TIMER0, NA, pbs9,
++> 			phase_flag14, qdss_gpio9, dac_calib12, atest_usb23, NA,
++> 			0x71000, 5),
++> 	[26] = PINGROUP(26, EAST, NA, pbs10, phase_flag15, qdss_gpio10,
++> 			dac_calib13, atest_usb2, vsense_trigger, NA, NA, 0, -1),
++> 	[27] = PINGROUP(27, EAST, cam_mclk, qdss_cti, NA, NA, NA, NA, NA, NA,
++> 			NA, 0x71000, 6),
++> 	[28] = PINGROUP(28, EAST, cam_mclk, CCI_TIMER2, qdss_cti, NA, NA, NA,
++> 			NA, NA, NA, 0x71000, 7),
++> 	[29] = PINGROUP(29, EAST, cci_i2c, NA, phase_flag16, dac_calib14,
++> 			atest_char, NA, NA, NA, NA, 0, -1),
++> 	[30] = PINGROUP(30, EAST, cci_i2c, NA, phase_flag17, dac_calib15,
++> 			atest_char0, NA, NA, NA, NA, 0, -1),
++> 	[31] = PINGROUP(31, EAST, GP_PDM0, NA, phase_flag18, dac_calib16,
++> 			atest_char1, NA, NA, NA, NA, 0x71000, 8),
++> 	[32] = PINGROUP(32, EAST, CCI_TIMER3, GP_PDM1, NA, phase_flag19,
++> 			dac_calib17, atest_char2, NA, NA, NA, 0x71000, 9),
++> 	[33] = PINGROUP(33, EAST, GP_PDM2, NA, phase_flag20, dac_calib18,
++> 			atest_char3, NA, NA, NA, NA, 0x71000, 10),
++> 	[34] = PINGROUP(34, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 11),
++> 	[35] = PINGROUP(35, EAST, NA, phase_flag21, qdss_gpio14, NA, NA, NA,
++> 			NA, NA, NA, 0x71000, 12),
++> 	[36] = PINGROUP(36, EAST, NA, phase_flag22, qdss_gpio15, NA, NA, NA,
++> 			NA, NA, NA, 0x71000, 13),
++> 	[37] = PINGROUP(37, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[38] = PINGROUP(38, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[39] = PINGROUP(39, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 14),
++> 	[40] = PINGROUP(40, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[41] = PINGROUP(41, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[42] = PINGROUP(42, EAST, NA, NAV_GPIO, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[43] = PINGROUP(43, EAST, NA, phase_flag23, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[44] = PINGROUP(44, EAST, NA, NA, phase_flag24, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[45] = PINGROUP(45, EAST, NA, NA, phase_flag25, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[46] = PINGROUP(46, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 15),
++> 	[47] = PINGROUP(47, EAST, NA, NAV_GPIO, NA, pbs14, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[48] = PINGROUP(48, EAST, NA, vfr_1, NA, pbs15, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[49] = PINGROUP(49, EAST, NA, PA_INDICATOR, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[50] = PINGROUP(50, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[51] = PINGROUP(51, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[52] = PINGROUP(52, EAST, NA, NAV_GPIO, pbs_out, NA, NA, NA, NA, NA,
++> 			NA, 0, -1),
++> 	[53] = PINGROUP(53, EAST, NA, gsm1_tx, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[54] = PINGROUP(54, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[55] = PINGROUP(55, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[56] = PINGROUP(56, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[57] = PINGROUP(57, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[58] = PINGROUP(58, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[59] = PINGROUP(59, EAST, NA, SSBI_WTR1, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[60] = PINGROUP(60, EAST, NA, SSBI_WTR1, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[61] = PINGROUP(61, EAST, NA, pll_clk, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[62] = PINGROUP(62, EAST, NA, pll_bypassnl, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 16),
++> 	[63] = PINGROUP(63, EAST, pll_reset, NA, phase_flag26, ddr_pxi0, NA,
++> 			NA, NA, NA, NA, 0x71000, 17),
++> 	[64] = PINGROUP(64, EAST, gsm0_tx, NA, phase_flag27, ddr_pxi0, NA, NA,
++> 			NA, NA, NA, 0x71000, 18),
++> 	[65] = PINGROUP(65, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 8),
++> 	[66] = PINGROUP(66, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 9),
++> 	[67] = PINGROUP(67, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 10),
++> 	[68] = PINGROUP(68, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[69] = PINGROUP(69, WEST, qup1, GCC_GP2, qdss_gpio12, ddr_pxi1, NA, NA,
++> 			NA, NA, NA, 0x71000, 11),
++> 	[70] = PINGROUP(70, WEST, qup1, GCC_GP3, qdss_gpio13, ddr_pxi1, NA, NA,
++> 			NA, NA, NA, 0x71000, 12),
++> 	[71] = PINGROUP(71, WEST, qup2, dbg_out, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 18),
++> 	[72] = PINGROUP(72, SOUTH, uim2_data, qdss_cti, NA, NA, NA, NA, NA, NA,
++> 			NA, 0x71000, 3),
++> 	[73] = PINGROUP(73, SOUTH, uim2_clk, qdss_cti, NA, NA, NA, NA, NA, NA,
++> 			NA, 0, -1),
++> 	[74] = PINGROUP(74, SOUTH, uim2_reset, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[75] = PINGROUP(75, SOUTH, uim2_present, NA, NA, NA, NA, NA, NA, NA,
++> 			NA, 0x71000, 4),
++> 	[76] = PINGROUP(76, SOUTH, uim1_data, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[77] = PINGROUP(77, SOUTH, uim1_clk, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[78] = PINGROUP(78, SOUTH, uim1_reset, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[79] = PINGROUP(79, SOUTH, uim1_present, NA, NA, NA, NA, NA, NA, NA,
++> 			NA, 0x71000, 5),
++> 	[80] = PINGROUP(80, WEST, qup2, dac_calib19, NA, NA, NA, NA, NA, NA,
++> 			NA, 0x71000, 13),
++> 	[81] = PINGROUP(81, WEST, mdp_vsync_out_0, mdp_vsync_out_1, mdp_vsync,
++> 			dac_calib20, NA, NA, NA, NA, NA, 0x71000, 14),
++> 	[82] = PINGROUP(82, WEST, qup0, dac_calib21, NA, NA, NA, NA, NA, NA,
++> 			NA, 0, -1),
++> 	[83] = PINGROUP(83, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 15),
++> 	[84] = PINGROUP(84, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 16),
++> 	[85] = PINGROUP(85, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 17),
++> 	[86] = PINGROUP(86, WEST, qup0, GCC_GP1, NA, atest_bbrx1, NA, NA, NA,
++> 			NA, NA, 0, -1),
++> 	[87] = PINGROUP(87, EAST, pbs11, qdss_gpio11, NA, NA, NA, NA, NA, NA,
++> 			NA, 0x71000, 19),
++> 	[88] = PINGROUP(88, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 20),
++> 	[89] = PINGROUP(89, WEST, usb_phy, atest_bbrx0, NA, NA, NA, NA, NA, NA,
++> 			NA, 0x71000, 19),
++> 	[90] = PINGROUP(90, EAST, mss_lte, pbs12, qdss_gpio12, NA, NA, NA, NA,
++> 			NA, NA, 0, -1),
++> 	[91] = PINGROUP(91, EAST, mss_lte, pbs13, qdss_gpio13, NA, NA, NA, NA,
++> 			NA, NA, 0x71000, 21),
++> 	[92] = PINGROUP(92, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[93] = PINGROUP(93, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 20),
++> 	[94] = PINGROUP(94, WEST, NA, NA, qdss_gpio14, wlan1_adc0, NA, NA, NA,
++> 			NA, NA, 0x71000, 21),
++> 	[95] = PINGROUP(95, WEST, NAV_GPIO, GP_PDM0, NA, qdss_gpio15,
++> 			wlan1_adc1, NA, NA, NA, NA, 0x71000, 22),
++> 	[96] = PINGROUP(96, WEST, qup4, NAV_GPIO, mdp_vsync, GP_PDM1, sd_write,
++> 			JITTER_BIST, NA, qdss_cti, qdss_cti, 0x71000, 23),
++> 	[97] = PINGROUP(97, WEST, qup4, NAV_GPIO, mdp_vsync, GP_PDM2,
++> 			JITTER_BIST, NA, qdss_cti, qdss_cti, NA, 0x71000, 24),
++> 	[98] = PINGROUP(98, SOUTH, gpio, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[99] = PINGROUP(99, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0x71000, 6),
++> 	[100] = PINGROUP(100, SOUTH, atest_gpsadc_dtest0_native, NA, NA, NA,
++> 			 NA, NA, NA, NA, NA, 0, -1),
++> 	[101] = PINGROUP(101, SOUTH, atest_gpsadc_dtest1_native, gpio, NA, NA,
++> 			 NA, NA, NA, NA, NA, 0, -1),
++> 	[102] = PINGROUP(102, SOUTH, phase_flag28, dac_calib22, ddr_pxi2, NA,
++> 			 NA, NA, NA, NA, NA, 0x71000, 7),
++> 	[103] = PINGROUP(103, SOUTH, phase_flag29, dac_calib23, ddr_pxi2, NA,
++> 			 NA, NA, NA, NA, NA, 0x71000, 8),
++> 	[104] = PINGROUP(104, SOUTH, phase_flag30, qdss_gpio1, dac_calib24,
++> 			 ddr_pxi3, NA, NA, NA, NA, NA, 0x71000, 9),
++> 	[105] = PINGROUP(105, SOUTH, phase_flag31, qdss_gpio, dac_calib25,
++> 			 ddr_pxi3, NA, NA, NA, NA, NA, 0x71000, 10),
++> 	[106] = PINGROUP(106, SOUTH, NAV_GPIO, GCC_GP3, qdss_gpio, gpio, NA, NA,
++> 			 NA, NA, NA, 0x71000, 11),
++> 	[107] = PINGROUP(107, SOUTH, NAV_GPIO, GCC_GP2, qdss_gpio0, NA, NA, NA,
++> 			 NA, NA, NA, 0x71000, 12),
++> 	[108] = PINGROUP(108, SOUTH, NAV_GPIO, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			0, -1),
++> 	[109] = PINGROUP(109, SOUTH, qdss_gpio2, NA, NA, NA, NA, NA, NA, NA,
++> 			 NA, 0x71000, 13),
++> 	[110] = PINGROUP(110, SOUTH, qdss_gpio3, NA, NA, NA, NA, NA, NA, NA,
++> 			 NA, 0, -1),
++> 	[111] = PINGROUP(111, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
++> 	[112] = PINGROUP(112, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA,
++> 			 0x71000, 14),
++> 	[113] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x175000, 15, 0),
++> 	[114] = SDC_QDSD_PINGROUP(sdc1_clk, 0x175000, 13, 6),
++> 	[115] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x175000, 11, 3),
++> 	[116] = SDC_QDSD_PINGROUP(sdc1_data, 0x175000, 9, 0),
++> 	[117] = SDC_QDSD_PINGROUP(sdc2_clk, 0x573000, 14, 6),
++> 	[118] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x573000, 11, 3),
++> 	[119] = SDC_QDSD_PINGROUP(sdc2_data, 0x573000, 9, 0),
++> 	[120] = UFS_RESET(ufs_reset, 0x178000),
++> };
++> 
++> /*
++>  * Sparse GPIO: only proven-safe + Type-C gpio93. Others reserved (MMIO hang).
++>  */
++> static const int khaje_reserved_gpios[] = {
++> 	13,
++> 	14,
++> 	15,
++> 	16,
++> 	17,
++> 	18,
++> 	19,
++> 	20,
++> 	21,
++> 	22,
++> 	23,
++> 	24,
++> 	25,
++> 	26,
++> 	27,
++> 	28,
++> 	29,
++> 	30,
++> 	31,
++> 	32,
++> 	33,
++> 	34,
++> 	35,
++> 	/* 36 vibrator enable — Android vib,en-gpio (EAST; try like valid WEST) */
++> 	37,
++> 	38,
++> 	39,
++> 	40,
++> 	41,
++> 	42,
++> 	43,
++> 	44,
++> 	45,
++> 	46,
++> 	47,
++> 	48,
++> 	49,
++> 	50,
++> 	51,
++> 	52,
++> 	53,
++> 	54,
++> 	55,
++> 	56,
++> 	57,
++> 	58,
++> 	59,
++> 	60,
++> 	61,
++> 	62,
++> 	63,
++> 	64,
++> 	65,
++> 	66,
++> 	67,
++> 	68,
++> 	69,
++> 	70,
++> 	71,
++> 	72,
++> 	73,
++> 	74,
++> 	75,
++> 	76,
++> 	77,
++> 	78,
++> 	79,
++> 	/* 80 IRQ / 86 RESET — Focaltech FT8006S touch (must stay valid) */
++> 	/* 81 TE / 82 reset — WEST, needed for FT8006S panel */
++> 	83,
++> 	84,
++> 	85,
++> 	88,
++> 	89,
++> 	90,
++> 	91,
++> 	92,
++> 	94,
++> 	95,
++> 	96,
++> 	97,
++> 	/* 99,100 still reserved; 98/101 used by FT8006S bias */
++> 	99,
++> 	100,
++> 	-1
++> };
++> 
++> static const struct msm_pinctrl_soc_data khaje_pinctrl = {
++> 	.pins = khaje_pins,
++> 	.npins = ARRAY_SIZE(khaje_pins),
++> 	.functions = khaje_functions,
++> 	.nfunctions = ARRAY_SIZE(khaje_functions),
++> 	.groups = khaje_groups,
++> 	.ngroups = ARRAY_SIZE(khaje_groups),
++> 	.reserved_gpios = khaje_reserved_gpios,
++> 	.ngpios = 121,
++> 	/* no egpio virtual mux for bringup */
++> };
++> 
++> static int khaje_pinctrl_probe(struct platform_device *pdev)
++> {
++> 	return msm_pinctrl_probe(pdev, &khaje_pinctrl);
++> }
++> 
++> static const struct of_device_id khaje_pinctrl_of_match[] = {
++> 	{ .compatible = "qcom,khaje-pinctrl", },
++> 	{ },
++> };
++> 
++> static struct platform_driver khaje_pinctrl_driver = {
++> 	.driver = {
++> 		.name = "khaje-pinctrl",
++> 		.of_match_table = khaje_pinctrl_of_match,
++> 	},
++> 	.probe = khaje_pinctrl_probe,
++> };
++> 
++> static int __init khaje_pinctrl_init(void)
++> {
++> 	return platform_driver_register(&khaje_pinctrl_driver);
++> }
++> arch_initcall(khaje_pinctrl_init);
++> 
++> static void __exit khaje_pinctrl_exit(void)
++> {
++> 	platform_driver_unregister(&khaje_pinctrl_driver);
++> }
++> module_exit(khaje_pinctrl_exit);
++> 
++> MODULE_DESCRIPTION("QTI khaje pinctrl driver");
++> MODULE_LICENSE("GPL v2");
++> MODULE_DEVICE_TABLE(of, khaje_pinctrl_of_match);

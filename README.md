@@ -9,6 +9,8 @@ Ubuntu 24.04 через кастомный `initramfs` (`pivot-init` → `switch
 **Текущий статус:** ядро полностью грузится, `switch_root` в Ubuntu 24.04
 проходит успешно (systemd, adb по USB-гаджету). Экран работает через
 DRM/DSI: панель FT8006S 720x1650, подсветка, fbcon-консоль.
+Wi-Fi (ath10k_snoc + NetworkManager) и Bluetooth (WCN3990 UART/serdev)
+работают полностью: сканирование, подключение, power on/off cycle.
 GPU Adreno 610: PLL/clock/DRM probe работают, vulkaninfo определяет GPU,
 headless 3D render работает, но display path (DPU scanout from GPU buffer)
 вызывает hardware lockup. Подробный статус — в [`STATUS.md`](STATUS.md).
@@ -27,6 +29,8 @@ Boot time: **27.5 секунд** (kernel 9.8s + userspace 17.7s).
 | Путь | Назначение |
 |---|---|
 | `patches/redmi10c-mainline-*.patch` | Патч поверх `git.kernel.org/.../linux.git` (тег `v7.1.5`) со всеми правками под Redmi 10C |
+| `patches/bt-wcn3990-20260902.patch` | Доп. патч для Bluetooth WCN3990 (поверх основного) |
+| `firmware/qca/` | Прошивки BT: `cmbtfw13.tlv` (rampatch), `cmnv13t.bin` (NVM) |
 | `configs/rain-fog-working.config` | Рабочий `.config` ядра (уже прошедший полную загрузку в Ubuntu) |
 | `configs/busybox-1.36.1.config` | `.config` для busybox, используемого в `pivot-init` |
 | `tools/pivot-init` | Init-скрипт initramfs: поднимает USB ACM, монтирует `cust`, делает `switch_root` |
@@ -61,16 +65,16 @@ Boot time: **27.5 секунд** (kernel 9.8s + userspace 17.7s).
 | GPU Adreno 610 | ⚠️ 70% | Headless render ✅, DPU scanout crash |
 | Vulkan Turnip | ⚠️ 70% | vulkaninfo ✅, vkcube swapchain crash |
 | Wi-Fi | ✅ | Полноценная работа и интеграция с nmcli |
+| Bluetooth | ✅ | WCN3990, UART/serdev, power on/off, scan, pair |
 | Modem | ❌ | remoteproc offline |
 | Audio | ❌ | Не настроен |
-| Bluetooth | ❌ | в процессе |
 | GPS | ❌ | Не начато |
 | Camera | ❌ | Не начато |
 | Fingerprint | ❌ | FPC/Silead |
 | NFC | ❌ | поиск прошивки |
 | Boot time | ✅ 27.5s | Kernel 9.8s + userspace 17.7s |
 
-**Общий прогресс: ~80%** (пользовательская функциональность ~70%)
+**Общий прогресс: ~85%** (пользовательская функциональность ~75%)
 
 ---
 
@@ -219,19 +223,45 @@ fastboot reboot
 
 ---
 
+## Bluetooth firmware
+
+Прошивки WCN3990 (`cmbtfw13.tlv`, `cmnv13t.bin`) защищены авторским
+правом Qualcomm и **не включены в репозиторий**. Их нужно извлечь из
+Android-партиции `cust` (или `vendor`) работающего слота A:
+
+```sh
+# На работающем Android (слот A) или через TWRP:
+adb shell su -c 'find /vendor/firmware /system/vendor/firmware -name "cmbtfw*" -o -name "cmnv*"'
+# Ожидаемый путь: /vendor/firmware/qca/cmbtfw13.tlv, cmnv13t.bin
+
+adb pull /vendor/firmware/qca/cmbtfw13.tlv firmware/qca/
+adb pull /vendor/firmware/qca/cmnv13t.bin  firmware/qca/
+```
+
+На Ubuntu (слот B) прошивки кладутся в `/lib/firmware/qca/`:
+
+```sh
+adb push firmware/qca/cmbtfw13.tlv /lib/firmware/qca/
+adb push firmware/qca/cmnv13t.bin  /lib/firmware/qca/
+```
+
+После установки прошивок и применения патча
+`patches/bt-wcn3990-20260902.patch` Bluetooth поднимается автоматически
+через `modprobe hci_uart` (или при загрузке, если модули в initramfs).
+
+---
+
 ## Что не работает (осталось)
 
 - **GPU 3D rendering + display path** — главная нерешённая задача.
   Headless GPU render работает, но DPU scanout из GPU buffer → hardware lockup.
   SMMU context fault: SID=0x420, iova=0x5c000000.
-- **Wi-Fi** — нет modem firmware, remoteproc offline
 - **Audio** — не настроен
-- **Bluetooth** — WCN3990, не начато
 - **Modem (voice/data)** — не начато
 - **Camera** — не начато
 - **GPS** — не начато
 - **Fingerprint** — проприетарный FPC/Silead
-- **NFC** — NQ-NCI, не начато
+- **NFC** — NQ-NCI, драйвер пробуется, чип не отвечает (FW issue)
 
 ---
 
