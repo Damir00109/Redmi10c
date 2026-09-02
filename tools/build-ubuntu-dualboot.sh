@@ -13,6 +13,7 @@ OUT="$ROOT/out/ubuntu-dualboot"
 RF="$OUT/rootfs"
 KERN="$ROOT/out/linux-7.1.5"
 FW_NOTES="$ROOT/notes/vendor-firmware-20260731/extract"
+BT_FW_NOTES="$ROOT/notes/vendor-bt-firmware/image"
 IR_SRC="$ROOT/out/initramfs-root"
 LOG="$OUT/logs"
 IMG_SIZE_MB="${IMG_SIZE_MB:-1800}"   # cust is 2GiB; leave slack for fs
@@ -88,6 +89,11 @@ fi
 if [ -d "$FW_NOTES/firmware" ]; then
   sudo mkdir -p "$RF/lib/firmware/vendor-orig"
   sudo rsync -a "$FW_NOTES/firmware/" "$RF/lib/firmware/vendor-orig/"
+fi
+if [ -f "$BT_FW_NOTES/crnv21.bin" ] && [ -f "$BT_FW_NOTES/crbtfw21.tlv" ]; then
+  sudo mkdir -p "$RF/lib/firmware/qca/Xiaomi/rain"
+  sudo cp -a "$BT_FW_NOTES/crnv21.bin" "$BT_FW_NOTES/crbtfw21.tlv" \
+    "$RF/lib/firmware/qca/Xiaomi/rain/"
 fi
 
 # hostname / users

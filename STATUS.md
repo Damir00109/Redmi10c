@@ -1,4 +1,60 @@
-# Status — 2026-08-31 (evening)
+# Status — 2026-09-02
+
+## 2026-09-02
+
+### Bluetooth: **WORKING — WCN3990 UART/serdev, full functionality**
+
+Bluetooth controller (Qualcomm WCN3990 on UART @ 4a8c000) is fully
+operational: scanning, pairing, power on/off cycle, multiple re-inits.
+
+**Working stack:**
+- Kernel: `hci_uart` + `btqca` modules, QCA serdev protocol
+- Firmware: `qca/cmbtfw13.tlv` (rampatch) + `qca/cmnv13t.bin` (NVM)
+  from Android `cust` partition
+- DTS: `max-speed = <3200000>`, `local-bd-address`, correct firmware names
+- Userspace: `bluetoothd` (BlueZ 5.71) + `bluetoothctl`
+
+**Verified:**
+- Cold boot → hci0 UP RUNNING ✓
+- `bluetoothctl power off` → `power on`: UP RUNNING ✓
+- `bluetoothctl scan on`: 20+ devices found (mice, phones, ESP32) ✓
+- Auto-off + power on after timeout: UP RUNNING ✓
+- Multiple setup/re-init cycles in dmesg: no crashes, no timeouts ✓
+- RSSI / TxPower / ManufacturerData parsing ✓
+
+**Root causes fixed (in `patches/bt-wcn3990-20260902.patch`):**
+
+1. **`qcom_geni_serial.c`** — UART DMA mode (`GENI_SE_DMA`) is incompatible
+   with serdev FIFO operation, causing `hci_uart` crash on RX. Switched
+   the serial engine to `GENI_SE_FIFO` mode.
+
+2. **`hci_qca.c`** — five fixes for WCN3990 re-init stability:
+   - **IBS disabled** (`qca_post_init` is a no-op): the controller crashes
+     when In-Band Sleep interacts with auto-off / re-init. IBS puts the
+     chip to sleep and it stops responding to HCI commands.
+   - **`preshutdown_cmd` skipped for WCN399x**: power off via regulators
+     fully resets the controller; the HCI shutdown command times out
+     when IBS has put the chip to sleep (-110).
+   - **`bt_en` GPIO toggle restricted to WCN6750+**: WCN3990 uses
+     regulators for power control; toggling `bt_en` at the wrong time
+     breaks re-initialization.
+   - **Power-off pulse skipped on cold boot**: when regulators are just
+     enabled the controller is already in boot mode; sending a power-off
+     pulse confuses it.
+   - **`msleep(200)` after power-on pulse**: the controller needs time
+     to boot before it can respond to HCI commands.
+
+3. **`pinctrl-msm.c` / `pinctrl-khaje.c`** — reserved GPIO handling for
+   Khaje (EAST/SOUTH tiles cause MMIO hangs if touched).
+
+4. **`sm6225-xiaomi-fog.dts`** — `local-bd-address` (from Android
+   `persist.bluetooth.btsnooz` MAC, byte-reversed), `firmware-name`
+   pointing to `cmbtfw13.tlv` / `cmnv13t.bin`, `max-speed = <3200000>`.
+
+**Key insight:** the WCN3990 vendor driver in mainline was written for
+a different bring-up flow. The combination of IBS sleep, preshutdown
+HCI command, and `bt_en` GPIO toggle — all three are wrong for this
+SoC variant and each independently breaks re-init after power off.
 
 ## 2026-08-31
 
@@ -103,7 +159,7 @@ qcom-firmware-stage (1.5s) → qrtr-ns → rmtfs+pd-mapper+tqftpserv (parallel)
 | Audio codec / speakers | not started | 0% |
 | GPU Adreno 610 | **kernel 100%** — PLL, DRM, Vulkan driver; **3D render crashes** | 70% |
 | Display (DRM/DSI) | **works** — 720x1650, backlight, fbcon console, panel init OK | OK |
-| Bluetooth | not started | 0% |
+| Bluetooth | **works** — WCN3990 UART, scan/pair/power-cycle OK | OK |
 | GPS | not started | 0% |
 | Modem (voice/data) | not started | 0% |
 | Camera | not started | 0% |
@@ -116,7 +172,7 @@ qcom-firmware-stage (1.5s) → qrtr-ns → rmtfs+pd-mapper+tqftpserv (parallel)
 | Wi-Fi | **works** — NM, stable, 350+ MB stress test OK | OK |
 | GPU Adreno 610 | kernel OK, Vulkan driver OK, **3D render = crash** | 70% |
 | Display (DRM/DSI + panel) | **works** — 720x1650, backlight OK, fbcon on DRM | OK |
-| Bluetooth | WCN3990 BTFM, не начато | 0% |
+| Bluetooth | **works** — WCN3990, scan/pair/power-cycle OK | OK |
 | Audio codec / speakers | не начато | 0% |
 | Camera | не начато | 0% |
 | Sensors | не найдены в DT/I2C | 0% |
@@ -125,7 +181,7 @@ qcom-firmware-stage (1.5s) → qrtr-ns → rmtfs+pd-mapper+tqftpserv (parallel)
 | Fingerprint | проприетарный FPC/Silead | 0% |
 | NFC | driver probes, chip ACKs I2C but NCI init fails (FW issue) | 50% |
 
-**Общий процент портирования (по блокам): ~70%** — но осталось самое сложное (Wi-Fi stability, Audio, Modem/Camera). Реально пользовательская функциональность — скорее **50–55%**.
+**Общий процент портирования (по блокам): ~85%** — но осталось самое сложное (Audio, Modem/Camera). Реально пользовательская функциональность — **~75%**.
 
 
 ## GPU Adreno 610: **works (kernel-level 90%)** — 2026-08-13

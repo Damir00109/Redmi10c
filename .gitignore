@@ -25,10 +25,13 @@ extracted_*/
 
 # Large local sources/blobs
 notes/vendor-firmware-*
+notes/vendor-bt-firmware/
 notes/dt-adapt
 tools/mkbootimg
 tools/busybox-src
 tools/busybox/
+tools/avb/
+tools/tqftpserv-src/
 
 # rain-overlay: track scripts/configs, but not binary packages or firmware
 tools/rain-overlay/pkg/

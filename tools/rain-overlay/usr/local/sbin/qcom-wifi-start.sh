@@ -33,8 +33,6 @@ if [ -d "$RP" ] && [ "$(cat "$RP/state" 2>/dev/null)" = running ] \
 fi
 [ -d "$RP" ] || { echo "no modem remoteproc"; return 1; }
 
-# No systemctl — early/parallel jobs deadlock; pkill is enough
-pkill -x NetworkManager 2>/dev/null || true
 [ -f /run/rain-depmod.ok ] || { depmod -a 2>/dev/null || true; : >/run/rain-depmod.ok; }
 
 mkdir -p /lib/firmware/qcom/sm6225 /var/lib/tqftpserv \
@@ -190,6 +188,7 @@ done
 if [ $wlan -eq 1 ]; then
   ip link set wlan0 up
   echo OK_wlan0
+  echo 4a8c000.serial > /sys/bus/platform/drivers_probe 2>/dev/null || true
 else
   echo WARN_no_wlan0
   dmesg | egrep -i 'ath10k|wlan|firmware|handover|q6v5' | tail -40

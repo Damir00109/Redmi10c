@@ -1,0 +1,13 @@
+[Unit]
+Description=Rain WiFi late firmware startup and NetworkManager handoff
+After=multi-user.target rain-stable-boot.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/rain-wifi-nm-start.sh
+ExecStartPost=/usr/bin/systemctl start --no-block NetworkManager.service
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target
