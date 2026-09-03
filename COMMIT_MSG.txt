@@ -1,0 +1,48 @@
+Add Bluetooth WCN3990 support: full scan/pair/power-cycle
+
+Bring up the Qualcomm WCN3990 Bluetooth controller on UART (geni
+serial @ 4a8c000) with full functionality: scanning, pairing,
+power on/off cycle, and multiple re-init cycles without crashes.
+
+Root causes fixed (patches/bt-wcn3990-20260902.patch):
+
+1. qcom_geni_serial.c: UART DMA mode (GENI_SE_DMA) is incompatible
+   with serdev FIFO operation — hci_uart crashed on RX. Switched
+   the serial engine to GENI_SE_FIFO mode.
+
+2. hci_qca.c: five fixes for WCN3990 re-init stability:
+   - IBS disabled (qca_post_init is a no-op): controller crashes
+     when In-Band Sleep interacts with auto-off / re-init.
+   - preshutdown_cmd skipped for WCN399x: power off via regulators
+     fully resets the controller; the HCI command times out (-110)
+     when IBS has put the chip to sleep.
+   - bt_en GPIO toggle restricted to WCN6750+: WCN3990 uses
+     regulators for power control; toggling bt_en breaks re-init.
+   - Power-off pulse skipped on cold boot: controller is already
+     in boot mode after regulator enable.
+   - msleep(200) after power-on pulse: controller needs time to
+     boot before responding to HCI commands.
+
+3. pinctrl-msm.c / pinctrl-khaje.c: reserved GPIO handling for
+   Khaje (EAST/SOUTH tiles cause MMIO hangs if touched).
+
+4. sm6225-xiaomi-fog.dts: local-bd-address (from Android MAC,
+   byte-reversed), firmware-name pointing to cmbtfw13.tlv /
+   cmnv13t.bin, max-speed = <3200000>.
+
+Also includes Wi-Fi startup refinements:
+- rain-wifi-nm.service: order Before NetworkManager/wpa_supplicant
+- qcom-wifi-start.sh: drop pkill NetworkManager, trigger
+  drivers_probe for the BT serial port after wlan0 comes up
+- rain-wifi-nm-start.sh: simplify (no NM stop/unmask/start)
+- rain-wifi-late.service: new late-start unit for fallback path
+- build-ubuntu-dualboot.sh: stage BT firmware into rootfs
+
+Verified on hardware:
+- Cold boot → hci0 UP RUNNING
+- bluetoothctl power off → power on: UP RUNNING
+- scan on: 20+ devices found (mice, phones, ESP32)
+- Auto-off + power on after timeout: UP RUNNING
+- Multiple setup/re-init cycles: no crashes, no -110 timeouts
+
+README/README_EN/STATUS updated: overall progress ~85%.

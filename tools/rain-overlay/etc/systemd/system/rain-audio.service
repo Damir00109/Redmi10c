@@ -1,0 +1,12 @@
+[Unit]
+Description=Rain audio modules (ASoC Q6DSP + WCD9375)
+After=rain-wifi-nm.service
+Before=pulseaudio.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/rain-audio-start.sh
+
+[Install]
+WantedBy=multi-user.target

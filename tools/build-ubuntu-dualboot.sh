@@ -63,7 +63,9 @@ apt-get install -y --no-install-recommends \
   usbutils pciutils fdisk parted e2fsprogs \
   qrtr-tools rmtfs tqftpserv protection-domain-mapper \
   libqrtr1 \
-  net-tools wireless-regdb locales
+  net-tools wireless-regdb locales \
+  bluez pulseaudio pulseaudio-module-bluetooth pulseaudio-utils \
+  alsa-utils dbus-x11
 locale-gen en_US.UTF-8 || true
 apt-get clean
 rm -rf /var/lib/apt/lists/*
@@ -95,6 +97,14 @@ if [ -f "$BT_FW_NOTES/crnv21.bin" ] && [ -f "$BT_FW_NOTES/crbtfw21.tlv" ]; then
   sudo cp -a "$BT_FW_NOTES/crnv21.bin" "$BT_FW_NOTES/crbtfw21.tlv" \
     "$RF/lib/firmware/qca/Xiaomi/rain/"
 fi
+# QCA BT firmware (cmbtfw13/cmnv13t — loaded by hci_qca for WCN3990)
+# These ship in linux-firmware; ensure they are present
+if [ -f "$RF/usr/lib/firmware/qca/cmbtfw13.tlv" ]; then
+  sudo mkdir -p "$RF/lib/firmware/qca"
+  sudo cp -a "$RF/usr/lib/firmware/qca/cmbtfw13.tlv" \
+    "$RF/usr/lib/firmware/qca/cmnv13t.bin" \
+    "$RF/lib/firmware/qca/" 2>/dev/null || true
+fi
 
 # hostname / users
 echo 'rain-ubuntu' | sudo tee "$RF/etc/hostname" >/dev/null
@@ -110,9 +120,13 @@ set -e
 groupadd -f netdev
 groupadd -f video
 groupadd -f plugdev
-id rain >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo,netdev,video,plugdev rain
+groupadd -f audio
+id rain >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo,netdev,video,plugdev,audio rain
 echo "rain:rain" | chpasswd
 echo "root:rain" | chpasswd
+# Enable lingering so PulseAudio user session starts at boot
+mkdir -p /var/lib/systemd/linger
+touch /var/lib/systemd/linger/rain
 '
 
 # fstab — root is cust
@@ -180,7 +194,7 @@ fi
 exit 0
 EOF
 sudo chmod 755 "$RF/usr/local/sbin/qcom-wifi-bringup.sh"
-sudo chroot "$RF" systemctl enable qcom-wifi-bringup.service NetworkManager ssh || true
+sudo chroot "$RF" systemctl enable qcom-wifi-bringup.service NetworkManager ssh bluetooth || true
 
 # getty on ttyGS0 (USB ACM) + tty0
 sudo mkdir -p "$RF/etc/systemd/system/getty.target.wants"
