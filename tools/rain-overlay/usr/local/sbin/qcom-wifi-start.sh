@@ -21,8 +21,6 @@ if [ -d "$RP" ] && [ "$(cat "$RP/state" 2>/dev/null)" = running ] \
    && pgrep -x tqftpserv >/dev/null && pgrep -x rmtfs >/dev/null; then
   ip link set wlan0 up 2>/dev/null || true
   echo "stack already up — OK"
-  # Still load BT if not yet loaded
-  _bring_bluetooth
   return 0
 fi
 [ -d "$RP" ] || { echo "FATAL: no modem remoteproc"; return 1; }
@@ -186,36 +184,8 @@ else
 fi
 
 echo "modem=$(cat "$RP/state")"
-
-# --- Bluetooth: load hci_uart for WCN3990 ---
-_bring_bluetooth
-
 echo "=== wifi-start done ==="
 return 0
-}
-
-_bring_bluetooth() {
-  # Skip if hci_uart already loaded and hci0 up
-  if hciconfig hci0 >/dev/null 2>&1 && \
-     hciconfig hci0 | grep -q "UP RUNNING"; then
-    systemctl start bluetooth 2>/dev/null || true
-    return 0
-  fi
-  modprobe hci_uart 2>/dev/null || true
-  # Wait for QCA firmware download + setup
-  for i in $(seq 1 10); do
-    hciconfig hci0 >/dev/null 2>&1 && break
-    sleep 1
-  done
-  if hciconfig hci0 >/dev/null 2>&1; then
-    hciconfig hci0 up 2>/dev/null || true
-    systemctl start bluetooth 2>/dev/null || true
-    # Start PulseAudio user session for rain (requires linger enabled)
-    systemctl start user@1000 2>/dev/null || true
-    echo "BT: hci0 up"
-  else
-    echo "BT: hci0 not found"
-  fi
 }
 
 main "$@" >"$LOG" 2>&1

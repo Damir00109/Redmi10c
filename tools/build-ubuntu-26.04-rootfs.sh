@@ -209,7 +209,7 @@ sudo rm -f "$RF/etc/systemd/system/multi-user.target.wants/"{tqftpserv,rmtfs,pd-
 # enable rain units — ADB gadget (not ACM)
 sudo chroot "$RF" bash -c '
 systemctl enable rain-stable-boot.service usb-adb-gadget.service adbd.service qcom-wifi-bringup.service getty@tty1.service 2>/dev/null || true
-systemctl enable rain-wifi-nm.service rain-audio.service bluetooth 2>/dev/null || true
+systemctl enable rain-wifi-nm.service rain-audio.service rain-bt.service bluetooth 2>/dev/null || true
 systemctl disable usb-acm-gadget.service rain-serial-console.service 2>/dev/null || true
 systemctl disable NetworkManager ssh tqftpserv rmtfs pd-mapper 2>/dev/null || true
 ' || true

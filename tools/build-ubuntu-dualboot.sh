@@ -194,7 +194,7 @@ fi
 exit 0
 EOF
 sudo chmod 755 "$RF/usr/local/sbin/qcom-wifi-bringup.sh"
-sudo chroot "$RF" systemctl enable qcom-wifi-bringup.service NetworkManager ssh bluetooth || true
+sudo chroot "$RF" systemctl enable qcom-wifi-bringup.service NetworkManager ssh bluetooth rain-bt.service || true
 
 # getty on ttyGS0 (USB ACM) + tty0
 sudo mkdir -p "$RF/etc/systemd/system/getty.target.wants"

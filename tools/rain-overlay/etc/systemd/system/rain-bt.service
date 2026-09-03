@@ -1,0 +1,12 @@
+[Unit]
+Description=Rain Bluetooth (hci_uart WCN3990) + PulseAudio
+After=bluetooth.service rain-stable-boot.service
+Wants=bluetooth.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/rain-bt-start.sh
+
+[Install]
+WantedBy=multi-user.target
