@@ -70,7 +70,9 @@ apt-get install -y --no-install-recommends \
   usbutils fdisk parted e2fsprogs \
   qrtr-tools rmtfs tqftpserv protection-domain-mapper \
   libqrtr1 net-tools wireless-regdb locales \
-  network-manager dbus
+  network-manager dbus \
+  bluez pulseaudio pulseaudio-module-bluetooth pulseaudio-utils \
+  alsa-utils dbus-x11
 # keep NM installed but we mask it (ath10k reboot on this SoC)
 locale-gen en_US.UTF-8 || true
 apt-get clean
@@ -90,10 +92,13 @@ tmpfs      /tmp  tmpfs defaults,nosuid,nodev       0 0
 EOF
 sudo chroot "$RF" bash -c '
 set -e
-groupadd -f netdev; groupadd -f video; groupadd -f plugdev
-id rain >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo,netdev,video,plugdev rain
+groupadd -f netdev; groupadd -f video; groupadd -f plugdev; groupadd -f audio
+id rain >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo,netdev,video,plugdev,audio rain
 echo "rain:rain" | chpasswd
 echo "root:rain" | chpasswd
+# Enable lingering so PulseAudio user session starts at boot
+mkdir -p /var/lib/systemd/linger
+touch /var/lib/systemd/linger/rain
 '
 
 echo "=== [4/6] rain overlay: modules, firmware, scripts, units ==="
@@ -204,6 +209,7 @@ sudo rm -f "$RF/etc/systemd/system/multi-user.target.wants/"{tqftpserv,rmtfs,pd-
 # enable rain units — ADB gadget (not ACM)
 sudo chroot "$RF" bash -c '
 systemctl enable rain-stable-boot.service usb-adb-gadget.service adbd.service qcom-wifi-bringup.service getty@tty1.service 2>/dev/null || true
+systemctl enable rain-wifi-nm.service rain-audio.service bluetooth 2>/dev/null || true
 systemctl disable usb-acm-gadget.service rain-serial-console.service 2>/dev/null || true
 systemctl disable NetworkManager ssh tqftpserv rmtfs pd-mapper 2>/dev/null || true
 ' || true
