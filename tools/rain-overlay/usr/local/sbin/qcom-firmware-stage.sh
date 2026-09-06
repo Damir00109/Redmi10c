@@ -29,7 +29,14 @@ for f in /run/modem_partition/image/modem.b* \
 done
 
 # --- ath10k board data + firmware-5.bin ---
-ln -sfn /run/modem_partition/image/bd3qvdfu.bin /run/ath10k_fw/board.bin
+# Prefer plain bdwlan.bin; fall back to region-specific bd3qvdfu.bin.
+for b in /run/modem_partition/image/bdwlan.bin \
+           /run/modem_partition/image/bd3qvdfu.bin; do
+  [ -f "$b" ] || continue
+  ln -sfn "$b" /run/ath10k_fw/board.bin
+  ln -sfn "$b" /run/ath10k_fw/board-2.bin
+  break
+done
 ln -sfn /usr/lib/firmware/ath10k/WCN3990/hw1.0/qcm2290/firmware-5.bin \
   /run/ath10k_fw/firmware-5.bin
 
@@ -37,6 +44,8 @@ ln -sfn /usr/lib/firmware/ath10k/WCN3990/hw1.0/qcm2290/firmware-5.bin \
 mkdir -p /lib/firmware/ath10k/WCN3990/hw1.0
 ln -sfn /run/ath10k_fw/board.bin \
   /lib/firmware/ath10k/WCN3990/hw1.0/board.bin
+ln -sfn /run/ath10k_fw/board-2.bin \
+  /lib/firmware/ath10k/WCN3990/hw1.0/board-2.bin
 ln -sfn /run/ath10k_fw/firmware-5.bin \
   /lib/firmware/ath10k/WCN3990/hw1.0/firmware-5.bin
 
