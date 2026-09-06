@@ -176,6 +176,20 @@ else
   done
 fi
 
+# Ensure overlay files are owned by root and have correct permissions
+sudo chown -R 0:0 "$RF/etc"
+sudo chmod 755 "$RF/etc"
+sudo chmod 600 "$RF/etc/netplan/00-rain-networkd.yaml"
+sudo chmod 755 "$RF/etc/NetworkManager/dispatcher.d/99-rain-wifi-safe"
+sudo chmod 644 "$RF/etc/NetworkManager/conf.d/99-rain-wifi.conf" \
+  "$RF/etc/systemd/system/qcom-firmware-stage.service" \
+  "$RF/etc/systemd/system/pulseaudio.service" \
+  "$RF/etc/systemd/system/bluetooth.service.d/override.conf" \
+  "$RF/etc/pulse/system.pa" \
+  "$RF/etc/environment" \
+  "$RF/etc/profile.d/99-pulseaudio.sh"
+sudo chmod 555 "$RF/etc/bluetooth"
+
 # Ensure connect/start scripts are executable and NM-safe messaging
 sudo chmod 755 "$RF/usr/local/sbin/"*.sh "$RF/usr/local/sbin/udhcpc-wlan.script" 2>/dev/null || true
 sudo chmod 755 "$RF/usr/local/sbin/tqftpserv" "$RF/usr/local/bin/busybox" 2>/dev/null || true
