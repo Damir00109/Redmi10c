@@ -72,7 +72,7 @@ apt-get install -y --no-install-recommends \
   libqrtr1 net-tools wireless-regdb locales qbootctl \
   network-manager dbus \
   bluez pulseaudio pulseaudio-module-bluetooth pulseaudio-utils \
-  alsa-utils dbus-x11
+  alsa-utils dbus-x11 python3-dbus
 # keep NM installed but we mask it (ath10k reboot on this SoC)
 locale-gen en_US.UTF-8 || true
 apt-get clean
@@ -189,7 +189,8 @@ sudo chmod 555 "$RF/etc/bluetooth"
 
 # Ensure connect/start scripts are executable and NM-safe messaging
 sudo chmod 755 "$RF/usr/local/sbin/"*.sh "$RF/usr/local/sbin/udhcpc-wlan.script" 2>/dev/null || true
-sudo chmod 755 "$RF/usr/local/sbin/tqftpserv" "$RF/usr/local/bin/busybox" 2>/dev/null || true
+sudo chmod 755 "$RF/usr/local/sbin/tqftpserv" "$RF/usr/local/sbin/nm-dispatcher-dummy.py" 2>/dev/null || true
+sudo chmod 755 "$RF/usr/local/bin/busybox" 2>/dev/null || true
 sudo chown -R 0:0 "$RF/usr/local/sbin" 2>/dev/null || true
 
 # Stage adbd debs for offline install
@@ -199,7 +200,7 @@ if [ -d "$ROOT/tools/rain-overlay/pkg/adbd" ]; then
 fi
 
 # Mask MPSS/WiFi/cloud/snap boot units (auto-start hangs this SoC)
-for u in NetworkManager NetworkManager-wait-online NetworkManager-dispatcher \
+for u in NetworkManager NetworkManager-wait-online \
          ModemManager wpa_supplicant \
          tqftpserv rmtfs pd-mapper qrtr-ns \
          cloud-init-local cloud-init-main cloud-init-network cloud-config cloud-final \
