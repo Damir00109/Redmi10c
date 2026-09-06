@@ -330,3 +330,98 @@ sudo qcom-modem-start.sh
 sudo ath10k-snoc-load.sh
 sudo qcom-wifi-connect.sh
 ```
+
+---
+
+## 2026-09-06 — Final development snapshot (STOP)
+
+Development paused. All working changes committed to `Redmi10c` GitHub repo.
+
+### What works in this snapshot
+
+| Component | Status | Notes |
+|--|--|--|
+| Boot from slot B (`boot_b`) | works | `boot_b` flashed with `boot-bt-patched.img` |
+| UFS storage | works | no -110/-22 errors after phy/clock/QMP fixes |
+| Display | works | simplefb / DRM 720x1650 |
+| Touch | works | `fts_spi` driver present |
+| Wi-Fi | works | `ath10k_snoc`, `wlan0` connected to `Xiaomi_E4C4`, internet OK |
+| Bluetooth | works | WCN3990 on `uart3` (4a8c000), scan/pair/connect OK |
+| Bluetooth audio | works | A2DP SBC sink with `EW72` headset, playback via `paplay` |
+| PulseAudio/BlueZ | works | `pulseaudio` + `pulseaudio-module-bluetooth` |
+| ADB | works | `ttyGS0` gadget |
+| USB RNDIS/ACM | works | `usb0` + `ttyACM0` |
+| NFC | 50% | `nxp-nci_i2c` probes, but NCI init times out / I2C hangs on data write |
+| Audio codec/speakers | 0% | not started |
+
+### Key drivers: built-in (=y) vs modules (=m)
+
+From `configs/rain-7.1.5-full.config`:
+
+**Built-in:**
+- `ATH10K`, `ATH10K_SNOC` (Wi-Fi)
+- `CFG80211`, `MAC80211`, `RFKILL`
+- `SCSI_UFS_QCOM`, `SCSI_UFSHCD` (UFS)
+- `QCOM_Q6V5_PAS`, `QCOM_SMEM`, `QCOM_SMSM`, `QCOM_QMI_HELPERS` (modem/remoteproc base)
+- `SPI_QUP`, `I2C_QUP`, `SERIAL_QCOM_GENI` (+ `GENI_CONSOLE`)
+- `PINCTRL_MSM`, `PINCTRL_KHAJE`
+- `DRM_MSM`, `DRM_MSM_DSI`, `DRM_PANEL_XINLI_FT8006S`
+- `TOUCHSCREEN_FTS_SPI`
+- `USB_DWC3`, `USB_DWC3_QCOM`, `TYPEC`, `TYPEC_WUSB3801`
+- `POWER_SUPPLY`
+- `REMOTEPROC`, `QCOM_RPMH`, `INTERCONNECT_QCOM`
+
+**Modules:**
+- `BT` (Bluetooth core), `BT_QCA`, `BT_HCIUART`, `BT_HIDP`
+- `QCOM_Q6V5_MSS`, `QCOM_RMTFS_MEM`, `QCOM_PD_MAPPER`
+- `QCOM_FASTRPC`
+- `NFC_NXP_NCI`, `NFC_NXP_NCI_I2C`
+- `SND`, `SND_SOC`, `SND_SOC_QCOM`
+- `QCOM_IPA`, `QCOM_EMAC`
+
+### Problems → solutions (final)
+
+| Problem | Root cause | Solution |
+|--|--|--|
+| UFS not detected / init errors | QMP UFS PHY + controller timing, memory corruption due to uncached/unsafe accesses | Fixes in `phy-qcom-qmp-ufs.c`, `ufs-qcom.c/h`; disable unsafe clock gating / hibern8 gear transitions |
+| `systemd-udev-trigger` suspected reboot loop | Not udev. `qcom-firmware-stage` timed out on `/dev/disk/by-partlabel/modem_a`, then `tqftpserv/rmtfs/pd-mapper` failed | Fixed firmware stage ordering; ensured `modem_a` partition is available; reconciled `/tmp/tqftpserv` vs `/var/lib/tqftpserv` |
+| Wi-Fi `ath10k` not registering | Modem/PD maps not loaded; `pd-mapper` had no maps | Corrected `rmtfs`/`pd-mapper` bring-up; `ath10k_snoc` registers after modem remoteproc |
+| `fastboot boot` Load Error | Bootloader needs `reboot bootloader` first to reset AVB/auth state | Use `fastboot reboot bootloader`, then `fastboot boot` |
+| `sm6225-xiaomi-fog.dts`: `&uart3` label not found | `sm6225.dtsi` lacked `uart3` node | Added `uart3: serial@4a8c000` under `qupv3_id_0` in `sm6225.dtsi` |
+| UART3 image hung/reboot | Early UART3 pinctrl/clock conflicts | Refined `pinctrl-khaje.c` reserved GPIO list, correct clocks/interrupts |
+| Bluetooth `hci_qca` module not found | Deployed modules were incomplete; `hci_uart.ko`/`bluetooth.ko` missing in rootfs | Copied modules from `out/linux-7.1.5` to `/lib/modules/7.1.5-dirty` on device |
+| WCN3990 init `Frame reassembly failed (-84)` | One-time HCI framing warning on first packets | Not fatal; controller continues to init and works. Harmless. |
+| Bluetooth audio no sink | Missing `pulseaudio-module-bluetooth` + `libavcodec60`/`libasound2-plugins` | Installed packages, fixed broken `libxcb-render0`/`dpkg` state, started `pulseaudio` root user mode with `XDG_RUNTIME_DIR` |
+| Full rootfs (97% used) while installing packages | `cust` 1.7 GB partition | `apt-get clean` freed 170 MB; installed `--no-install-recommends` to avoid bloat |
+| `pactl` access denied for PulseAudio | System-mode `pulseaudio` runs as `pulse` user | Used root user-mode `pulseaudio --start` with `XDG_RUNTIME_DIR=/tmp/pulse-root` for test; auto-start needs systemd user or system config later |
+
+### Artifacts saved to GitHub
+
+- `patches/linux-7.1.5-redmi10c-final.patch` — full working kernel diff
+- `configs/rain_defconfig` — minimal defconfig
+- `configs/rain-7.1.5-full.config` — exact build `.config`
+- `tools/pack-ubuntu-boot.sh`, `tools/pivot-init` — updated packing scripts
+
+### Boot command used
+
+```bash
+python3 tools/mkbootimg/mkbootimg.py \
+  --header_version 2 \
+  --kernel out/linux-7.1.5/arch/arm64/boot/Image.gz \
+  --ramdisk out/ubuntu-dualboot/pivot.cpio.gz \
+  --dtb out/linux-7.1.5/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb \
+  --pagesize 2048 --base 0x0 \
+  --kernel_offset 0x8000 --ramdisk_offset 0x1000000 \
+  --tags_offset 0x100 --dtb_offset 0x1f00000 \
+  --cmdline 'console=tty0 console=ttyGS0,115200 ... root=PARTLABEL=cust rw rootwait ...' \
+  --output boot-bt-patched.img
+fastboot flash boot_b boot-bt-patched.img
+fastboot set_active b
+```
+
+### Current phone state
+
+- Active slot: **B**
+- `boot_b` contains the working Linux image
+- Android/LineageOS on slot A remains untouched
+- Bluetooth headset `EW72` was connected and A2DP playback worked

@@ -97,6 +97,19 @@ fi
 $BB mdev -s 2>/dev/null || true
 $BB sleep 2
 
+# Debug: list all block devices with partnames
+echo "pivot-dbg: scanning block devices..." >/dev/kmsg 2>/dev/null
+for bd in /sys/class/block/*; do
+  [ -d "$bd" ] || continue
+  pn=''
+  [ -f "$bd/partname" ] && pn=$($BB cat "$bd/partname" 2>/dev/null)
+  if [ -z "$pn" ] && [ -f "$bd/uevent" ]; then
+    pn=$($BB grep -i '^PARTNAME=' "$bd/uevent" 2>/dev/null | $BB head -1)
+    pn=${pn#*=}
+  fi
+  [ -n "$pn" ] && echo "pivot-dbg: $(basename $bd) partname=$pn" >/dev/kmsg 2>/dev/null
+done
+
 CUST=
 for bd in /sys/class/block/* /sys/block/*; do
   [ -d "$bd" ] || continue
@@ -113,11 +126,26 @@ for bd in /sys/class/block/* /sys/block/*; do
   fi
 done
 
-# Fallback: known Redmi 10C cust is sda8
-[ -z "$CUST" ] && [ -b /dev/sda8 ] && CUST=/dev/sda8
+# Fallback: try known Redmi 10C cust partition locations
+if [ -z "$CUST" ] || [ ! -b "$CUST" ]; then
+  for dev in /dev/sda8 /dev/sde8 /dev/sdf8 /dev/sda4 /dev/sde4; do
+    [ -b "$dev" ] && CUST="$dev" && break
+  done
+fi
+
+# Last resort: try by-partlabel symlink
+if [ -z "$CUST" ] || [ ! -b "$CUST" ]; then
+  for pl in /dev/block/by-partlabel/cust /dev/disk/by-partlabel/cust; do
+    [ -L "$pl" ] && CUST=$($BB readlink -f "$pl") && break
+  done
+fi
+
+echo "cust=$CUST" >/dev/kmsg 2>/dev/null
 echo "cust=$CUST"
 if [ -z "$CUST" ] || [ ! -b "$CUST" ]; then
   echo "FATAL: cust partition not found"
+  echo "Available block devices:" >/dev/kmsg 2>/dev/null
+  ls /sys/class/block/ >/dev/kmsg 2>/dev/null
   exec $BB sh
 fi
 
