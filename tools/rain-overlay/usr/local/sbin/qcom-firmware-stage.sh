@@ -47,13 +47,26 @@ chmod 755 /var/lib/tqftpserv
 : >/var/lib/tqftpserv/mcfg.tmp
 chmod 600 /var/lib/tqftpserv/lctoem.tmp /var/lib/tqftpserv/mcfg.tmp
 
+# --- tqftpserv lookup tree for remoteproc absolute paths ---
+mkdir -p /var/lib/tqftpserv/readonly/vendor/firmware_mnt/image
+
 # --- wlanmdsp.mbn into /lib/firmware/qcom/sm6225/ (for tqftpserv) ---
+mkdir -p /lib/firmware/qcom/sm6225
 if [ ! -f /lib/firmware/qcom/sm6225/wlanmdsp.mbn ]; then
   for c in /lib/firmware/wlanmdsp.mbn \
            /lib/firmware/ath10k/WCN3990/hw1.0/wlanmdsp.mbn \
            /run/modem_partition/image/wlanmdsp.mbn; do
-    [ -f "$c" ] && cp -a "$c" /lib/firmware/qcom/sm6225/wlanmdsp.mbn && break
+    if [ -f "$c" ]; then
+      cp -a "$c" /lib/firmware/qcom/sm6225/wlanmdsp.mbn
+      break
+    fi
   done
+fi
+
+# remoteproc/tqftpserv often requests absolute /readonly/vendor/firmware_mnt/image/ paths
+if [ -f /lib/firmware/qcom/sm6225/wlanmdsp.mbn ]; then
+  ln -sfn /lib/firmware/qcom/sm6225/wlanmdsp.mbn \
+    /var/lib/tqftpserv/readonly/vendor/firmware_mnt/image/wlanmdsp.mbn
 fi
 
 # --- Copy .jsn files if present ---
