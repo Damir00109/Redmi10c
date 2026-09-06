@@ -69,7 +69,7 @@ apt-get install -y --no-install-recommends \
   nano less htop tmux bash-completion \
   usbutils fdisk parted e2fsprogs \
   qrtr-tools rmtfs tqftpserv protection-domain-mapper \
-  libqrtr1 net-tools wireless-regdb locales \
+  libqrtr1 net-tools wireless-regdb locales qbootctl \
   network-manager dbus \
   bluez pulseaudio pulseaudio-module-bluetooth pulseaudio-utils \
   alsa-utils dbus-x11
@@ -180,19 +180,17 @@ fi
 sudo chown -R 0:0 "$RF/etc"
 sudo chmod 755 "$RF/etc"
 sudo chmod 600 "$RF/etc/netplan/00-rain-networkd.yaml"
-sudo chmod 755 "$RF/etc/NetworkManager/dispatcher.d/99-rain-wifi-safe"
-sudo chmod 644 "$RF/etc/NetworkManager/conf.d/99-rain-wifi.conf" \
-  "$RF/etc/systemd/system/qcom-firmware-stage.service" \
-  "$RF/etc/systemd/system/pulseaudio.service" \
-  "$RF/etc/systemd/system/bluetooth.service.d/override.conf" \
-  "$RF/etc/pulse/system.pa" \
-  "$RF/etc/environment" \
-  "$RF/etc/profile.d/99-pulseaudio.sh"
+# Generic fix for all overlay .service/.conf/.rules/.pa files
+sudo find "$RF/etc/systemd/system" -maxdepth 2 -type f \( -name "*.conf" -o -name "*.service" \) -exec chmod 644 {} + 2>/dev/null || true
+sudo find "$RF/etc/systemd/system" -maxdepth 2 -type l -name "getty@ttyGS0.service" -exec chmod 644 {} + 2>/dev/null || true
+sudo chmod 644 "$RF/etc/NetworkManager/conf.d/"*.conf "$RF/etc/pulse/system.pa" \
+  "$RF/etc/environment" "$RF/etc/profile.d/"*.sh "$RF/etc/udev/rules.d/"*.rules 2>/dev/null || true
 sudo chmod 555 "$RF/etc/bluetooth"
 
 # Ensure connect/start scripts are executable and NM-safe messaging
 sudo chmod 755 "$RF/usr/local/sbin/"*.sh "$RF/usr/local/sbin/udhcpc-wlan.script" 2>/dev/null || true
 sudo chmod 755 "$RF/usr/local/sbin/tqftpserv" "$RF/usr/local/bin/busybox" 2>/dev/null || true
+sudo chown -R 0:0 "$RF/usr/local/sbin" 2>/dev/null || true
 
 # Stage adbd debs for offline install
 if [ -d "$ROOT/tools/rain-overlay/pkg/adbd" ]; then
