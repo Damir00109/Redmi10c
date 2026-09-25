@@ -77,7 +77,22 @@ build_tinyalsa() {
   if [ ! -d "$TINYALSA_SRC/.git" ]; then
     git clone --branch "$TINYALSA_TAG" --depth 1 https://github.com/tinyalsa/tinyalsa.git "$TINYALSA_SRC"
   fi
-  python3 -c 'import pathlib,sys; p=pathlib.Path(sys.argv[1]); s=p.read_text(); s=s.replace("error playing sample: %s\\n\", pcm_get_error(ctx->pcm)\"", "error playing sample: %s\\n\", pcm_get_error(ctx->pcm)"); s=s.replace("error playing sample\\n", "error playing sample: %s\\n\", pcm_get_error(ctx->pcm)"); p.write_text(s)' "$TINYALSA_SRC/utils/tinyplay.c"
+  python3 - "$TINYALSA_SRC/utils/tinyplay.c" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+s = path.read_text()
+s = s.replace(
+    'fprintf(stderr, "error playing sample: %s\\n", pcm_get_error(ctx->pcm)");',
+    'fprintf(stderr, "error playing sample: %s\\n", pcm_get_error(ctx->pcm));',
+)
+s = s.replace(
+    'fprintf(stderr, "error playing sample\\n");',
+    'fprintf(stderr, "error playing sample: %s\\n", pcm_get_error(ctx->pcm));',
+)
+path.write_text(s)
+PY
   make -C "$TINYALSA_SRC/src" CROSS_COMPILE="$CROSS_COMPILE" CFLAGS="-O2" libtinyalsa.a -j"$JOBS"
   for tool in tinymix tinyplay tinypcminfo; do
     "${CROSS_COMPILE}gcc" -static -O2 -I"$TINYALSA_SRC/include" \
