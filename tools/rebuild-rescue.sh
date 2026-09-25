@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 set -o pipefail
-ROOT=/home/damir00109/Desktop/Redmi10C_UPDATE/Kernel_Redmi10c
-OUT=$ROOT/out
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT="$ROOT/out"
 IR=$OUT/build/initramfs
 make -C "$OUT/src/linux" O="$OUT/build/linux-7.1.5" ARCH=arm64 \
   CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs -j"$(nproc)" 2>&1 | tail -3
