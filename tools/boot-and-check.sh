@@ -2,7 +2,7 @@
 # boot-and-check.sh [img] — boot rescue image and dump GPU/SMMU/driver state.
 # Iteration helper for GPU bring-up: no flashing, temporary fastboot boot only.
 set -uo pipefail
-R=/home/damir00109/Desktop/Redmi10C_UPDATE/Kernel_Redmi10c
+R="$(cd "$(dirname "$0")/.." && pwd)"
 IMG=${1:-$R/out/boot-display-console-rescue.img}
 DEV=/dev/ttyACM0
 
