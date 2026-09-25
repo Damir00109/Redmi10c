@@ -10,6 +10,11 @@ git add -N \
 	arch/arm64/boot/dts/qcom/sm6225.dtsi \
 	arch/arm64/configs/rain_defconfig \
 	drivers/input/touchscreen/fts_spi \
+	drivers/gpu/drm/panel/Kconfig \
+	drivers/gpu/drm/panel/Makefile \
+	drivers/gpu/drm/panel/panel-xinli-ft8006s.c \
+	drivers/gpu/drm/msm/dsi/phy/dsi_phy.c \
+	drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c \
 	drivers/misc/aw87xxx-mini.c \
 	drivers/pinctrl/qcom/pinctrl-khaje.c \
 	drivers/power/supply/sh366101_fg_bringup.c \
