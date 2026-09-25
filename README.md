@@ -43,12 +43,12 @@ fastboot boot out/boot-display-console-rescue.img
 | `initramfs/display-console-rescue-init` | Initramfs: shell на экране (`/dev/console`) и через USB ACM (`/dev/ttyGS0`), без rootfs |
 | `initramfs/busybox.config` | Конфиг для статической сборки busybox под aarch64 |
 | `build.sh` | Один скрипт: clone → patch → build kernel → build initramfs → pack boot image |
-| `ref/` | Reference-образ, собранный и проверенный на живом устройстве |
+| `out/` | Локальные исходники, сборка и готовый образ (не коммитятся) |
 
 ## Проверено на устройстве
 
-Reference-образ `ref/boot-display-console-rescue.img`:
-- Загружается с `slot b` (`fastboot boot ...`).
+Проверенный локальный образ `out/boot-display-console-rescue.img`:
+- Загружается временно через `fastboot boot ...` (без постоянной прошивки).
 - Поднимает USB gadget ACM (`/dev/ttyACM0` на хосте).
 - Shell отвечает через `screen /dev/ttyACM0 115200` (при первом подключении может потребоваться `Ctrl-C` для получения приглашения).
 - UFS определяется, ядро видит партиции.
