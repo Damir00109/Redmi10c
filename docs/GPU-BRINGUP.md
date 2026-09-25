@@ -12,8 +12,8 @@ adreno_request_fw: loaded qcom/a630_sqe.fw            ✓
 adreno: mdt qcom/sm6225/a610_zap.mdt: relocate=1      ✓ ZAP-шейдер
 /dev/dri/card0 + renderD128                           ✓
 devfreq 5900000.gpu, governor=simple_ondemand         ✓
-available_frequencies = 465/600/785/820/980 МГц       ✓
-cur_freq = 465 МГц                                    ✓
+available_frequencies = 320/465/600/785/1025/1114.8 МГц ✓
+cur_freq = 320 МГц (idle)                             ✓
 
 gpucc_pll0            = 930 МГц   (L=0x30)
 gpucc_pll0_out_main   = 465 МГц   (postdiv /2)
@@ -67,6 +67,20 @@ dmesg errors по GPU: нет (остались только psci/Bluetooth — 
 - **`out/boot-GOOD8-gpu-full.img`** (`15b0112e…`) — **GPU полностью работает**
 - `out/boot-GOOD7-gpu.img` (`41cdd158…`) — GPU поднимался, но OPP падал
 - звуковые: `boot-GOOD{,2,3,4,5,6}` (GOOD6 = `c6da05c3…`)
+
+## Таблица частот (исправлено 2026-09-25)
+
+Раньше OPP-таблица и `ftbl_gpucc_gx_gfx3d_clk_src` содержали
+`820/980 МГц`, которых железо не выдаёт, и не содержали `1025/1114.8`.
+Это давало `devfreq ... Couldn't update frequency transition information`.
+Приведено к вендорному `/proc/device-tree/soc/gpu-opp-table` (A610v2,
+speed-bin-1): **320 / 465 / 600 / 785 / 1025 / 1114.8 МГц**
+(+1260 в bin0). Важно: 1114.8, а не 1100 МГц.
+
+Также убран `opp-supported-hw` из `gpu_opp_table`: эта платформа не
+вызывает `dev_pm_opp_set_supported_hw()` (нет nvmem speed-bin), а OPP-core
+в таком случае **отключает** любой OPP с этим свойством — старое
+`<0x1f>` на `opp-320000000` молча выбрасывало уровень 320 МГц.
 
 ## Что можно дальше (не обязательно)
 
