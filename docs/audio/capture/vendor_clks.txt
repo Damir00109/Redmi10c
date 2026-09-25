@@ -1,0 +1,32 @@
+== va_core_clk
+  #clock-cells = 01000000
+  compatible = 6d6f6371006b6c
+  name = 635f6176
+  phandle = 52030000
+  qcom,codec-ext-clk-src = 02000000
+  qcom,codec-lpass-clk-id = 0b030000
+  qcom,codec-lpass-ext-clk-freq = 00f82401
+== tx_core_clk
+  #clock-cells = 01000000
+  compatible = 6d6f6371006b6c
+  name = 635f7874
+  phandle = 4e030000
+  qcom,codec-ext-clk-src = 07000000
+  qcom,codec-lpass-clk-id = 0c030000
+  qcom,codec-lpass-ext-clk-freq = 00f82401
+== rx_core_clk
+  #clock-cells = 01000000
+  compatible = 6d6f6371006b6c
+  name = 635f7872
+  phandle = 50030000
+  qcom,codec-ext-clk-src = 05000000
+  qcom,codec-lpass-clk-id = 0e030000
+  qcom,codec-lpass-ext-clk-freq = 00885801
+== rx_npl_clk
+  #clock-cells = 01000000
+  compatible = 6d6f6371006b6c
+  name = 6e5f7872
+  phandle = 51030000
+  qcom,codec-ext-clk-src = 06000000
+  qcom,codec-lpass-clk-id = 0f030000
+  qcom,codec-lpass-ext-clk-freq = 00885801

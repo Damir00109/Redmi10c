@@ -1,0 +1,16 @@
+# Build artifacts
+out/
+logs/
+ref/
+*.img
+*.log
+*.cpio.xz
+*.o
+*.deb
+
+# Proprietary firmware blobs (fetched from the GitHub release)
+initramfs/lib/firmware/
+firmware/
+
+# kernel source trees are cloned by build.sh
+out/src/

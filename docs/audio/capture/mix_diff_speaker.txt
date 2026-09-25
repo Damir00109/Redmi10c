@@ -1,0 +1,44 @@
+60c60
+< RX_MACRO RX2 MUX: enum[5]=0 (ZERO)
+---
+> RX_MACRO RX2 MUX: enum[5]=2 (AIF2_PB)
+86c86
+< RX INT2_1 MIX1 INP0: enum[11]=0 (ZERO)
+---
+> RX INT2_1 MIX1 INP0: enum[11]=7 (RX2)
+409c409
+< RX_CDC_DMA_RX_1 Audio Mixer MultiMedia1: BOOLEAN[2]=0 0 
+---
+> RX_CDC_DMA_RX_1 Audio Mixer MultiMedia1: BOOLEAN[2]=1 0 
+1542c1542
+< AUX PATH Mode: enum[2]=1 (NORMAL_MODE)
+---
+> AUX PATH Mode: enum[2]=0 (HP_MODE)
+1560c1560
+< Audio Stream 0 App Type Cfg: INTEGER[128]=0 0 0 0 0 0 0 0 
+---
+> Audio Stream 0 App Type Cfg: INTEGER[128]=69940 10011 48000 189 0 0 0 0 
+1801,1802c1801,1802
+< Playback Channel Map9: INTEGER[32]=0 0 0 0 0 0 0 0 
+< Audio Stream 9 App Type Cfg: INTEGER[128]=0 0 0 0 0 0 0 0 
+---
+> Playback Channel Map9: <read err>
+> Audio Stream 9 App Type Cfg: INTEGER[128]=69937 10011 48000 189 0 0 0 0 
+2461c2461
+< RX_CDC_DMA_RX_1 Format: enum[4]=0 (S16_LE)
+---
+> RX_CDC_DMA_RX_1 Format: enum[4]=2 (S24_3LE)
+2494,2495c2494,2495
+< aw87xxx_rcv_switch: enum[12]=11 (Off)
+< aw87xxx_spk_switch: enum[12]=11 (Off)
+---
+> aw87xxx_rcv_switch: enum[12]=0 (Music)
+> aw87xxx_spk_switch: enum[12]=0 (Music)
+2497c2497
+< aw87xxx_profile_switch_0: enum[6]=5 (Off)
+---
+> aw87xxx_profile_switch_0: enum[6]=0 (Music)
+2509c2509
+< AUX_RDAC Switch: BOOLEAN[1]=0 
+---
+> AUX_RDAC Switch: BOOLEAN[1]=1 

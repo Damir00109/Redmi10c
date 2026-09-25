@@ -1,0 +1,140 @@
+#!/bin/busybox sh
+# Redmi 10C display + USB-ACM rescue initramfs.
+# Provides interactive shells on /dev/console (screen) and /dev/ttyGS0 (USB ACM).
+# Does NOT mount cust, does NOT switch_root.
+export PATH=/bin:/sbin
+BB=busybox
+
+$BB mount -t proc proc /proc 2>/dev/null || true
+$BB mount -t sysfs sysfs /sys 2>/dev/null || true
+$BB mount -t devtmpfs devtmpfs /dev 2>/dev/null || $BB mdev -s
+$BB mkdir -p /dev/pts /sys/kernel/config /tmp 2>/dev/null || true
+$BB mount -t configfs configfs /sys/kernel/config 2>/dev/null || true
+$BB mount -t devpts devpts /dev/pts 2>/dev/null || true
+$BB mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null || true
+
+echo '=== rain display+ACM rescue ===' >/dev/console 2>/dev/null
+
+# The bootloader merges the vendor_boot cmdline, so kernel command line options
+# (quiet/loglevel/panic/hung_task_panic) from the boot image are ignored.
+# Apply the important ones at runtime instead.
+$BB echo 1 > /proc/sys/kernel/hung_task_panic 2>/dev/null
+$BB echo 15 > /proc/sys/kernel/panic 2>/dev/null
+
+# Early USB PHY clocks/reset/QSCRATCH sequence (same as pivot-init).
+rmw32() {
+  a=$1; clr=$2; set=$3
+  cur=$($BB devmem "$a" 32 2>/dev/null) || return 1
+  cur=${cur#0x}
+  nv=$($BB printf '0x%08x' $(( (0x$cur & ~clr) | set )))
+  $BB devmem "$a" 32 "$nv" 2>/dev/null
+}
+
+usb_phy_init() {
+  rmw32 0x0141a004 0x1 0x0 >/dev/null
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    v=$($BB devmem 0x0141a004 32 2>/dev/null); v=${v#0x}
+    [ -n "$v" ] && [ $(( (0x$v >> 31) & 1 )) -eq 1 ] && break
+    $BB sleep 1
+  done
+  $BB devmem 0x0141a014 32 0x1 2>/dev/null
+  $BB devmem 0x0141a010 32 0x1 2>/dev/null
+  $BB devmem 0x0141a018 32 0x1 2>/dev/null
+  $BB devmem 0x0141d000 32 0x0 2>/dev/null
+  $BB devmem 0x0141d008 32 0x3 2>/dev/null
+  rmw32 0x04ef8808 0x0 0x100 >/dev/null
+  $BB sleep 0.3
+  rmw32 0x04ef8808 0x0 0x9 >/dev/null
+  $BB sleep 0.3
+  rmw32 0x04ef8808 0x100 0x0 >/dev/null
+  rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
+  rmw32 0x04ef8830 0x0 0x01000000 >/dev/null
+  $BB devmem 0x0161306c 32 0x61 2>/dev/null
+  $BB devmem 0x01613070 32 0x08 2>/dev/null
+  $BB devmem 0x01613074 32 0x2d 2>/dev/null
+  rmw32 0x04e0c200 0x140 0x0 >/dev/null
+}
+
+usb_phy_init
+G=/sys/kernel/config/usb_gadget/rain
+$BB mkdir -p "$G/strings/0x409" "$G/configs/c.1/strings/0x409" "$G/functions/acm.usb0" 2>/dev/null
+echo 0x1d6b > "$G/idVendor" 2>/dev/null
+echo 0x0104 > "$G/idProduct" 2>/dev/null
+echo rain > "$G/strings/0x409/serialnumber" 2>/dev/null
+echo Xiaomi > "$G/strings/0x409/manufacturer" 2>/dev/null
+echo rain-display-rescue > "$G/strings/0x409/product" 2>/dev/null
+echo serial > "$G/configs/c.1/strings/0x409/configuration" 2>/dev/null
+$BB ln -sfn "$G/functions/acm.usb0" "$G/configs/c.1/acm.usb0" 2>/dev/null
+
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  UDC=$($BB ls /sys/class/udc 2>/dev/null | $BB head -n 1)
+  [ -n "$UDC" ] && break
+  $BB sleep 1
+done
+if [ -n "$UDC" ]; then
+  echo "$UDC" > "$G/UDC" 2>/dev/null
+  echo "ACM ready on $UDC" >/dev/console 2>/dev/null
+else
+  echo 'no UDC' >/dev/console 2>/dev/null
+fi
+
+# WCN3990 Wi-Fi bring-up (working recipe from dualboot project):
+# qrtr-ns -f 1 → pd-mapper → rmtfs (modemst partitions) → tqftpserv →
+# remoteproc start. Modem PAS boots modem.mdt, then TQFT-loads
+# wlanmdsp.mbn into the WLAN DSP; ath10k_snoc then creates wlan0.
+if [ -x /bin/tqftpserv ]; then
+  mkdir -p /tmp/tqftpserv /var/lib/rmtfs
+  # bind modemst/fsg/fsc partitions for rmtfs (no udev in initramfs)
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    found=""
+    for u in /sys/block/*/*/uevent; do
+      [ -f "$u" ] || continue
+      pn=$(sed -n 's/^PARTNAME=//p' "$u")
+      case "$pn" in
+        modemst1) ln -sfn "/dev/$(basename "$(dirname "$u")")" /var/lib/rmtfs/modem_fs1; found=1 ;;
+        modemst2) ln -sfn "/dev/$(basename "$(dirname "$u")")" /var/lib/rmtfs/modem_fs2; found=1 ;;
+        fsg) ln -sfn "/dev/$(basename "$(dirname "$u")")" /var/lib/rmtfs/fsg; found=1 ;;
+        fsc) ln -sfn "/dev/$(basename "$(dirname "$u")")" /var/lib/rmtfs/fsc; found=1 ;;
+      esac
+    done
+    [ -n "$found" ] && break
+    sleep 1
+  done
+  [ -x /bin/qrtr-ns ] && /bin/qrtr-ns -f 1 &
+  sleep 1
+  [ -x /bin/pd-mapper ] && /bin/pd-mapper &
+  [ -x /bin/rmtfs ] && /bin/rmtfs -s -o /var/lib/rmtfs &
+  /bin/tqftpserv &
+  sleep 2
+fi
+for r in /sys/class/remoteproc/remoteproc*/state; do
+  [ -e "$r" ] || continue
+  st=$(cat "$r" 2>/dev/null)
+  [ "$st" = "offline" ] && echo 'start' > "$r" 2>/dev/null
+done
+
+(
+  for _ in $(seq 1 120); do
+    [ -e /sys/class/sound/card0 ] && { $BB mdev -s; break; }
+    $BB sleep 1
+  done
+) &
+
+mkdir -p /sys/fs/pstore 2>/dev/null
+mount -t pstore pstore /sys/fs/pstore 2>/dev/null
+
+(
+  while :; do
+    [ -c /dev/ttyGS0 ] || { $BB sleep 1; continue; }
+    /bin/ttyexec /dev/ttyGS0 /bin/sh -c '
+      stty sane rows 40 cols 120
+      printf "\r\n=== rain interactive ACM rescue ===\r\n"
+      printf "kernel: "; uname -r
+      exec /bin/sh -i
+    '
+    $BB sleep 1
+  done
+) &
+
+# Keep a dummy loop so PID1 never exits (kernel panics otherwise).
+while :; do $BB sleep 3600; done

@@ -1,0 +1,36 @@
+===== va-macro@a730000
+-- clock-names
+00000000: 7361706c 75615f73 5f6f6964 765f7768  lpass_audio_hw_v
+00000010: 0065746f                             ote.
+-- qcom,va-dmic-sample-rate
+00000000: c0270900                             ..'.
+-- qcom,va-clk-mux-select
+00000000: 01000000                             ....
+-- qcom,va-island-mode-muxsel
+00000000: 00007a0a                             .z..
+-- qcom,default-clk-id
+00000000: 00000000                             ....
+-- qcom,va-swr-gpios
+00000000: 01030000                             ....
+-- qcom,is-used-swr-gpio
+00000000: 01000000                             ....
+===== rx-macro@a600000
+-- clock-names
+00000000: 635f7872 5f65726f 006b6c63 6e5f7872  rx_core_clk.rx_n
+00000010: 635f6c70   006b6c                    pl_clk.
+-- qcom,default-clk-id
+00000000: 00000000                             ....
+-- qcom,rx_mclk_mode_muxsel
+00000000: d840560a                             .V@.
+-- qcom,rx-swr-gpios
+00000000: 00030000                             ....
+-- qcom,rx-bcl-pmic-params
+00000000:   3e0400                             ..>
+===== tx-macro@a620000
+-- clock-names
+00000000: 635f7874 5f65726f 006b6c63 6e5f7874  tx_core_clk.tx_n
+00000010: 635f6c70   006b6c                    pl_clk.
+-- qcom,tx-dmic-sample-rate
+00000000: 009f2400                             .$..
+-- qcom,is-used-swr-gpio
+00000000: 00000000                             ....

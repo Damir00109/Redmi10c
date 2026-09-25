@@ -1,0 +1,60 @@
+[    7.704647] tx_macro tx-macro: bolero_register_macro: register macro successful:0
+[    7.704831] wcd937x_codec wcd937x-codec: DMA mask not set
+[    7.706547] swr-wcd va_swr_ctrl: DMA mask not set
+[    7.706801] swr-wcd rx_swr_ctrl: DMA mask not set
+[    7.719207] wcd937x_codec wcd937x-codec: msm_cdc_dt_parse_vreg_info: cdc-vdd-rxtx: vol=[1800000 1800000]uV, curr=[10000]uA, ond 0 lpm 0
+[    7.719212] wcd937x_codec wcd937x-codec: msm_cdc_dt_parse_vreg_info: cdc-vddpx: vol=[1800000 1800000]uV, curr=[20000]uA, ond 0 lpm 0
+[    7.719218] wcd937x_codec wcd937x-codec: msm_cdc_dt_parse_vreg_info: cdc-vdd-buck: vol=[1800000 1800000]uV, curr=[650000]uA, ond 1 lpm 0
+[    7.719253] wcd937x_codec wcd937x-codec: Linked as a consumer to regulator.31
+[    7.719269] wcd937x_codec wcd937x-codec: Linked as a consumer to regulator.36
+[    7.727753] wcd937x_codec wcd937x-codec: bound wcd937x-slave.a01170224 (ops 0xffffffab26b994e0)
+[    7.727764] wcd937x_codec wcd937x-codec: bound wcd937x-slave.a01170223 (ops 0xffffffab26b994e0)
+[    7.803739] wcd937x_codec wcd937x-codec: wcd937x_soc_codec_probe()
+[    7.834124] wcd937x_codec wcd937x-codec: ASoC: unknown pin LO
+[    7.834203] wcd937x_codec wcd937x-codec: ASoC: unknown pin AMIC4
+[    7.894115] [Awinic] [0-0058]aw87xxx_kcontrol_dynamic_create: add codec controls[aw87xxx_profile_switch_0,aw87xxx_vmax_get_0]
+[    7.897725] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: no sink widget found for SpkrMono WSA_IN
+[    7.897729] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route AUX -> direct -> SpkrMono WSA_IN
+[    7.897776] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route ADC3_OUTPUT -> direct -> TX SWR_MIC5
+[    7.897798] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC1_OUTPUT -> direct -> TX SWR_MIC8
+[    7.897822] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC2_OUTPUT -> direct -> TX SWR_MIC9
+[    7.897845] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC3_OUTPUT -> direct -> TX SWR_MIC8
+[    7.897868] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC4_OUTPUT -> direct -> TX SWR_MIC9
+[    7.897890] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC5_OUTPUT -> direct -> TX SWR_MIC10
+[    7.897917] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC6_OUTPUT -> direct -> TX SWR_MIC11
+[    7.898085] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route ADC3_OUTPUT -> direct -> VA SWR_MIC5
+[    7.898106] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC1_OUTPUT -> direct -> VA SWR_MIC8
+[    7.898130] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC2_OUTPUT -> direct -> VA SWR_MIC9
+[    7.898155] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC3_OUTPUT -> direct -> VA SWR_MIC8
+[    7.898179] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC4_OUTPUT -> direct -> VA SWR_MIC9
+[    7.898203] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC5_OUTPUT -> direct -> VA SWR_MIC10
+[    7.898229] bengal-asoc-snd soc:qcom,msm-audio-apr:qcom,q6core-audio:sound: ASoC: Failed to add route DMIC6_OUTPUT -> direct -> VA SWR_MIC11
+[    8.795251] [Awinic] [0-0058]aw87xxx_show_current_profile_index: current profile is [Off]
+[    8.795257] [Awinic] aw87xxx_show_current_profile_index:not found struct aw87xxx, dev_index = [0], index = [11]
+[    8.795735] [Awinic] [0-0058]aw87xxx_show_current_profile_index: current profile is [Off]
+[    8.795738] [Awinic] aw87xxx_show_current_profile_index:not found struct aw87xxx, dev_index = [0], index = [11]
+[    8.805991] afe topo not ready try again
+[    8.816034] afe topo not ready try again
+[    8.826338] afe topo not ready try again
+[    8.826925] [Awinic] [0-0058]aw87xxx_profile_switch_get: current profile:[Off]
+[    8.840104] [Awinic] [0-0058]aw87xxxx_vmax_get: get vmax = [0x0]
+[    8.911811] [Awinic] [0-0058]aw87xxx_show_current_profile_index: current profile is [Off]
+[    8.911816] [Awinic] aw87xxx_show_current_profile_index:not found struct aw87xxx, dev_index = [0], index = [11]
+[    8.912374] [Awinic] [0-0058]aw87xxx_show_current_profile_index: current profile is [Off]
+[    8.912376] [Awinic] aw87xxx_show_current_profile_index:not found struct aw87xxx, dev_index = [0], index = [11]
+[    8.922816] afe topo not ready try again
+[    8.932840] afe topo not ready try again
+[    8.943077] afe topo not ready try again
+[    8.944750] [Awinic] [0-0058]aw87xxx_profile_switch_get: current profile:[Off]
+[    8.945757] [Awinic] [0-0058]aw87xxxx_vmax_get: get vmax = [0x0]
+[    8.980408] wcdcal_hwdep_ioctl_shared: codec didn't set this 0!!
+[    8.980590] wcdcal_hwdep_ioctl_shared: codec didn't set this 3!!
+[  376.028055] [Awinic] [0-0058]aw87xxx_show_current_profile_index: current profile is [Off]
+[  376.028061] [Awinic] aw87xxx_show_current_profile_index:not found struct aw87xxx, dev_index = [0], index = [11]
+[  376.028161] [Awinic] [0-0058]aw87xxx_show_current_profile_index: current profile is [Off]
+[  376.028162] [Awinic] aw87xxx_show_current_profile_index:not found struct aw87xxx, dev_index = [0], index = [11]
+[  376.038279] afe topo not ready try again
+[  376.048303] afe topo not ready try again
+[  376.058328] afe topo not ready try again
+[  376.058808] [Awinic] [0-0058]aw87xxx_profile_switch_get: current profile:[Off]
+[  376.059621] [Awinic] [0-0058]aw87xxxx_vmax_get: get vmax = [0x0]

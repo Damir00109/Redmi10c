@@ -1,0 +1,9 @@
+#!/bin/sh
+# play <file> [tinyplay args] — как в Android: PA включён только на время
+# воспроизведения, в покое выключен (убирает постоянный шум усилителя).
+PA=/sys/bus/i2c/devices/0-0058/mode
+[ -w "$PA" ] && echo music > "$PA"
+tinyplay "$@"
+rc=$?
+[ -w "$PA" ] && echo off > "$PA"
+exit $rc

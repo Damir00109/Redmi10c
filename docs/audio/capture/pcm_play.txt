@@ -1,0 +1,47 @@
+== /proc/asound/card0/pcm0p/sub0/status
+state: RUNNING
+owner_pid   : 5697
+trigger_time: 430.476051605
+tstamp      : 553.571407392
+delay       : 3840
+avail       : 0
+avail_max   : 1920
+-----
+hw_ptr      : 5909760
+appl_ptr    : 5913600
+== /proc/asound/card0/pcm12p/sub0/status
+closed
+== /proc/asound/card0/pcm13p/sub0/status
+closed
+== /proc/asound/card0/pcm14p/sub0/status
+closed
+== /proc/asound/card0/pcm15p/sub0/status
+closed
+== /proc/asound/card0/pcm1p/sub0/status
+closed
+== /proc/asound/card0/pcm23p/sub0/status
+closed
+== /proc/asound/card0/pcm29p/sub0/status
+closed
+== /proc/asound/card0/pcm2p/sub0/status
+closed
+== /proc/asound/card0/pcm30p/sub0/status
+closed
+== /proc/asound/card0/pcm33p/sub0/status
+closed
+== /proc/asound/card0/pcm34p/sub0/status
+closed
+== /proc/asound/card0/pcm35p/sub0/status
+closed
+== /proc/asound/card0/pcm37p/sub0/status
+closed
+== /proc/asound/card0/pcm3p/sub0/status
+closed
+== /proc/asound/card0/pcm4p/sub0/status
+closed
+== /proc/asound/card0/pcm5p/sub0/status
+closed
+== /proc/asound/card0/pcm8p/sub0/status
+closed
+== /proc/asound/card0/pcm9p/sub0/status
+closed
