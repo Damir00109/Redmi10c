@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..e9748ab1e
+index 000000000..66f1d4c95
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,842 @@
+@@ -0,0 +1,861 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -653,6 +653,19 @@ index 000000000..e9748ab1e
 +		regulator-always-on;
 +	};
 +
++	/* DSI PHY reference generator. The vendor DT exposes it as
++	 * soc/refgen-regulator@1600000 ("qcom,refgen-kona-regulator"); the
++	 * mainline qcom-refgen driver only matches sdm845/sm8250, so model it
++	 * as an always-on fixed regulator to satisfy the DSI controller's
++	 * "refgen" supply. */
++	refgen: regulator-refgen {
++		compatible = "regulator-fixed";
++		regulator-name = "refgen";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-always-on;
++	};
++
 +	vibrator {
 +		compatible = "gpio-vibrator";
 +		enable-gpios = <&tlmm 36 GPIO_ACTIVE_HIGH>;
@@ -811,6 +824,7 @@ index 000000000..e9748ab1e
 +
 +&mdss_dsi0 {
 +	vdda-supply = <&pm6125_l18a>;
++	refgen-supply = <&refgen>;
 +	status = "okay";
 +
 +	pinctrl-names = "default";
@@ -958,6 +972,11 @@ index 000000000..e9748ab1e
 +	qcom,micbias3-microvolt = <2700000>;
 +	qcom,micbias4-microvolt = <2700000>;
 +
++	/* Headset button detection (MBHC). The vendor DT omits this entry,
++	 * so the mainline wcd-mbhc-v2 driver errors out; use the standard
++	 * WCD937x/PMIC thresholds (75/150/237/500 mV). */
++	qcom,mbhc-buttons-vthreshold-microvolt = <75000 150000 237000 500000 500000 500000 500000 500000>;
++
 +	qcom,rx-device = <&wcd937x_rx>;
 +	qcom,tx-device = <&wcd937x_tx>;
 +
@@ -1092,10 +1111,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..00aced5eb
+index 000000000..58ed234f2
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,1939 @@
+@@ -0,0 +1,1955 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -2275,13 +2294,26 @@ index 000000000..00aced5eb
 +				memory-region = <&pil_gpu_mem>;
 +			};
 +
++			/*
++			 * Vendor gfx3d rates (A610v2): the OPP table below is the
++			 * speed-bin-1 set read from the stock DT gpu-opp-table
++			 * (320/465/600/785/1025/1114.8 MHz). The old table used
++			 * 820/980 MHz which the hardware never produces and
++			 * omitted 1025/1114.8 — that mismatch made devfreq fail
++			 * to find the level on every transition.
++			 *
++			 * No opp-supported-hw here: this platform does not call
++			 * dev_pm_opp_set_supported_hw() (no speed-bin nvmem cell),
++			 * and the OPP core disables any OPP that carries
++			 * opp-supported-hw in that case — the old <0x1f> on
++			 * opp-320000000 silently dropped the 320 MHz level.
++			 */
 +			gpu_opp_table: opp-table {
 +				compatible = "operating-points-v2";
 +
 +				opp-320000000 {
 +					opp-hz = /bits/ 64 <320000000>;
 +					required-opps = <&rpmpd_opp_low_svs>;
-+					opp-supported-hw = <0x1f>;
 +				};
 +
 +				opp-465000000 {
@@ -2299,13 +2331,13 @@ index 000000000..00aced5eb
 +					required-opps = <&rpmpd_opp_nom>;
 +				};
 +
-+				opp-820000000 {
-+					opp-hz = /bits/ 64 <820000000>;
++				opp-1025000000 {
++					opp-hz = /bits/ 64 <1025000000>;
 +					required-opps = <&rpmpd_opp_nom_plus>;
 +				};
 +
-+				opp-980000000 {
-+					opp-hz = /bits/ 64 <980000000>;
++				opp-1114800000 {
++					opp-hz = /bits/ 64 <1114800000>;
 +					required-opps = <&rpmpd_opp_turbo>;
 +				};
 +			};
@@ -2796,6 +2828,9 @@ index 000000000..00aced5eb
 +			clocks = <&q6afecc LPASS_CLK_ID_VA_CORE_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
 +				 <&q6afecc LPASS_CLK_ID_VA_CORE_2X_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
 +			clock-names = "mclk", "npl";
++
++			/* Vendor value from Android DT: qcom,va-dmic-sample-rate = <600000> */
++			qcom,dmic-sample-rate = <600000>;
 +
 +			#clock-cells = <0>;
 +			#sound-dai-cells = <1>;
@@ -4224,6 +4259,46 @@ index 244447195..f8437bd8e 100644
  		qca_send_pre_shutdown_cmd(hdev);
  		usleep_range(8000, 10000);
  	}
+diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
+index 048adfa86..da5d12354 100644
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -3839,15 +3839,28 @@ static void clk_core_reparent_orphans_nolock(void)
+ 		struct clk_core *parent = __clk_init_parent(orphan);
+ 
+ 		/*
+-		 * We need to use __clk_set_parent_before() and _after() to
+-		 * properly migrate any prepare/enable count of the orphan
+-		 * clock. This is important for CLK_IS_CRITICAL clocks, which
+-		 * are enabled during init but might not have a parent yet.
++		 * An orphan has no old parent, so there is no prepare/enable
++		 * state to migrate from one parent to another. Avoid the
++		 * __clk_set_parent_before/after() hardware dance here: its
++		 * "undo" step can disable/unprepare the freshly registered
++		 * parent and emit spurious "already disabled / already
++		 * unprepared" WARNINGs (seen with the DSI PHY PLL clocks on
++		 * SM6225). Instead propagate the orphan's prepare/enable state
++		 * to the new parent and just update the topology.
++		 * (Cf. upstream f8f8f1d04494 and its follow-up fixes.)
+ 		 */
+ 		if (parent) {
+-			/* update the clk tree topology */
+-			__clk_set_parent_before(orphan, parent);
+-			__clk_set_parent_after(orphan, parent, NULL);
++			unsigned long flags;
++
++			if (orphan->prepare_count)
++				clk_core_prepare(parent);
++
++			flags = clk_enable_lock();
++			if (orphan->enable_count)
++				clk_core_enable(parent);
++			clk_reparent(orphan, parent);
++			clk_enable_unlock(flags);
++
+ 			__clk_recalc_accuracies(orphan);
+ 			__clk_recalc_rates(orphan, true, 0);
+ 
 diff --git a/drivers/clk/qcom/dispcc-sm6375.c b/drivers/clk/qcom/dispcc-sm6375.c
 index ec9dbb1f4..767d4ae1f 100644
 --- a/drivers/clk/qcom/dispcc-sm6375.c
@@ -4378,7 +4453,7 @@ index 4c3804701..b2945c168 100644
  	[GCC_UFS_PHY_UNIPRO_CORE_CLK] = &gcc_ufs_phy_unipro_core_clk.clkr,
  	[GCC_UFS_PHY_UNIPRO_CORE_CLK_SRC] =
 diff --git a/drivers/clk/qcom/gpucc-sm6375.c b/drivers/clk/qcom/gpucc-sm6375.c
-index 41f590241..d4499ee9e 100644
+index 41f590241..e0eeecda6 100644
 --- a/drivers/clk/qcom/gpucc-sm6375.c
 +++ b/drivers/clk/qcom/gpucc-sm6375.c
 @@ -46,23 +46,27 @@ static const struct pll_vco lucid_vco[] = {
@@ -4465,9 +4540,18 @@ index 41f590241..d4499ee9e 100644
  	{ .hw = &gpucc_pll0.clkr.hw },
  	{ .hw = &gpucc_pll1.clkr.hw },
  	{ .hw = &gpucc_pll1.clkr.hw },
-@@ -158,13 +184,15 @@ static struct clk_rcg2 gpucc_gmu_clk_src = {
+@@ -157,14 +183,22 @@ static struct clk_rcg2 gpucc_gmu_clk_src = {
+ 	},
  };
  
++/*
++ * Khaje (SM6225) gfx3d rates, taken verbatim from the vendor
++ * /proc/device-tree/soc/gpu-opp-table (A610v2, speed-bin bins):
++ *   bin0: 1260 / 1114.8 / 1025 / 785 / 600 / 465 / 320 MHz
++ *   bin1:        1114.8 / 1025 / 785 / 600 / 465 / 320 MHz
++ *   bin2:                 1025 / 785 / 600 / 465 / 320 MHz
++ * Note: 1114.8 MHz is NOT 1100 MHz — the vendor really uses 1114800000.
++ */
  static const struct freq_tbl ftbl_gpucc_gx_gfx3d_clk_src[] = {
 -	F(266000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
 -	F(390000000, P_GPU_CC_PLL0_OUT_EVEN, 2, 0, 0),
@@ -4480,15 +4564,13 @@ index 41f590241..d4499ee9e 100644
 +	F(465000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
 +	F(600000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
 +	F(785000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
-+	F(820000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
-+	F(980000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
 +	F(1025000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
-+	F(1100000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
++	F(1114800000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
 +	F(1260000000, P_GPU_CC_PLL0_OUT_EVEN, 1, 0, 0),
  	{ }
  };
  
-@@ -380,6 +408,9 @@ static struct gdsc gpu_gx_gdsc = {
+@@ -380,6 +414,9 @@ static struct gdsc gpu_gx_gdsc = {
  	.flags = CLAMP_IO | SW_RESET | AON_RESET,
  };
  
@@ -4498,7 +4580,7 @@ index 41f590241..d4499ee9e 100644
  static struct clk_regmap *gpucc_sm6375_clocks[] = {
  	[GPU_CC_AHB_CLK] = &gpucc_ahb_clk.clkr,
  	[GPU_CC_CX_GFX3D_CLK] = &gpucc_cx_gfx3d_clk.clkr,
-@@ -394,6 +425,7 @@ static struct clk_regmap *gpucc_sm6375_clocks[] = {
+@@ -394,6 +431,7 @@ static struct clk_regmap *gpucc_sm6375_clocks[] = {
  	[GPU_CC_GX_GFX3D_CLK_SRC] = &gpucc_gx_gfx3d_clk_src.clkr,
  	[GPU_CC_GX_GMU_CLK] = &gpucc_gx_gmu_clk.clkr,
  	[GPU_CC_PLL0] = &gpucc_pll0.clkr,
@@ -4506,7 +4588,7 @@ index 41f590241..d4499ee9e 100644
  	[GPU_CC_PLL1] = &gpucc_pll1.clkr,
  	[GPU_CC_SLEEP_CLK] = &gpucc_sleep_clk.clkr,
  };
-@@ -452,7 +484,7 @@ static int gpucc_sm6375_probe(struct platform_device *pdev)
+@@ -452,7 +490,7 @@ static int gpucc_sm6375_probe(struct platform_device *pdev)
  		return PTR_ERR(regmap);
  	}
  
@@ -4573,6 +4655,33 @@ index 8f4b03713..e9fbe06a3 100644
  	if (IS_ERR(hw)) {
  		ret = PTR_ERR(hw);
  		goto fail;
+diff --git a/drivers/gpu/drm/msm/msm_gpu.c b/drivers/gpu/drm/msm/msm_gpu.c
+index 3f3925b11..038bd2285 100644
+--- a/drivers/gpu/drm/msm/msm_gpu.c
++++ b/drivers/gpu/drm/msm/msm_gpu.c
+@@ -1058,13 +1058,19 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
+ 	if (IS_ERR(gpu->ebi1_clk))
+ 		gpu->ebi1_clk = NULL;
+ 
+-	/* Acquire regulators: */
+-	gpu->gpu_reg = devm_regulator_get(&pdev->dev, "vdd");
++	/*
++	 * Acquire regulators. These are optional: on SoCs like SM6115/SM6225
++	 * the GPU GX/CX rails are the gpucc GDSCs (power-domains), not
++	 * software-controlled regulators, and the vendor DT points vdd/vddcx
++	 * at those GDSCs. Using _optional avoids the bogus
++	 * "supply vdd not found, using dummy regulator" warning.
++	 */
++	gpu->gpu_reg = devm_regulator_get_optional(&pdev->dev, "vdd");
+ 	DBG("gpu_reg: %p", gpu->gpu_reg);
+ 	if (IS_ERR(gpu->gpu_reg))
+ 		gpu->gpu_reg = NULL;
+ 
+-	gpu->gpu_cx = devm_regulator_get(&pdev->dev, "vddcx");
++	gpu->gpu_cx = devm_regulator_get_optional(&pdev->dev, "vddcx");
+ 	DBG("gpu_cx: %p", gpu->gpu_cx);
+ 	if (IS_ERR(gpu->gpu_cx))
+ 		gpu->gpu_cx = NULL;
 diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
 index 4a6acd468..47c0e6a94 100644
 --- a/drivers/gpu/drm/msm/msm_mdss.c
@@ -14086,17 +14195,17 @@ index 000000000..7eae9afb4
 +
 +MODULE_DESCRIPTION("QTI khaje pinctrl driver");
 diff --git a/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c b/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
-index 76aed3296..97cb4828b 100644
+index 76aed3296..5b6a5add3 100644
 --- a/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
 +++ b/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
 @@ -61,7 +61,10 @@ static int lpi_gpio_write(struct lpi_pinctrl *state, unsigned int pin,
  	else
  		pin_offset = LPI_TLMM_REG_OFFSET * pin;
  
-+	dev_err(state->dev, "LPIWR pin=%u off=%#lx val=%#x\n",
++	dev_dbg(state->dev, "LPIWR pin=%u off=%#lx val=%#x\n",
 +		pin, (unsigned long)(pin_offset + addr), val);
  	iowrite32(val, state->tlmm_base + pin_offset + addr);
-+	dev_err(state->dev, "LPIWR-ok\n");
++	dev_dbg(state->dev, "LPIWR-ok\n");
  
  	return 0;
  }
@@ -14106,13 +14215,13 @@ index 76aed3296..97cb4828b 100644
  
 +	/* Khaje: slew ctl reg at slew_base+0x00, not +0xa000 (dead region) */
 +	reg = pctrl->slew_base;
-+	dev_err(pctrl->dev, "LPISLEW grp=%u reg=%p off=%d slew=%u\n",
++	dev_dbg(pctrl->dev, "LPISLEW grp=%u reg=%p off=%d slew=%u\n",
 +		group, reg, slew_offset, slew);
  	sval = ioread32(reg);
  	sval &= ~(LPI_SLEW_RATE_MASK << slew_offset);
  	sval |= slew << slew_offset;
  	iowrite32(sval, reg);
-+	dev_err(pctrl->dev, "LPISLEW-ok\n");
++	dev_dbg(pctrl->dev, "LPISLEW-ok\n");
  
  	mutex_unlock(&pctrl->lock);
  
@@ -15334,6 +15443,19 @@ index 1797929df..09b7eb8d0 100644
  			ret = _regulator_do_set_voltage(
  				rdev, target_min, target_max);
  			if (ret < 0) {
+diff --git a/drivers/remoteproc/qcom_q6v5.c b/drivers/remoteproc/qcom_q6v5.c
+index 58d5b85e5..c9eb8b027 100644
+--- a/drivers/remoteproc/qcom_q6v5.c
++++ b/drivers/remoteproc/qcom_q6v5.c
+@@ -165,7 +165,7 @@ static irqreturn_t q6v5_handover_interrupt(int irq, void *data)
+ 	struct qcom_q6v5 *q6v5 = data;
+ 
+ 	if (q6v5->handover_issued) {
+-		dev_err(q6v5->dev, "Handover signaled, but it already happened\n");
++		dev_dbg(q6v5->dev, "Handover signaled, but it already happened\n");
+ 		return IRQ_HANDLED;
+ 	}
+ 
 diff --git a/drivers/scsi/scsi_scan.c b/drivers/scsi/scsi_scan.c
 index b118ed0bf..b4ece2ab2 100644
 --- a/drivers/scsi/scsi_scan.c
@@ -15487,7 +15609,7 @@ index 3fe47d8f0..d9c5d1ca1 100644
  	{ .compatible = "qcom,sm6150", .data = &sm6150_data, },
  	{ .compatible = "qcom,sm6350", .data = &sm6350_data, },
 diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
-index 3d8f5a81e..f7b624507 100644
+index 3d8f5a81e..2d670166a 100644
 --- a/drivers/soundwire/qcom.c
 +++ b/drivers/soundwire/qcom.c
 @@ -93,6 +93,9 @@
@@ -15570,7 +15692,34 @@ index 3d8f5a81e..f7b624507 100644
  
  	return ctrl->reg_write(ctrl, reg, val);
  }
-@@ -1549,6 +1578,7 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+@@ -1424,10 +1453,16 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
+ 	ctrl->num_dout_ports = FIELD_GET(SWRM_COMP_PARAMS_DOUT_PORTS_MASK, val);
+ 	ctrl->num_din_ports = FIELD_GET(SWRM_COMP_PARAMS_DIN_PORTS_MASK, val);
+ 
++	/*
++	 * The DT may deliberately describe fewer ports than the controller
++	 * advertises in SWRM_COMP_PARAMS (e.g. khaje uses 5 RX ports while the
++	 * master reports 6). That is a valid override, so log it at debug level
++	 * instead of an error.
++	 */
+ 	ret = of_property_read_u32(np, "qcom,din-ports", &val);
+ 	if (!ret) { /* only if present */
+ 		if (val != ctrl->num_din_ports) {
+-			dev_err(ctrl->dev, "din-ports (%d) mismatch with controller (%d)",
++			dev_dbg(ctrl->dev, "din-ports (%d) differ from controller (%d), using DT value",
+ 				val, ctrl->num_din_ports);
+ 		}
+ 
+@@ -1437,7 +1472,7 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
+ 	ret = of_property_read_u32(np, "qcom,dout-ports", &val);
+ 	if (!ret) { /* only if present */
+ 		if (val != ctrl->num_dout_ports) {
+-			dev_err(ctrl->dev, "dout-ports (%d) mismatch with controller (%d)",
++			dev_dbg(ctrl->dev, "dout-ports (%d) differ from controller (%d), using DT value",
+ 				val, ctrl->num_dout_ports);
+ 		}
+ 
+@@ -1549,6 +1584,7 @@ static int qcom_swrm_probe(struct platform_device *pdev)
  	ctrl->reg_layout = data->reg_layout;
  	ctrl->rows_index = sdw_find_row_index(data->default_rows);
  	ctrl->cols_index = sdw_find_col_index(data->default_cols);
@@ -15578,7 +15727,7 @@ index 3d8f5a81e..f7b624507 100644
  #if IS_REACHABLE(CONFIG_SLIMBUS)
  	if (dev->parent->bus == &slimbus_bus) {
  #else
-@@ -1600,6 +1630,10 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+@@ -1600,6 +1636,10 @@ static int qcom_swrm_probe(struct platform_device *pdev)
  	ctrl->bus.port_ops = &qcom_swrm_port_ops;
  	ctrl->bus.compute_params = &qcom_swrm_compute_params;
  	ctrl->bus.clk_stop_timeout = 300;
@@ -15589,7 +15738,7 @@ index 3d8f5a81e..f7b624507 100644
  
  	ret = qcom_swrm_get_port_config(ctrl);
  	if (ret)
-@@ -1676,6 +1710,11 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+@@ -1676,6 +1716,11 @@ static int qcom_swrm_probe(struct platform_device *pdev)
  	pm_runtime_mark_last_busy(dev);
  	pm_runtime_set_active(dev);
  	pm_runtime_enable(dev);
@@ -15601,7 +15750,7 @@ index 3d8f5a81e..f7b624507 100644
  
  #ifdef CONFIG_DEBUG_FS
  	ctrl->debugfs = debugfs_create_dir("qualcomm-sdw", ctrl->bus.debugfs);
-@@ -1713,7 +1752,13 @@ static int __maybe_unused swrm_runtime_resume(struct device *dev)
+@@ -1713,7 +1758,13 @@ static int __maybe_unused swrm_runtime_resume(struct device *dev)
  
  	clk_prepare_enable(ctrl->hclk);
  
@@ -15616,7 +15765,7 @@ index 3d8f5a81e..f7b624507 100644
  		reinit_completion(&ctrl->enumeration);
  		ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
  		usleep_range(100, 105);
-@@ -1772,7 +1817,7 @@ static int __maybe_unused swrm_runtime_suspend(struct device *dev)
+@@ -1772,7 +1823,7 @@ static int __maybe_unused swrm_runtime_suspend(struct device *dev)
  	int ret;
  
  	swrm_wait_for_wr_fifo_done(ctrl);

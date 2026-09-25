@@ -27,8 +27,8 @@
 | Wi-Fi | **Не завершено** | Firmware и базовая инфраструктура присутствуют; полный рабочий цикл не зафиксирован |
 | Bluetooth | **Не завершено** | Firmware присутствует; полный рабочий цикл не зафиксирован |
 | Adreno 610 kernel init | **Работает** | DRM, SMMU, GMU, ZAP и GPU hw init проходят |
-| GPU clock / PLL | **Работает** | Khaje ZONDA PLL0 → OUT_MAIN; 465/600/785/820/980 МГц доступны |
-| GPU devfreq / OPP | **Работает** | `simple_ondemand`, `cur_freq` и таблица частот работают |
+| GPU clock / PLL | **Работает** | Khaje ZONDA PLL0 → OUT_MAIN; вендорные 320/465/600/785/1025/1114.8 МГц доступны |
+| GPU devfreq / OPP | **Работает** | `simple_ondemand`, `cur_freq`; таблица приведена к вендорной, предупреждение devfreq убрано |
 | GPU real rendering/load | **Не проверено** | `kmscube`/Mesa/freedreno userspace-тест ещё не запускался |
 | GPU userspace Vulkan/OpenGL | **Не проверено** | Kernel bring-up подтверждён, полноценный userspace stack не включён |
 | Камера | **Не реализовано** | Драйверы и pipeline не поднимались |
