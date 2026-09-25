@@ -1,0 +1,120 @@
+[    0.000000] OF: reserved mem: initialized node adsp_region, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: initialized node pil_adsp_region@53800000, compatible id removed-dma-pool
+[    0.175997] platform ab00000.qcom,lpass: assigned reserved memory node pil_adsp_region@53800000
+[    0.181445] platform soc:qcom,msm-adsprpc-mem: assigned reserved memory node adsp_region
+[    1.229356] Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
+[    1.269140] usbcore: registered new interface driver snd-usb-audio
+[    1.269196] uaudio-qmi soc:usb_audio_qmi_dev: Linked as a consumer to c600000.apps-smmu
+[    1.269240] iommu: Adding device soc:usb_audio_qmi_dev to group 10
+[    1.273893] apr_probe: Unable to create ipc log context
+[    1.275315] [Awinic] aw87xxx_pa_init:driver version: v2.0.0.10
+[    1.275335] [Awinic] [0-0058]aw87xxx_malloc_init: struct aw87xxx devm_kzalloc and init down
+[    1.275338] [Awinic] [0-0058]aw87xxx_dtsi_parse: parse dev_index=[0]
+[    1.275343] [Awinic] [0-0058]aw87xxx_dtsi_parse: no reset gpio provided, hardware reset unavailable
+[    1.275566] [Awinic] [0-0058]aw_dev_get_chipid: read chipid[0x76] succeed
+[    1.275570] [Awinic] [0-0058]aw_dev_chip_init: product is pid_76 class
+[    1.275716] [Awinic] [0-0058]aw87xxx_fw_load_init: enter
+[    1.275721] [Awinic] [0-0058]aw_monitor_dtsi_parse: esd_enable parse failed, user default[disable]
+[    1.275728] [Awinic] [0-0058]aw_monitor_init: monitor init succeed
+[    1.275731] [Awinic] [0-0058]aw87xxx_i2c_probe: succeed
+[    1.594028] fastrpc soc:qcom,msm-adsprpc-mem: for adsp_rh segments only will be dumped.
+[    1.594073] adsprpc: init_secure_vmid_list: secure VMID = 22
+[    1.594076] adsprpc: init_secure_vmid_list: secure VMID = 37
+[    1.594084] adsprpc: fastrpc_probe: service location enabled for avs/audio (audio_pdr_adsprpc)
+[    1.594088] adsprpc: fastrpc_probe: service location enabled for tms/servreg (sensors_pdr_adsprpc)
+[    1.598720] adsprpc: fastrpc_device_init: SSR notifier registered for adsp
+[    1.598725] adsprpc: fastrpc_device_init: SSR notifier registered for modem
+[    1.598729] adsprpc: fastrpc_device_init: SSR notifier registered for slpi
+[    1.598732] adsprpc: fastrpc_device_init: SSR notifier registered for cdsp
+[    1.602659] sde_mdp_parse_dt_prop_len: <SDEROT_INFO> prop qcom,mdss-inline-rot-safe-lut : doesn't exist in device tree
+[    1.608392] No soundcards found.
+[    2.238390] init: Parsing file /system/etc/init/audioserver.rc...
+[    2.251967] init: Parsing file /vendor/etc/init/android.hardware.audio.service.rc...
+[    2.252217] init: ignored duplicate definition of service 'vendor.audio-hal'
+[    2.262417] init: Parsing file /vendor/etc/init/vendor.qti.adsprpc-service.rc...
+[    2.262609] init: Parsing file /vendor/etc/init/vendor.qti.audio-adsprpc-service.rc...
+[    2.343857] apexd-bootstrap: Found pre-installed APEX /system/apex/com.android.media.swcodec.capex
+[    2.343876] apexd-bootstrap: Found pre-installed APEX /system/apex/com.android.mediaprovider.capex
+[    2.672036] init: starting service 'exec 1 (/vendor/bin/modprobe -a -d /vendor/lib/modules audio_q6_pdr audio_q6_notifier audio_snd_event audio_apr audio_adsp_loader audio_q6 audio_native audio_usf audio_pinctrl_lpi audio_swr audio_swr_ctrl audio_platform audio_stub audio_wcd_core audio_aw87xxx audio_fs1599 audio_wcd9xxx audio_bolero_cdc audio_va_macro audio_rx_macro audio_tx_macro audio_mbhc audio_wcd937x audio_wcd937x_slave audio_pm2250_spmi audio_rouleur audio_rouleur_slave audio_machine_bengal)'...
+[    2.673583] init: ... started service 'exec 1 (/vendor/bin/modprobe -a -d /vendor/lib/modules audio_q6_pdr audio_q6_notifier audio_snd_event audio_apr audio_adsp_loader audio_q6 audio_native audio_usf audio_pinctrl_lpi audio_swr audio_swr_ctrl audio_platform audio_stub audio_wcd_core audio_aw87xxx audio_fs1599 audio_wcd9xxx audio_bolero_cdc audio_va_macro audio_rx_macro audio_tx_macro audio_mbhc audio_wcd937x audio_wcd937x_slave audio_pm2250_spmi audio_rouleur audio_rouleur_slave audio_machine_bengal)' has pid 978
+[    2.673607] init: SVC_EXEC service 'exec 1 (/vendor/bin/modprobe -a -d /vendor/lib/modules audio_q6_pdr audio_q6_notifier audio_snd_event audio_apr audio_adsp_loader audio_q6 audio_native audio_usf audio_pinctrl_lpi audio_swr audio_swr_ctrl audio_platform audio_stub audio_wcd_core audio_aw87xxx audio_fs1599 audio_wcd9xxx audio_bolero_cdc audio_va_macro audio_rx_macro audio_tx_macro audio_mbhc audio_wcd937x audio_wcd937x_slave audio_pm2250_spmi audio_rouleur audio_rouleur_slave audio_machine_bengal)' pid 978 (uid 0 gid 0+0 context u:r:vendor_modprobe:s0) started; waiting...
+[    2.690923] init: Service 'exec 1 (/vendor/bin/modprobe -a -d /vendor/lib/modules audio_q6_pdr audio_q6_notifier audio_snd_event audio_apr audio_adsp_loader audio_q6 audio_native audio_usf audio_pinctrl_lpi audio_swr audio_swr_ctrl audio_platform audio_stub audio_wcd_core audio_aw87xxx audio_fs1599 audio_wcd9xxx audio_bolero_cdc audio_va_macro audio_rx_macro audio_tx_macro audio_mbhc audio_wcd937x audio_wcd937x_slave audio_pm2250_spmi audio_rouleur audio_rouleur_slave audio_machine_bengal)' (pid 978) exited with status 1 waiting took 0.018000 seconds
+[    2.690947] init: Sending SIGKILL to service 'exec 1 (/vendor/bin/modprobe -a -d /vendor/lib/modules audio_q6_pdr audio_q6_notifier audio_snd_event audio_apr audio_adsp_loader audio_q6 audio_native audio_usf audio_pinctrl_lpi audio_swr audio_swr_ctrl audio_platform audio_stub audio_wcd_core audio_aw87xxx audio_fs1599 audio_wcd9xxx audio_bolero_cdc audio_va_macro audio_rx_macro audio_tx_macro audio_mbhc audio_wcd937x audio_wcd937x_slave audio_pm2250_spmi audio_rouleur audio_rouleur_slave audio_machine_bengal)' (pid 978) process group...
+[    3.792271] init: processing action (SetMmapRndBits) from (<Builtin Action>:0)
+[    3.896091] init: processing action (init) from (/system/etc/init/audioserver.rc:66)
+[    4.324085] [Awinic] [0-0058]aw_check_data_v_0_0_0_1: acf fimware check succeed
+[    4.324097] AWINIC_BIN aw_parsing_bin_file,line= 442,aw_bin_parse code version:V0.0.7-V1.0.4
+[    4.324101] AWINIC_BIN aw_check_bin_header_version,line= 423,aw_bin_parse header_version 0x1000000
+[    4.324104] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 372,enter aw_parse_bin_header_1_0_0
+[    4.324107] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 376,aw_bin_parse bin_data_type 0x0
+[    4.324109] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 384,aw_bin_parse enter single bin branch
+[    4.324112] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 387,aw_parse_bin_header_1_0_0 bin->single_bin_parse_num is 1
+[    4.324115] AWINIC_BIN aw_get_single_bin_header_1_0_0,line= 260,enter aw_get_single_bin_header_1_0_0
+[    4.324118] AWINIC_BIN aw_check_sum,line= 93,enter
+[    4.324122] AWINIC_BIN aw_check_sum,line= 98,aw_bin_parse p_check_sum = 00000000bcf9b594
+[    4.324125] AWINIC_BIN aw_check_sum,line= 110,aw_bin_parse bin_num=0, check_sum = 0x111c, sum_data = 0x111c
+[    4.324128] AWINIC_BIN aw_check_data_version,line= 125,enter
+[    4.324130] AWINIC_BIN aw_check_register_num_v1,line= 142,enter
+[    4.324132] AWINIC_BIN aw_check_register_num_v1,line= 146,aw_bin_parse p_check_sum = 00000000131728c8
+[    4.324135] AWINIC_BIN aw_check_register_num_v1,line= 155,aw_bin_parse bin_num=0, parse_register_num = 0x20, check_register_num = 0x20
+[    4.324138] AWINIC_BIN aw_parsing_bin_file,line= 509,aw_bin_parse parsing success
+[    4.324141] AWINIC_BIN aw_parsing_bin_file,line= 442,aw_bin_parse code version:V0.0.7-V1.0.4
+[    4.324144] AWINIC_BIN aw_check_bin_header_version,line= 423,aw_bin_parse header_version 0x1000000
+[    4.324146] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 372,enter aw_parse_bin_header_1_0_0
+[    4.324148] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 376,aw_bin_parse bin_data_type 0x0
+[    4.324151] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 384,aw_bin_parse enter single bin branch
+[    4.324153] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 387,aw_parse_bin_header_1_0_0 bin->single_bin_parse_num is 1
+[    4.324155] AWINIC_BIN aw_get_single_bin_header_1_0_0,line= 260,enter aw_get_single_bin_header_1_0_0
+[    4.324158] AWINIC_BIN aw_check_sum,line= 93,enter
+[    4.324160] AWINIC_BIN aw_check_sum,line= 98,aw_bin_parse p_check_sum = 00000000bcf9b594
+[    4.324163] AWINIC_BIN aw_check_sum,line= 110,aw_bin_parse bin_num=0, check_sum = 0x1186, sum_data = 0x1186
+[    4.324165] AWINIC_BIN aw_check_data_version,line= 125,enter
+[    4.324167] AWINIC_BIN aw_check_register_num_v1,line= 142,enter
+[    4.324169] AWINIC_BIN aw_check_register_num_v1,line= 146,aw_bin_parse p_check_sum = 00000000131728c8
+[    4.324172] AWINIC_BIN aw_check_register_num_v1,line= 155,aw_bin_parse bin_num=0, parse_register_num = 0x20, check_register_num = 0x20
+[    4.324174] AWINIC_BIN aw_parsing_bin_file,line= 509,aw_bin_parse parsing success
+[    4.324177] [Awinic] [0-0058]aw_monitor_bin_parse: monitor bin parse version: V0.1.0
+[    4.324181] [Awinic] [0-0058]aw_monitor_parse_data_v1: monitor_switch:1, monitor_time:1000 (ms), monitor_count:5, step_count:4
+[    4.324189] [Awinic] [0-0058]aw_monitor_write_to_table_v1: vbat_min:70, vbat_max100, vmax_vol:0x0
+[    4.324192] [Awinic] [0-0058]aw_monitor_write_to_table_v1: vbat_min:50, vbat_max70, vmax_vol:0xfff46980
+[    4.324195] [Awinic] [0-0058]aw_monitor_write_to_table_v1: vbat_min:30, vbat_max50, vmax_vol:0xffeca56b
+[    4.324197] [Awinic] [0-0058]aw_monitor_write_to_table_v1: vbat_min:0, vbat_max30, vmax_vol:0xffe96a00
+[    4.324200] [Awinic] [0-0058]aw_monitor_parse_vol_data_v1: vmax_data parse succeed
+[    4.324203] [Awinic] [0-0058]aw_parse_monitor_config: monitor_bin parse succeed
+[    4.324206] AWINIC_BIN aw_parsing_bin_file,line= 442,aw_bin_parse code version:V0.0.7-V1.0.4
+[    4.324208] AWINIC_BIN aw_check_bin_header_version,line= 423,aw_bin_parse header_version 0x1000000
+[    4.324210] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 372,enter aw_parse_bin_header_1_0_0
+[    4.324213] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 376,aw_bin_parse bin_data_type 0x0
+[    4.324215] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 384,aw_bin_parse enter single bin branch
+[    4.324217] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 387,aw_parse_bin_header_1_0_0 bin->single_bin_parse_num is 1
+[    4.324220] AWINIC_BIN aw_get_single_bin_header_1_0_0,line= 260,enter aw_get_single_bin_header_1_0_0
+[    4.324222] AWINIC_BIN aw_check_sum,line= 93,enter
+[    4.324224] AWINIC_BIN aw_check_sum,line= 98,aw_bin_parse p_check_sum = 00000000bcf9b594
+[    4.324227] AWINIC_BIN aw_check_sum,line= 110,aw_bin_parse bin_num=0, check_sum = 0x1186, sum_data = 0x1186
+[    4.324229] AWINIC_BIN aw_check_data_version,line= 125,enter
+[    4.324232] AWINIC_BIN aw_check_register_num_v1,line= 142,enter
+[    4.324234] AWINIC_BIN aw_check_register_num_v1,line= 146,aw_bin_parse p_check_sum = 00000000131728c8
+[    4.324237] AWINIC_BIN aw_check_register_num_v1,line= 155,aw_bin_parse bin_num=0, parse_register_num = 0x20, check_register_num = 0x20
+[    4.324239] AWINIC_BIN aw_parsing_bin_file,line= 509,aw_bin_parse parsing success
+[    4.324242] AWINIC_BIN aw_parsing_bin_file,line= 442,aw_bin_parse code version:V0.0.7-V1.0.4
+[    4.324244] AWINIC_BIN aw_check_bin_header_version,line= 423,aw_bin_parse header_version 0x1000000
+[    4.324247] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 372,enter aw_parse_bin_header_1_0_0
+[    4.324249] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 376,aw_bin_parse bin_data_type 0x0
+[    4.324251] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 384,aw_bin_parse enter single bin branch
+[    4.324253] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 387,aw_parse_bin_header_1_0_0 bin->single_bin_parse_num is 1
+[    4.324256] AWINIC_BIN aw_get_single_bin_header_1_0_0,line= 260,enter aw_get_single_bin_header_1_0_0
+[    4.324258] AWINIC_BIN aw_check_sum,line= 93,enter
+[    4.324261] AWINIC_BIN aw_check_sum,line= 98,aw_bin_parse p_check_sum = 00000000bcf9b594
+[    4.324263] AWINIC_BIN aw_check_sum,line= 110,aw_bin_parse bin_num=0, check_sum = 0x1b1, sum_data = 0x1b1
+[    4.324265] AWINIC_BIN aw_check_data_version,line= 125,enter
+[    4.324267] AWINIC_BIN aw_check_register_num_v1,line= 142,enter
+[    4.324270] AWINIC_BIN aw_check_register_num_v1,line= 146,aw_bin_parse p_check_sum = 00000000131728c8
+[    4.324272] AWINIC_BIN aw_check_register_num_v1,line= 155,aw_bin_parse bin_num=0, parse_register_num = 0x1, check_register_num = 0x1
+[    4.324275] AWINIC_BIN aw_parsing_bin_file,line= 509,aw_bin_parse parsing success
+[    4.324278] AWINIC_BIN aw_parsing_bin_file,line= 442,aw_bin_parse code version:V0.0.7-V1.0.4
+[    4.324280] AWINIC_BIN aw_check_bin_header_version,line= 423,aw_bin_parse header_version 0x1000000
+[    4.324282] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 372,enter aw_parse_bin_header_1_0_0
+[    4.324284] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 376,aw_bin_parse bin_data_type 0x0
+[    4.324287] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 384,aw_bin_parse enter single bin branch
+[    4.324289] AWINIC_BIN aw_parse_bin_header_1_0_0,line= 387,aw_parse_bin_header_1_0_0 bin->single_bin_parse_num is 1
+[    4.324291] AWINIC_BIN aw_get_single_bin_header_1_0_0,line= 260,enter aw_get_single_bin_header_1_0_0

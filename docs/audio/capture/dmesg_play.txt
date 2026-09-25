@@ -1,0 +1,50 @@
+[  585.377669] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  585.377687] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 4
+[  586.401319] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  586.401327] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 5
+[  586.401336] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: get average capacity = 99
+[  586.401343] [Awinic] aw_qcom_read_data_from_dsp:enter
+[  586.448084] [Awinic] [0-0058]aw_monitor_update_vmax_to_dsp: get rx failed or rx disable, ret=-22, enable=0
+[  587.456998] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  587.457000] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 1
+[  588.482152] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  588.482161] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 2
+[  589.505318] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  589.505326] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 3
+[  590.529036] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  590.529039] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 4
+[  591.553254] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  591.553263] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 5
+[  591.553271] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: get average capacity = 99
+[  591.553279] [Awinic] aw_qcom_read_data_from_dsp:enter
+[  591.600088] [Awinic] [0-0058]aw_monitor_update_vmax_to_dsp: get rx failed or rx disable, ret=-22, enable=0
+[  592.609018] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  592.609022] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 1
+[  593.633426] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  593.633435] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 2
+[  594.657949] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  594.657965] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 3
+[  595.681802] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  595.681819] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 4
+[  596.706086] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  596.706103] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 5
+[  596.706118] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: get average capacity = 99
+[  596.706132] [Awinic] aw_qcom_read_data_from_dsp:enter
+[  596.752220] [Awinic] [0-0058]aw_monitor_update_vmax_to_dsp: get rx failed or rx disable, ret=-22, enable=0
+[  597.762532] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  597.762548] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 1
+[  598.785445] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  598.785453] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 2
+[  599.809298] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  599.809305] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 3
+[  600.833570] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  600.833586] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 4
+[  601.857140] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  601.857149] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 5
+[  601.857157] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: get average capacity = 99
+[  601.857164] [Awinic] aw_qcom_read_data_from_dsp:enter
+[  601.904076] [Awinic] [0-0058]aw_monitor_update_vmax_to_dsp: get rx failed or rx disable, ret=-22, enable=0
+[  602.949004] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  602.949006] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 1
+[  603.968946] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  603.968947] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 2

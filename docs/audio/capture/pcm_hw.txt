@@ -1,0 +1,60 @@
+access: RW_INTERLEAVED
+format: S24_3LE
+subformat: STD
+channels: 2
+rate: 48000 (48000/1)
+period_size: 1920
+buffer_size: 3840
+===
+card: 0
+device: 0
+subdevice: 0
+stream: PLAYBACK
+id: MultiMedia1 (*)
+name: 
+subname: subdevice #0
+class: 0
+subclass: 0
+subdevices_count: 1
+subdevices_avail: 0
+===DMESG===
+[  587.016885] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000006
+[  587.017757] [sh366101] fg_read_status(496): cntl=0x2383, bat_flags=0x0689
+[  587.017783] [sh366101] fg_refresh_status(1279): batt_present=1
+[  587.036849] [sh366101] fg_read_gaugeinfo_block(567): SH366101_GaugeLog: CMD_CALIINFO is Elasp=10, Voltage=4405, Current=48, TS1Temp=310, IntTemper=321, 
+[  587.056881] [sh366101] fg_read_gaugeinfo_block(594): SH366101_GaugeLog: CMD_GAUGEINFO is RunState=0x00000429, GaugeState=0x00001922, GaugeS2=0x3514, WorkState=0x0000, TimeInc=1, MainTick=147, SysTick=147, ClockH=2919, RamCheckT=24, AutoCaliT=0, LTHour=3, LTTimer=255, FlashT=15, LTFlag=0x55, RSTS=0x60, 
+[  587.076883] [sh366101] fg_read_gaugeinfo_block(623): SH366101_GaugeLog: GAUGEBLOCK2 is QF1=0x18, QF2=0x18, PackQmax=5096, CycleCount=37, QmaxCount=7, QmaxCycle=27, VatEOC=4408, IatEOC=180, ChgVEOC=4450, AVILR=-201, AVPLR=-875, ModelCount=46, ModelCycle=32, VCTCount=0, VCTCycle=0, RelaxCycle=37, RatioCycle=37, 
+[  587.096876] [sh366101] fg_read_gaugeinfo_block(651): SH366101_GaugeLog: GAUGEBLOCK3 is SFR_RC=4702, SFR_DCC=-23083, SFR_ICC=0, RCOffset=-57, C0DOD1=-23539, PasCol=54, PasEgy=236, Qstart=0, Estart=18, FastTim=0, FILFLG=0x00, StateTime=165, StateHour=0, StateSec=165, OCVTim=0, RaCalT1=30, 
+[  587.116896] [sh366101] fg_read_gaugeinfo_block(679): SH366101_GaugeLog: GAUGEBLOCK4 is GUInx=0x05, GULoad=0x02, GUStatus=0x0000810A, EodLoad=-333, CRatio=1416, C0DOD0=17506, C0EOC=17506, C0EOD=1012, C0ACV=9112, ThemT=317, Told=317, Tout=300, RCRaw=4749, FCCRaw=4813, RERaw=19570, FCERaw=19868, 
+[  587.136942] [sh366101] fg_read_gaugeinfo_block(709): SH366101_GaugeLog: GAUGEBLOCK5 is IdealFCC=4704, IdealFCE=19734, FilRC=4687, FilFCC=4744, FSOC=99, TrueRC=4759, TrueFCC=4813, RSOC=99, FilRE=19099, FilFCE=19355, FSOCW=99, TrueRE=19614, TrueFCE=19868, RSOCW=99, EquRC=0, EquFCC=0, EquRE=4643, EquFCE=4700, 
+[  587.157100] [sh366101] fg_read_gaugeinfo_block(742): SH366101_GaugeLog: GAUGEBLOCK6 is GaugeS3=0x0000, CCON1=0x85, CCON2=0x5F, ModelS=0x04, FGUpdate=0x10, FMGrid=0xFF, ToggleCnt=0, ORUpdate=0x00, UpState=0x13, ChgVol=4450, TapCur=200, ChgCur=3600, ChgRes=0, PrevI=-182, DeltaC=69, SOCJmpCnt=0, SOWJmpCnt=0, OcvVcell=4416, FGMeas=125, FGPrid=153, FastTime=0, 
+[  587.173538] [sh366101] fg_read_gaugeinfo_block(758): SH366101_GaugeLog: FusionModel is FusionModel=0x4322 0x432F 0x43D7 0x43F4 0x4392 0x43C2 0x43E9 0x43D0 0x43D3 0x43E8 0x4326 0x43D5 0x438A 0x422F 0x41F3 
+[  587.173574] [sh366101] fg_read_gaugeinfo_block(759): SH366101_GaugeLog: max len=271
+[  587.173600] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=0000001C
+[  587.174353] [sh366101] fg_read_soc(779): fg_read_soc soc=99
+[  587.174392] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000064
+[  587.175128] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000004
+[  587.175984] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000010
+[  587.177097] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000000
+[  587.177967] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=88000041
+[  587.178712] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=00000002
+[  587.179501] [sh366101] fg_read_temperature(821): fg_read_temperature temp=310
+[  587.179877] smb1351_read_reg: Reading 0x3a=0x05
+[  587.179901] smb1351_get_prop_batt_status: STATUS_4_REG(0x3A)=5
+[  587.179931] [sh366101] fg_refresh_status(1313): RSOC:99, Volt:4405000, Current:50000, Temperature:310
+[  587.179956] [sh366101] fg_refresh_status(1314): RM:17186000,FC:37000,FAST:0
+[  587.456058] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=0000001C
+[  587.456988] [sh366101] fg_read_soc(779): fg_read_soc soc=99
+[  587.456998] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  587.457000] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 1
+[  587.566565] init: Control message: Could not find 'android.hardware.secure_element@1.2::ISecureElement/eSE1' for ctl.interface_start from pid: 995 (/system/system_ext/bin/hwservicemanager)
+[  588.480974] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=0000001C
+[  588.482107] [sh366101] fg_read_soc(779): fg_read_soc soc=99
+[  588.482152] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  588.482161] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 2
+[  588.568226] init: Control message: Could not find 'android.hardware.secure_element@1.2::ISecureElement/eSE1' for ctl.interface_start from pid: 995 (/system/system_ext/bin/hwservicemanager)
+[  589.504143] [sh366101] fg_read_sbs_word(220): fg_read_sbs_word start, reg=0000001C
+[  589.505274] [sh366101] fg_read_soc(779): fg_read_soc soc=99
+[  589.505318] [Awinic] [0-0058]aw_monitor_get_battery_capacity: The percentage is 99
+[  589.505326] [Awinic] [0-0058]aw_monitor_with_dsp_vmax_work: timer_cnt = 3
+[  589.570176] init: Control message: Could not find 'android.hardware.secure_element@1.2::ISecureElement/eSE1' for ctl.interface_start from pid: 995 (/system/system_ext/bin/hwservicemanager)
