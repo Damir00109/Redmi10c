@@ -31,6 +31,7 @@
 | GPU devfreq / OPP | **Работает** | `simple_ondemand`, `cur_freq`; таблица приведена к вендорной, предупреждение devfreq убрано |
 | GPU real rendering/load | **Не проверено** | `kmscube`/Mesa/freedreno userspace-тест ещё не запускался |
 | GPU userspace Vulkan/OpenGL | **Не проверено** | Kernel bring-up подтверждён, полноценный userspace stack не включён |
+| Sensors (SSC / FastRPC) | **Работает** | Узел `qcom,fastrpc` (ADSP, SID 0x1c3-0x1c7) + `qcom,sm6225` в PD-mapper; `hexagonrpcd` + реестр из persist; `ssccli`: акселерометр, свет, приближение — живой поток |
 | Камера | **Не реализовано** | Драйверы и pipeline не поднимались |
 | Audio microphone / recording | **Не завершено** | Полный capture path не подтверждён |
 | Modem / cellular data | **Не завершено** | Firmware и remoteproc-задел есть; полноценный modem stack не является целью rescue initramfs |
