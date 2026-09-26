@@ -1111,10 +1111,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..c6babd509
+index 000000000..c017a9ac0
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2125 @@
+@@ -0,0 +1,2165 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -3163,6 +3163,46 @@ index 000000000..c6babd509
 +						};
 +					};
 +				};
++
++				fastrpc {
++					compatible = "qcom,fastrpc";
++					qcom,glink-channels = "fastrpcglink-apps-dsp";
++					label = "adsp";
++					qcom,non-secure-domain;
++					#address-cells = <1>;
++					#size-cells = <0>;
++
++					compute-cb@3 {
++						compatible = "qcom,fastrpc-compute-cb";
++						reg = <3>;
++						iommus = <&apps_smmu 0x01c3 0x0>;
++					};
++
++					compute-cb@4 {
++						compatible = "qcom,fastrpc-compute-cb";
++						reg = <4>;
++						iommus = <&apps_smmu 0x01c4 0x0>;
++					};
++
++					compute-cb@5 {
++						compatible = "qcom,fastrpc-compute-cb";
++						reg = <5>;
++						iommus = <&apps_smmu 0x01c5 0x0>;
++					};
++
++					compute-cb@6 {
++						compatible = "qcom,fastrpc-compute-cb";
++						reg = <6>;
++						iommus = <&apps_smmu 0x01c6 0x0>;
++					};
++
++					compute-cb@7 {
++						compatible = "qcom,fastrpc-compute-cb";
++						reg = <7>;
++						iommus = <&apps_smmu 0x01c7 0x0>;
++					};
++				};
++
 +			};
 +		};
 +
@@ -12349,6 +12389,18 @@ index 000000000..2ffb1dbb0
 +
 +MODULE_DESCRIPTION("Minimal Awinic AW87xxx speaker PA driver (Redmi 10C)");
 +MODULE_LICENSE("GPL");
+diff --git a/drivers/misc/fastrpc.c b/drivers/misc/fastrpc.c
+index f3a493845..7e7fec5cb 100644
+--- a/drivers/misc/fastrpc.c
++++ b/drivers/misc/fastrpc.c
+@@ -1257,7 +1257,6 @@ static int fastrpc_internal_invoke(struct fastrpc_user *fl,  u32 kernel,
+ 		dev_warn_ratelimited(fl->sctx->dev, "user app trying to send a kernel RPC message (%d)\n",  handle);
+ 		return -EPERM;
+ 	}
+-
+ 	ctx = fastrpc_context_alloc(fl, kernel, sc, args);
+ 	if (IS_ERR(ctx))
+ 		return PTR_ERR(ctx);
 diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c b/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
 index b87314c83..4c169662f 100644
 --- a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
@@ -15767,6 +15819,21 @@ index c004d444d..beb24e206 100644
  		ret = qcom_scm_pas_mem_setup(pas_id, mem_phys, max_addr - min_addr);
  		if (ret) {
  			/* Unable to set up relocation */
+diff --git a/drivers/soc/qcom/qcom_pd_mapper.c b/drivers/soc/qcom/qcom_pd_mapper.c
+index 7bb14c20a..321f73215 100644
+--- a/drivers/soc/qcom/qcom_pd_mapper.c
++++ b/drivers/soc/qcom/qcom_pd_mapper.c
+@@ -607,6 +607,10 @@ static const struct of_device_id qcom_pdm_domains[] __maybe_unused = {
+ 	{ .compatible = "qcom,sdm845", .data = sdm845_domains, },
+ 	{ .compatible = "qcom,sm4250", .data = sm6115_domains, },
+ 	{ .compatible = "qcom,sm6115", .data = sm6115_domains, },
++	/* Khaje is the same PAS generation as Bengal; the vendor ADSP exposes
++	 * the audio/root/sensor protection domains.
++	 */
++	{ .compatible = "qcom,sm6225", .data = sm6115_domains, },
+ 	{ .compatible = "qcom,sm6350", .data = sm6350_domains, },
+ 	{ .compatible = "qcom,sm7150", .data = sm7150_domains, },
+ 	{ .compatible = "qcom,sm7225", .data = sm6350_domains, },
 diff --git a/drivers/soc/qcom/ubwc_config.c b/drivers/soc/qcom/ubwc_config.c
 index 3fe47d8f0..d9c5d1ca1 100644
 --- a/drivers/soc/qcom/ubwc_config.c
