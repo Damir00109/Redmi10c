@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# fetch-firmware.sh — download the proprietary firmware blobs from the GitHub
-# release and unpack them into the initramfs trees.
+# fetch-firmware.sh — download the proprietary blobs from the GitHub release.
+#
+# The tarball contains:
+#   firmware/  → initramfs/lib/firmware (and out/build/initramfs/lib/firmware)
+#   qcom/      → vendor-qcom/qcom (hexagonrpcd -R tree, used by the pmOS build)
 #
 # Override with env vars:
 #   FIRMWARE_REPO=owner/repo  FIRMWARE_TAG=<tag>
@@ -22,9 +25,18 @@ else
 		"https://github.com/$REPO/releases/download/$TAG/$ASSET"
 fi
 
+tar --zstd -xf "$TMP/$ASSET" -C "$TMP"
+
 for lib in "$R/initramfs/lib" "$R/out/build/initramfs/lib"; do
 	[ -d "$(dirname "$lib")" ] || continue
 	mkdir -p "$lib"
-	tar --zstd -xf "$TMP/$ASSET" -C "$lib"
+	cp -a "$TMP/firmware" "$lib/"
 	echo ">> unpacked firmware into $lib/firmware"
 done
+
+if [ -d "$TMP/qcom" ]; then
+	mkdir -p "$R/vendor-qcom"
+	rm -rf "$R/vendor-qcom/qcom"
+	cp -a "$TMP/qcom" "$R/vendor-qcom/qcom"
+	echo ">> unpacked hexagonrpcd tree into $R/vendor-qcom/qcom"
+fi

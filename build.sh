@@ -101,15 +101,43 @@ PY
 }
 
 ensure_firmware() {
+  # Proprietary blobs required by the rescue initramfs, fetched from the
+  # GitHub release by tools/fetch-firmware.sh. Keyed by subsystem:
+  #   GPU a610_zap, ADSP/SensorCore adsp, modem, WLAN dsp, ath10k Wi-Fi,
+  #   qca Bluetooth, Focaltech touch, awinic PA, foursemi haptic.
   local fw="$ROOT/initramfs/lib/firmware"
-  if [ -f "$fw/qcom/sm6225/a610_zap.mdt" ] && [ -f "$fw/qcom/sm6225/adsp.mdt" ]; then
+  local req=(
+    qcom/sm6225/a610_zap.mdt
+    qcom/sm6225/adsp.mdt
+    qcom/sm6225/modem.mdt
+    qcom/sm6225/wlanmdsp.mbn
+    ath10k/WCN3990/hw1.0/board-2.bin
+    ath10k/WCN3990/hw1.0/firmware-5.bin
+    qca/cmbtfw13.tlv
+    qca/cmnv13t.bin
+    focaltech_ts_fw_xinli.bin
+    awinic/aw87xxx_acf.bin
+    foursemi/fs1599.fsm
+  )
+  local missing=()
+  for f in "${req[@]}"; do
+    [ -f "$fw/$f" ] || missing+=("$f")
+  done
+  if [ "${#missing[@]}" -eq 0 ]; then
     return
   fi
+  echo "Firmware is missing (${#missing[@]} files); fetching from release..."
   [ -x "$ROOT/tools/fetch-firmware.sh" ] || {
     echo "Firmware is missing; run tools/fetch-firmware.sh" >&2
     exit 1
   }
   "$ROOT/tools/fetch-firmware.sh"
+  for f in "${req[@]}"; do
+    if [ ! -f "$fw/$f" ]; then
+      echo "ERROR: still missing after fetch: $fw/$f" >&2
+      exit 1
+    fi
+  done
 }
 
 build_initramfs() {

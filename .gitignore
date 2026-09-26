@@ -14,3 +14,7 @@ firmware/
 
 # kernel source trees are cloned by build.sh
 out/src/
+
+# Proprietary vendor files served to the DSP by hexagonrpcd
+# (staged for tools/pack-firmware.sh, fetched by tools/fetch-firmware.sh)
+vendor-qcom/
