@@ -129,6 +129,31 @@ ModemManager (`gps-nmea`/`agps` capabilities видны) и публикует �
   модем обесточить слот при извлечении (`--uim-sim-power-off`) и включить при
   вставке (`--uim-sim-power-on`), чтобы модем видел свежеподнятую карту.
 
+## Часы и RTC
+
+При загрузке системные часы вставали в **1970** (`RTC_HCTOSYS` читает PMIC RTC,
+а тот отдаёт сырой счётчик), и только chrony поправлял их через ~20–30 с.
+
+Разбор:
+- Драйвер `rtc-pm8xxx`, узел `1c40000.spmi:pmic@0:rtc@6000`.
+- **Прямая запись RTC запрещена аппаратно**: SPMI-арбитр отвечает
+  `disallowed SPMI write to sid=0, addr=0x6046` — регистр принадлежит другому
+  execution environment (`write_ee != AP`), поэтому и `hwclock -w`, и chrony
+  `rtcsync` не работают.
+- Альтернативный путь драйвера — хранить смещение в **nvmem-ячейке** (PMIC
+  SDAM) или **UEFI-переменных**. У khaje нет ни того, ни другого: SDAM
+  (`0xb600`) занят fuel gauge, а EFI-runtime нет, т.к. загрузка идёт
+  `fastboot boot` (не через EFI).
+- Свойство `allow-set-time` в DT **не помогает** (запись всё равно отклоняется
+  арбитром) — поэтому в DT его нет.
+
+Решение — userspace, `rtc-clock` (rootfs-overlay): **счётчик RTC продолжает
+идти и при выключенном телефоне**, поэтому сервис сохраняет пару
+`(epoch, rtc_counter)` в `/var/lib/rtc-clock` и при загрузке восстанавливает
+`epoch + (counter_now − counter_saved)`. Сервис в **boot**-runlevel
+(`after hwclock`, `before chronyd`), период сохранения — 5 мин (после того, как
+chrony уже поправил часы). Итог: **часы верны сразу при загрузке**.
+
 ## Загрузка и сжатие
 
 Ядро в `boot.img` **распаковывает загрузчик (Qualcomm ABL, UEFI-based,
