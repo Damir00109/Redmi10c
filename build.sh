@@ -208,7 +208,7 @@ build_initramfs() {
   # zstd instead of xz: the KERNEL decompresses the initramfs at boot and zstd
   # is ~27x faster than xz -9e for a nearly identical size (ABL only unpacks
   # the kernel image itself).
-  ( cd "$IR" && find . | cpio -o -H newc 2>/dev/null | zstd -19 -T0 -q -o "$BUILD/rescue.cpio.zst" )
+  ( cd "$IR" && find . | cpio -o -H newc 2>/dev/null | zstd -19 -T0 -q -f -o "$BUILD/rescue.cpio.zst" )
 }
 
 clone_mkbootimg() {
