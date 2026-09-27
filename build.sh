@@ -205,7 +205,10 @@ build_initramfs() {
   fi
   cp "$ROOT/initramfs/display-console-rescue-init" "$IR/init"
   chmod 755 "$IR/init"
-  ( cd "$IR" && find . | cpio -o -H newc 2>/dev/null | xz -9e --check=crc32 > "$BUILD/rescue.cpio.xz" )
+  # zstd instead of xz: the KERNEL decompresses the initramfs at boot and zstd
+  # is ~27x faster than xz -9e for a nearly identical size (ABL only unpacks
+  # the kernel image itself).
+  ( cd "$IR" && find . | cpio -o -H newc 2>/dev/null | zstd -19 -T0 -q -o "$BUILD/rescue.cpio.zst" )
 }
 
 clone_mkbootimg() {
@@ -221,7 +224,7 @@ pack_boot() {
   python3 "$MKBOOTIMG_SRC/mkbootimg.py" \
     --header_version 2 \
     --kernel "$KERN_OUT/arch/arm64/boot/Image.gz" \
-    --ramdisk "$BUILD/rescue.cpio.xz" \
+    --ramdisk "$BUILD/rescue.cpio.zst" \
     --dtb "$KERN_OUT/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb" \
     --pagesize 2048 --base 0x0 \
     --kernel_offset 0x8000 --ramdisk_offset 0x1000000 \
