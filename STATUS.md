@@ -100,3 +100,19 @@ GNSS-движок живёт в модеме и доступен через QMI 
 позиция/NMEA пока не приходят — нужен обзор неба (тест в помещении не показателен).
 Userspace: `gnss-share` с `device_driver="mm"` читает NMEA из Location-интерфейса
 ModemManager (`gps-nmea`/`agps` capabilities видны) и публикует их для geoclue.
+
+## Телефония: UI и поведение SIM
+
+- **Приложения:** `calls` (GNOME Calls, звонки) и `chatty` (SMS) — ставятся из
+  pmOS, работают через ModemManager по D-Bus. Phosh 0.57 имеет модемные
+  индикаторы (`gmobile`) и виджет мобильных данных.
+- **Запуск MM:** OpenRC стартует `modemmanager` (владелец D-Bus-имени
+  `org.freedesktop.ModemManager1` — `openrc.modemmanager`); модем появляется
+  через ~40 с (MM ждёт, пока устоятся QRTR-сервисы).
+- **Горячая замена SIM требует перезагрузки.** Если вынуть/вставить SIM при
+  работающем модеме, UIM-подсистема залипает (`no-atr-received`, provisioning
+  session не создаётся; `--uim-change-provisioning-session` → `Internal`,
+  DMS-`reset` не помогает). После холодной загрузки сессия поднимается штатно
+  для того слота, где стоит карта.
+- **Слоты:** обе физические позиции работают (после загрузки `Primary GW:
+  slot N`), но при горячей замене надёжнее ставить карту в основной слот.
