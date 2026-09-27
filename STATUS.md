@@ -201,10 +201,12 @@ persist и подъёмом аудиокодека: `hexagonrpcd-adsp-sensorspd`
 (`audio-bind` → `after sensors-setup`, `modem-net` — только `before
 modemmanager`), теперь аудио и модем не ждут сенсоров.
 
-**ModemManager**: пакетный D-Bus-файл содержал `Exec=/usr/sbin/ModemManager`,
-из-за чего D-Bus поднимал MM параллельно с OpenRC; второй экземпляр не получал
-имя `org.freedesktop.ModemManager1`, и сервис показывал `stopped`. Overlay
-переопределяет файл на `Exec=/bin/false`, владельцем MM остаётся OpenRC.
+**ModemManager и polkit**: пакетные D-Bus-файлы содержали реальные `Exec`
+(`/usr/sbin/ModemManager`, `/usr/lib/polkit-1/polkitd`), из-за чего D-Bus
+поднимал демонов параллельно с OpenRC; экземпляр OpenRC проигрывал гонку за
+D-Bus-имя, и сервисы показывали `stopped`/`failed`. Overlay переопределяет оба
+файла на `Exec=/bin/false`, владельцем остаётся OpenRC — теперь `rc-status`
+не показывает ни одного `failed`.
 
 **Итог по загрузке: 34 с до сети** (было ~60–65 с): ~10–14 с дало zstd,
 ~16–20 с — снятие ложных зависимостей. Образ 50.81 МиБ.
