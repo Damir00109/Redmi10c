@@ -129,6 +129,36 @@ ModemManager (`gps-nmea`/`agps` capabilities видны) и публикует �
   модем обесточить слот при извлечении (`--uim-sim-power-off`) и включить при
   вставке (`--uim-sim-power-on`), чтобы модем видел свежеподнятую карту.
 
+## Слот A/B: где он хранится (исследование)
+
+Задача — менять активный слот из Linux. Разбор механики:
+
+- Слот читает **ABL** (Qualcomm, UEFI). В его распакованном образе (`abl_a` — ELF
+  + UEFI FV + LZMA, распаковывается `binwalk`) есть строки `SetActiveSlot`,
+  `GetBootPartitionEntry`, `Slot suffix %s Part Attr 0x%lx`, `Unable to Update
+  DevInfo`, `Error reading virtualab msg from misc partition`, `metadata`.
+- Проверено и **исключено** как хранилище:
+  - **GPT-атрибуты** boot_a/boot_b — не меняются при `set_active`;
+  - **`misc`** (стандартный AOSP BCB `bootloader_control` @2048) — записал
+    корректный BCB с `slot_suffix="_a"` и CRC: ABL его **игнорирует**
+    (`current-slot` остался `b`); `misc` затем восстановлен;
+  - **`devinfo`** (только магия `ANDROID-BOOT!` + нули), **`uefivarstore`**,
+    **`metadata`** — без изменений;
+  - контрольные суммы **всех 89 разделов** до/после операций со слотом: изменились
+    только `cust`/`persist`/`modemst1`/`modemst2` (наши записи) и `metadata`
+    (это Android: каталог `bootstat`).
+- Устройство — **UFS** (`4804000.ufshc`), не eMMC. Для UFS Android хранит слот
+  особым образом («in the xbl set as slot for startup items»), т.е. в защищённой
+  области XBL/RPMB, недоступной из Linux без ключа загрузчика.
+- Кандидат: UFS-атрибут **`bBootLunEn`** (`boot_lun_enabled = 0x2`, read-only в
+  sysfs, но есть BSG `/dev/bsg/ufs-bsg0` — запись UPIU возможна). Требует
+  проверки: меняется ли он при смене слота.
+
+**Вывод:** из доступных из Linux мест слот не хранится, поэтому «команда в ядре»
+для смены слота пока не реализуема. Рабочий путь остаётся прежним:
+`fastboot set_active b` перед загрузкой Linux. Дальнейший шаг — проверить
+`bBootLunEn` через UFS BSG.
+
 ## Часы и RTC
 
 При загрузке системные часы вставали в **1970** (`RTC_HCTOSYS` читает PMIC RTC,
