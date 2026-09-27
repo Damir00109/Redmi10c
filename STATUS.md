@@ -129,40 +129,26 @@ ModemManager (`gps-nmea`/`agps` capabilities видны) и публикует �
   модем обесточить слот при извлечении (`--uim-sim-power-off`) и включить при
   вставке (`--uim-sim-power-on`), чтобы модем видел свежеподнятую карту.
 
-## Слот A/B: механизм раскрыт (Qualcomm UFS)
+## Слот A/B: смена из Linux НЕ поддерживается
 
-Задача — менять активный слот из Linux. Разбор по исходникам
-`hardware/qcom/bootctrl` (`boot_control.cpp`, `gpt-utils.cpp`) и распакованному
-ABL (`abl_a`: ELF → UEFI FV → LZMA, `binwalk`):
+Попытка реализовать переключение слота из Linux **отменена — подход оказался
+багованным**. Как устроен слот (для справки, чтобы не повторять ошибку):
 
-**Слот хранится в ДВУХ местах, и QTI boot_control пишет оба:**
+- Слот читает **ABL**. Он смотрит на **GPT**: бит `AB_PARTITION_ATTR_SLOT_ACTIVE`
+  (0x04 в байте 54 каждой `_a`/`_b`-записи) и **TYPE GUID** разделов
+  (`boot_ctl_set_active_slot_for_partitions()` в `hardware/qcom/bootctrl`).
+- Дополнительно для UFS есть **boot LUN** (`bBootLunEn`): LUNA = слот a,
+  LUNB = слот b; виден в sysfs
+  `/sys/devices/platform/soc/4804000.ufshc/attributes/boot_lun_enabled`.
 
-1. **GPT: TYPE GUID разделов.** Активный слот имеет GUID
-   `77036cd4-03d5-42bb-8ed1-37e5a88baa34`, неактивный — свой
-   (`boot_b` = `20117f86-e985-4357-b9ee-374bc1d8487d`). `boot_ctl_set_active_slot_for_partitions()`
-   меняет GUID местами + бит `AB_PARTITION_ATTR_SLOT_ACTIVE` в атрибутах.
-   ABL читает это (`GetBootPartitionEntry`, `Part Attr`).
-2. **UFS boot LUN** (`bBootLunEn`): LUNA = слот a, LUNB = слот b
-   (`BOOT_LUN_A_ID 1`, `BOOT_LUN_B_ID 2` в `gpt-utils.cpp`). Читается из
-   sysfs: `/sys/devices/platform/soc/4804000.ufshc/attributes/boot_lun_enabled`
-   (у нас `0x2` = LUNB = слот b). Переключается через UFS query
-   (`UPIU_QUERY_OPCODE_WRITE_ATTR`, `QUERY_ATTR_IDN_BOOT_LU_EN`).
+Почему нельзя менять по частям: QTI пишет **всё вместе** (GUID-ы + биты + boot
+LUN). Если поменять только boot LUN или только биты, состояние становится
+рассогласованным, **AVB перестаёт находить разделы и загрузка падает** (лечится
+прошивкой стоковой GPT: `fastboot flash partition:4 gpt_both4.bin` из fastboot-ROMA,
+либо `fastboot set_active`).
 
-**Реализовано:** `postmarketos/rootfs-overlay/usr/bin/rain-slot.c` — читает слот
-из UFS-атрибута и переключает boot LUN через UFS BSG
-(`/dev/bsg/ufs-bsg0`, UPIU query). Работает:
-```
-rain-slot        → b        (0x2 = LUNB)
-rain-slot a      → boot slot set to a   (атрибут 0x1 = LUNA)
-```
-Ключевые детали UPIU (иначе ядро отвечает `unsupported msgcode`):
-`msgcode`/`transaction_code` = **0x16** (`UPIU_TRANSACTION_QUERY_REQ`),
-`query_function` = **байт 5** заголовка = 0x81.
-
-**Осталось:** ABL всё ещё определяет слот по GPT (смена только boot LUN даёт
-рассогласование → загрузка падает, лечится `fastboot setbootloader`+`set_active`),
-поэтому для полноценного переключения из Linux нужен ещё своп TYPE GUID
-A/B-пар (с пересчётом CRC обеих GPT). Тогда `fastboot` перестанет быть нужен.
+**Итог:** единственный надёжный путь смены слота — `fastboot set_active a|b`.
+Инструмент `rain-slot` и его сборка удалены.
 
 ## Часы и RTC
 
