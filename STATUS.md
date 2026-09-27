@@ -1,6 +1,6 @@
 # Статус bring-up
 
-Последнее обновление: **2026-09-25**  
+Последнее обновление: **2026-09-27**  
 Устройство для проверки: **Xiaomi Redmi 10C `fog`**, Qualcomm **SM6225/Khaje**.  
 Метод загрузки: временный `fastboot boot`, без постоянной прошивки разделов.
 
@@ -18,23 +18,27 @@
 | SD-карта | **Работает** | Контроллер/карта обнаруживаются |
 | Touchscreen FocalTech FT8006S | **Работает** | SPI-драйвер и firmware из Android; multitouch events проверены |
 | Thermal sensors | **Работает** | Температурные датчики регистрируются |
-| Vibrator | **Работает** | Управление вибромотором проверено |
+| Vibrator | **Работает** | `gpio-vibrator` (input0, FF_RUMBLE); румбл проверен на устройстве |
+| Фонарик | **Работает** | LED `white:torch`; вкл/выкл проверены |
 | Зарядка / fuel gauge | **Работает** | Драйверы зарядки и измерения батареи поднимаются |
 | SoundWire RX | **Работает** | Khaje frame/порт-параметры и RX-маршрут стабильны |
-| Speaker audio | **Работает с дефектом** | Есть воспроизведение без прежней сильной дисторсии; остаётся broadband hiss и небольшой click |
+| Speaker audio | **Работает** | `audio-bind` сервис привязывает `a7c0000.pinctrl` после подъёма ADSP (гонка за clock `q6afecc`), применяет вендорный маршрут (RX2 → aw87xxx); карта `card0`, sink `speaker` |
 | Audio calibration (ACDB) | **Не реализовано** | Android ACDB/userspace calibration ещё не перенесены |
 | RX mute sequencing | **Частично проверено** | Vendor-подобная mute/unmute логика добавлена; тестировать только пустыми файлами |
-| Wi-Fi | **Не завершено** | Firmware и базовая инфраструктура присутствуют; полный рабочий цикл не зафиксирован |
-| Bluetooth | **Не завершено** | Firmware присутствует; полный рабочий цикл не зафиксирован |
+| Wi-Fi | **Работает** | WCN3990/ath10k, подключение к сети проверено |
+| Bluetooth | **Работает** | hci0 QCA UART (cmbtfw13.tlv/cmnv13t.bin); наушники подключены, A2DP-аудио через VLC проверено |
 | Adreno 610 kernel init | **Работает** | DRM, SMMU, GMU, ZAP и GPU hw init проходят |
 | GPU clock / PLL | **Работает** | Khaje ZONDA PLL0 → OUT_MAIN; вендорные 320/465/600/785/1025/1114.8 МГц доступны |
 | GPU devfreq / OPP | **Работает** | `simple_ondemand`, `cur_freq`; таблица приведена к вендорной, предупреждение devfreq убрано |
 | GPU real rendering/load | **Не проверено** | `kmscube`/Mesa/freedreno userspace-тест ещё не запускался |
 | GPU userspace Vulkan/OpenGL | **Не проверено** | Kernel bring-up подтверждён, полноценный userspace stack не включён |
 | Sensors (SSC / FastRPC) | **Работает** | Узел `qcom,fastrpc` (ADSP, SID 0x1c3-0x1c7) + `qcom,sm6225` в PD-mapper; `hexagonrpcd` + реестр из persist; `ssccli`: акселерометр, свет, приближение — живой поток |
+| Автоповорот (Phosh) | **Работает** | udev `ACCEL_MOUNT_MATRIX` (поворот 180° вокруг Z) поверх SSC; Phosh claim'ит акселерометр |
+| Модем (control plane) | **Работает** | ModemManager 1.25 находит модем по QRTR (`qcom-soc`), читает IMEI/прошивку MPSS; нужна SIM (сейчас `sim-missing`) |
+| Модем (data / мобильный интернет) | **Не реализовано** | Требуется порт драйвера IPA для Khaje (см. ниже); без net-порта `modem-net` подставляет bridge-интерфейс |
+| GNSS / GPS | **Частично** | QMI LOC/PDS (QRTR service 16) отвечает, `--loc-start` проходит; фикс требует обзора неба; `gnss-share` (mm-драйвер) поднят |
 | Камера | **Не реализовано** | Драйверы и pipeline не поднимались |
 | Audio microphone / recording | **Не завершено** | Полный capture path не подтверждён |
-| Modem / cellular data | **Не завершено** | Firmware и remoteproc-задел есть; полноценный modem stack не является целью rescue initramfs |
 
 ## Что означает статус
 
@@ -50,3 +54,49 @@
 - `docs/GPU-BRINGUP.md` — подробности GPU.
 - `docs/audio/NOISE-ANALYSIS.md` — расследование шума в аудио.
 - `tools/fetch-firmware.sh` — загрузка закрытых firmware из release asset.
+
+## Модем и GPS
+
+Модем (MPSS) поднимается штатным `remoteproc` (`qcom/sm6225/modem.mdt`), после
+чего по QRTR доступен полный набор сервисов (CTL, DMS, NAS/LTE, UIM, WMS,
+Voice, IMS, **Location/PDS v2**, IPA control, Data Port Mapper). Проверено на
+устройстве: `qmicli -d qrtr://0 --dms-get-ids` возвращает IMEI, прошивка
+`MPSS.HA.1.1.c1-00027`, режим переводится в `online`.
+
+**Control plane** — `ModemManager` 1.25 (плагин `qcom-soc`) находит модем по
+QRTR и создаёт объект модема. Полноценной работы (регистрация/SMS) ждёт только
+установки SIM: сейчас `card state: absent`, `state: failed, sim-missing`.
+
+**Блокер data-пути.** ModemManager отказывается создавать объект модема без
+net-порта (`Failed to find a net port in the QMI modem`). У Khaje data-путь —
+это IPA, которого в mainline нет, поэтому rmnet-интерфейс не появляется.
+Обход: сервис `modem-net` создаёт bridge-интерфейс `rmnet0` и udev-правило
+помечает его `ID_MM_PHYSDEV_UID="qcom-soc"` + `ID_MM_DEVICE_PROCESS=1`
+(иначе MM отбрасывает его как «virtual device»). Это даёт control plane;
+мобильный интернет по-прежнему требует IPA.
+
+**Порт IPA (для мобильного интернета, не реализовано).** Собраны данные:
+
+- Вендорный DT (`vbdtbs/v00.dtb`): `qcom,ipa@0x5800000`, regs
+  `0x5800000+0x34000` / `0x5804000+0x28000`, IRQ 257/259, `ipa-hw-ver = <0x10>`,
+  SMMU-контексты `ipa_smmu_ap(0x140)` / `wlan(0x141)` / `uc(0x142)`,
+  `qcom,ipa_fws` (PAS id 15), `qcom,rmnet-ipa3`.
+- Апстрим IPA поддерживает `sm6350` (v4.7), `sc7180` (v4.2), `sc7280` (v4.11),
+  `sm8350` (v4.9) и др., но **не** `sm6115`/`sm6225`. В апстримном `sm6115.dtsi`
+  уже есть регионы памяти `pil_ipa_fw_mem`/`pil_ipa_gsi_mem` и `RPM_SMD_IPA_CLK`.
+- Прошивка IPA (`ipa_fws.mbn` / часть вариантов использует имя `scuba_ipa_fws`)
+  в `NON-HLOS.bin` (FAT16) и в vendor-образе **не найдена** — вероятно, грузится
+  самим модемом либо лежит в другом разделе; требует уточнения.
+- BAM-DMUX (более простой legacy data-путь) в вендорном DT отсутствует.
+
+Оценка: порт IPA для Khaje — крупная задача (новый `ipa_data` с resource/endpoint
+конфигом, таблицы регистров, SMMU, прошивка, отладка), требует вендорных исходников
+IPA-драйвера или реверса конфигурации.
+
+## GPS
+
+GNSS-движок живёт в модеме и доступен через QMI LOC/PDS (QRTR service 16).
+`qmicli --loc-start` / `--loc-set-nmea-types=gga` проходят, режим `standalone`;
+позиция/NMEA пока не приходят — нужен обзор неба (тест в помещении не показателен).
+Userspace: `gnss-share` с `device_driver="mm"` читает NMEA из Location-интерфейса
+ModemManager (`gps-nmea`/`agps` capabilities видны) и публикует их для geoclue.
