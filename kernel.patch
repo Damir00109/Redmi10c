@@ -5842,10 +5842,10 @@ index 000000000..88e0ef2fb
 +#endif /* _LINUX_FOCLATECH_CONFIG_H_ */
 diff --git a/drivers/input/touchscreen/fts_spi/focaltech_core.c b/drivers/input/touchscreen/fts_spi/focaltech_core.c
 new file mode 100644
-index 000000000..9f8d905e8
+index 000000000..3acb6a29b
 --- /dev/null
 +++ b/drivers/input/touchscreen/fts_spi/focaltech_core.c
-@@ -0,0 +1,1908 @@
+@@ -0,0 +1,1912 @@
 +/*
 + *
 + * FocalTech TouchScreen driver.
@@ -6645,8 +6645,12 @@ index 000000000..9f8d905e8
 +    if (!ts_data || ts_data->suspended || ts_data->fw_loading)
 +        goto out_rearm;
 +
++    /* Reading 0xA5 always fails CRC on this panel; keep the poll but do not
++     * log it as an error. */
++    fts_quiet_read = true;
 +    if (fts_read_reg(FTS_REG_POWER_MODE, &pmode) == 0 && pmode != 0x00)
 +        fts_write_reg(FTS_REG_POWER_MODE, 0x00);
++    fts_quiet_read = false;
 +
 +out_rearm:
 +    if (ts_data && ts_data->ts_workqueue)
@@ -7756,10 +7760,10 @@ index 000000000..9f8d905e8
 +MODULE_LICENSE("GPL v2");
 diff --git a/drivers/input/touchscreen/fts_spi/focaltech_core.h b/drivers/input/touchscreen/fts_spi/focaltech_core.h
 new file mode 100644
-index 000000000..b795dd6f2
+index 000000000..5a1affba3
 --- /dev/null
 +++ b/drivers/input/touchscreen/fts_spi/focaltech_core.h
-@@ -0,0 +1,323 @@
+@@ -0,0 +1,324 @@
 +/*
 + *
 + * FocalTech TouchScreen driver.
@@ -7991,6 +7995,7 @@ index 000000000..b795dd6f2
 +extern struct fts_ts_data *fts_data;
 +
 +/* communication interface */
++extern bool fts_quiet_read;
 +int fts_read(u8 *cmd, u32 cmdlen, u8 *data, u32 datalen);
 +int fts_read_reg(u8 addr, u8 *value);
 +int fts_write(u8 *writebuf, u32 writelen);
@@ -11763,10 +11768,10 @@ index 000000000..35661f884
 +}
 diff --git a/drivers/input/touchscreen/fts_spi/focaltech_spi.c b/drivers/input/touchscreen/fts_spi/focaltech_spi.c
 new file mode 100644
-index 000000000..cba9e066e
+index 000000000..091d969fb
 --- /dev/null
 +++ b/drivers/input/touchscreen/fts_spi/focaltech_spi.c
-@@ -0,0 +1,354 @@
+@@ -0,0 +1,359 @@
 +/*
 + *
 + * FocalTech TouchScreen driver.
@@ -11808,6 +11813,11 @@ index 000000000..cba9e066e
 +/*****************************************************************************
 +* Private constant and macro definitions using #define
 +*****************************************************************************/
++
++/* The bringup POWER_MODE poll (fts_pmode_poll_work) reads 0xA5 every 200 ms
++ * and the read always fails its CRC check, which would otherwise spam
++ * FTS_ERROR. Suppress logging only for that poll. */
++bool fts_quiet_read;
 +#define SPI_RETRY_NUMBER            3
 +#define CS_HIGH_DELAY               300 /* unit: us — bitbang needs more CS gap */
 +#define SPI_BUF_LENGTH              256
@@ -12057,7 +12067,7 @@ index 000000000..cba9e066e
 +        }
 +    }
 +
-+    if (ret < 0) {
++    if (ret < 0 && !fts_quiet_read) {
 +        FTS_ERROR("data read(addr:%x) %s,status:%x,ret:%d", cmd[0],
 +                  (i >= SPI_RETRY_NUMBER) ? "crc abnormal" : "fail",
 +                  rxbuf[3], ret);
