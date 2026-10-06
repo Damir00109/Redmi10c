@@ -168,6 +168,13 @@ build_initramfs() {
   if [ -d "$ROOT/initramfs/lib/firmware" ]; then
     cp -r "$ROOT/initramfs/lib/firmware/." "$IR/lib/firmware/" 2>/dev/null || true
   fi
+  # IPA (GSI/uC) firmware. The IPA driver has to be loaded before the modem
+  # remoteproc is started (see pivot-init), and the module can only request
+  # ipa_fws.mdt once /lib/firmware is populated -- so the blobs must live in
+  # the initramfs, not only in the real rootfs.
+  if [ -d "$ROOT/firmware/ipa" ]; then
+    cp "$ROOT"/firmware/ipa/ipa_fws.* "$IR/lib/firmware/" 2>/dev/null || true
+  fi
   # /readonly/ tree at root for modem TQFT absolute-path requests
   if [ -d "$ROOT/initramfs/readonly" ]; then
     cp -r "$ROOT/initramfs/readonly" "$IR/"
