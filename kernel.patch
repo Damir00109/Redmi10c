@@ -1111,10 +1111,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..c017a9ac0
+index 000000000..cdbc8d6ae
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2165 @@
+@@ -0,0 +1,2229 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -1135,6 +1135,7 @@ index 000000000..c017a9ac0
 +#include <dt-bindings/sound/qcom,q6asm.h>
 +#include <dt-bindings/sound/qcom,q6dsp-lpass-ports.h>
 +#include <dt-bindings/clock/qcom,sm6115-lpasscc.h>
++#include <dt-bindings/interconnect/qcom,sm6115.h>
 +
 +/ {
 +	interrupt-parent = <&intc>;
@@ -1292,25 +1293,7 @@ index 000000000..c017a9ac0
 +		idle-states {
 +			entry-method = "psci";
 +
-+			little_cpu_sleep_0: cpu-sleep-0-0 {
-+				compatible = "arm,idle-state";
-+				idle-state-name = "silver-rail-power-collapse";
-+				arm,psci-suspend-param = <0x40000003>;
-+				entry-latency-us = <290>;
-+				exit-latency-us = <376>;
-+				min-residency-us = <1182>;
-+				local-timer-stop;
-+			};
 +
-+			big_cpu_sleep_0: cpu-sleep-1-0 {
-+				compatible = "arm,idle-state";
-+				idle-state-name = "gold-rail-power-collapse";
-+				arm,psci-suspend-param = <0x40000003>;
-+				entry-latency-us = <297>;
-+				exit-latency-us = <324>;
-+				min-residency-us = <1110>;
-+				local-timer-stop;
-+			};
 +		};
 +
 +		domain-idle-states {
@@ -1410,49 +1393,41 @@ index 000000000..c017a9ac0
 +		cpu_pd0: power-domain-cpu0 {
 +			#power-domain-cells = <0>;
 +			power-domains = <&cluster_0_pd>;
-+			domain-idle-states = <&little_cpu_sleep_0>;
 +		};
 +
 +		cpu_pd1: power-domain-cpu1 {
 +			#power-domain-cells = <0>;
 +			power-domains = <&cluster_0_pd>;
-+			domain-idle-states = <&little_cpu_sleep_0>;
 +		};
 +
 +		cpu_pd2: power-domain-cpu2 {
 +			#power-domain-cells = <0>;
 +			power-domains = <&cluster_0_pd>;
-+			domain-idle-states = <&little_cpu_sleep_0>;
 +		};
 +
 +		cpu_pd3: power-domain-cpu3 {
 +			#power-domain-cells = <0>;
 +			power-domains = <&cluster_0_pd>;
-+			domain-idle-states = <&little_cpu_sleep_0>;
 +		};
 +
 +		cpu_pd4: power-domain-cpu4 {
 +			#power-domain-cells = <0>;
 +			power-domains = <&cluster_1_pd>;
-+			domain-idle-states = <&big_cpu_sleep_0>;
 +		};
 +
 +		cpu_pd5: power-domain-cpu5 {
 +			#power-domain-cells = <0>;
 +			power-domains = <&cluster_1_pd>;
-+			domain-idle-states = <&big_cpu_sleep_0>;
 +		};
 +
 +		cpu_pd6: power-domain-cpu6 {
 +			#power-domain-cells = <0>;
 +			power-domains = <&cluster_1_pd>;
-+			domain-idle-states = <&big_cpu_sleep_0>;
 +		};
 +
 +		cpu_pd7: power-domain-cpu7 {
 +			#power-domain-cells = <0>;
 +			power-domains = <&cluster_1_pd>;
-+			domain-idle-states = <&big_cpu_sleep_0>;
 +		};
 +
 +		cluster_0_pd: power-domain-cpu-cluster0 {
@@ -1714,6 +1689,18 @@ index 000000000..c017a9ac0
 +			interrupt-controller;
 +			#interrupt-cells = <2>;
 +		};
++
++		/* IPA clock handshake: AP->modem (out) and modem->AP (in) */
++		smp2p_ipa_1_out: ipa-out {
++			qcom,entry-name = "ipa";
++			#qcom,smem-state-cells = <1>;
++		};
++
++		smp2p_ipa_1_in: ipa-in {
++			qcom,entry-name = "ipa";
++			interrupt-controller;
++			#interrupt-cells = <2>;
++		};
 +	};
 +
 +	/* ADSP SMP2P — needed by remoteproc_adsp (audio/DSP bring-up). */
@@ -1972,6 +1959,83 @@ index 000000000..c017a9ac0
 +		rpm_msg_ram: sram@45f0000 {
 +			compatible = "qcom,rpm-msg-ram";
 +			reg = <0x045f0000 0x7000>;
++		};
++
++		/* ICCDBG test: upstream sm6115 interconnect providers (1-cell regs) */
++		system_noc: interconnect@1880000 {
++			compatible = "qcom,sm6115-snoc";
++			reg = <0x01880000 0x5f080>;
++			clocks = <&gcc GCC_SYS_NOC_CPUSS_AHB_CLK>,
++				 <&gcc GCC_SYS_NOC_UFS_PHY_AXI_CLK>,
++				 <&gcc GCC_SYS_NOC_USB3_PRIM_AXI_CLK>;
++			clock-names = "cpu_axi",
++				      "ufs_axi",
++				      "usb_axi";
++			#interconnect-cells = <2>;
++
++			clk_virt: interconnect-clk {
++				compatible = "qcom,sm6115-clk-virt";
++				#interconnect-cells = <2>;
++			};
++
++			mmrt_virt: interconnect-mmrt {
++				compatible = "qcom,sm6115-mmrt-virt";
++				#interconnect-cells = <2>;
++			};
++
++			mmnrt_virt: interconnect-mmnrt {
++				compatible = "qcom,sm6115-mmnrt-virt";
++				#interconnect-cells = <2>;
++			};
++		};
++
++		config_noc: interconnect@1900000 {
++			compatible = "qcom,sm6115-cnoc";
++			reg = <0x01900000 0x6200>;
++			clocks = <&gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>;
++			clock-names = "usb_axi";
++			#interconnect-cells = <2>;
++		};
++
++		bimc: interconnect@4480000 {
++			compatible = "qcom,sm6115-bimc";
++			reg = <0x04480000 0x80000>;
++			#interconnect-cells = <2>;
++		};
++
++		ipa: ipa@5840000 {
++			compatible = "qcom,sm6115-ipa";
++			/* The IPA config aperture starts at wrapper_base + 0x40000
++			 * (downstream ipahal_get_reg_base()); 0x05800000 is the
++			 * wrapper block, not the register window.  The uC shared
++			 * SRAM port (IPA_SW_AREA_RAM_DIRECT_ACCESS) is at
++			 * +0x7000 on IPA v4.2.
++			 */
++			reg = <0x05840000 0x34000>,
++			      <0x05847000 0x2000>,
++			      <0x05804000 0x28000>;
++			reg-names = "ipa-reg", "ipa-shared", "gsi";
++			interrupts-extended = <&intc GIC_SPI 257 IRQ_TYPE_LEVEL_HIGH>,
++					      <&intc GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>,
++					      <&smp2p_ipa_1_in 0 IRQ_TYPE_EDGE_RISING>,
++					      <&smp2p_ipa_1_in 1 IRQ_TYPE_EDGE_RISING>;
++			interrupt-names = "ipa", "gsi",
++					  "ipa-clock-query", "ipa-setup-ready";
++			iommus = <&apps_smmu 0x140 0x0>,
++				 <&apps_smmu 0x142 0x0>;
++			clocks = <&rpmcc RPM_SMD_IPA_CLK>;
++			clock-names = "core";
++			interconnects = <&system_noc MASTER_IPA 0 &bimc SLAVE_EBI_CH0 0>,
++					<&system_noc MASTER_IPA 0 &system_noc SLAVE_OCIMEM 0>,
++					<&bimc MASTER_AMPSS_M0 0 &config_noc SLAVE_IPA_CFG 0>;
++			interconnect-names = "memory", "imem", "config";
++			qcom,smem-states = <&smp2p_ipa_1_out 0>,
++					   <&smp2p_ipa_1_out 1>;
++			qcom,smem-state-names = "ipa-clock-enabled-valid",
++						"ipa-clock-enabled";
++			qcom,gsi-loader = "self";
++			memory-region = <&ipa_fw_region>;
++			status = "okay";
 +		};
 +
 +		/* Khaje TSENS — identical to sm6115 (Android: tsens@c222000 maps
@@ -4468,6 +4532,25 @@ index 244447195..f8437bd8e 100644
 +	    && qca->memdump_state == QCA_MEMDUMP_IDLE) {
  		qca_send_pre_shutdown_cmd(hdev);
  		usleep_range(8000, 10000);
+ 	}
+diff --git a/drivers/clk/clk-bulk.c b/drivers/clk/clk-bulk.c
+index d85dae4bd..07d983677 100644
+--- a/drivers/clk/clk-bulk.c
++++ b/drivers/clk/clk-bulk.c
+@@ -182,8 +182,12 @@ int __must_check clk_bulk_prepare(int num_clks,
+ 	for (i = 0; i < num_clks; i++) {
+ 		ret = clk_prepare(clks[i].clk);
+ 		if (ret) {
+-			pr_err("Failed to prepare clk '%s': %d\n",
+-				clks[i].id, ret);
++			/* Optional clocks owned by the ADSP legitimately fail
++			 * with -ETIMEDOUT until the DSP is up, and the caller
++			 * then defers. Keep the detail out of the console.
++			 */
++			pr_debug("Failed to prepare clk '%s': %d\n",
++				 clks[i].id, ret);
+ 			goto err;
+ 		}
  	}
 diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
 index 048adfa86..da5d12354 100644
@@ -12173,6 +12256,37 @@ index 000000000..f4f203c20
 @@ -0,0 +1,2 @@
 +/* Placeholder — real FW loaded via request_firmware(focaltech_ts_fw_xinli.bin) */
 +0x00
+diff --git a/drivers/interconnect/qcom/icc-rpm.c b/drivers/interconnect/qcom/icc-rpm.c
+index 23a1d116e..115dcdda9 100644
+--- a/drivers/interconnect/qcom/icc-rpm.c
++++ b/drivers/interconnect/qcom/icc-rpm.c
+@@ -603,7 +603,11 @@ int qnoc_probe(struct platform_device *pdev)
+ 		data->nodes[i] = node;
+ 	}
+ 
+-	clk_bulk_disable_unprepare(qp->num_intf_clks, qp->intf_clks);
++	/* Interface clocks stay enabled: downstream leaves the NoC interface
++	 * clocks (cpu_axi/ufs_axi/usb_axi) on permanently, and disabling them
++	 * stalls any later MMIO access to peripherals behind those NoCs
++	 * (observed: USB3 PHY pokes hard-hang the platform on khaje).
++	 */
+ 
+ 	ret = icc_provider_register(provider);
+ 	if (ret)
+diff --git a/drivers/interconnect/qcom/sm6115.c b/drivers/interconnect/qcom/sm6115.c
+index 3ee12c8a4..36363ff0d 100644
+--- a/drivers/interconnect/qcom/sm6115.c
++++ b/drivers/interconnect/qcom/sm6115.c
+@@ -19,7 +19,8 @@ static const char * const snoc_intf_clocks[] = {
+ 	"cpu_axi",
+ 	"ufs_axi",
+ 	"usb_axi",
+-	"ipa", /* Required by qxm_ipa */
++	/* "ipa" is deliberately absent: RPM_SMD_IPA_CLK is enabled by the IPA
++	 * driver, and doing it here as well hangs the platform at probe. */
+ };
+ 
+ static const char * const cnoc_intf_clocks[] = {
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
 index 00683bf06..abc5e1363 100644
 --- a/drivers/misc/Kconfig
@@ -12411,6 +12525,168 @@ index f3a493845..7e7fec5cb 100644
  	ctx = fastrpc_context_alloc(fl, kernel, sc, args);
  	if (IS_ERR(ctx))
  		return PTR_ERR(ctx);
+diff --git a/drivers/net/ipa/ipa_main.c b/drivers/net/ipa/ipa_main.c
+index 788dd99af..cfa63d5c3 100644
+--- a/drivers/net/ipa/ipa_main.c
++++ b/drivers/net/ipa/ipa_main.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <linux/bug.h>
++#include <linux/delay.h>
+ #include <linux/firmware.h>
+ #include <linux/io.h>
+ #include <linux/module.h>
+@@ -589,6 +590,8 @@ static int ipa_firmware_load(struct device *dev)
+ 	struct resource res;
+ 	phys_addr_t phys;
+ 	const char *path;
++	size_t metadata_len;
++	void *metadata;
+ 	ssize_t size;
+ 	void *virt;
+ 	int ret;
+@@ -623,11 +626,50 @@ static int ipa_firmware_load(struct device *dev)
+ 		goto out_release_firmware;
+ 	}
+ 
+-	ret = qcom_mdt_load(dev, fw, path, IPA_PAS_ID, virt, phys, size, NULL);
+-	if (ret)
++	/* khaje: replicate the downstream PIL sequence exactly.  The vendor
++	 * pil driver passes the *entire* reserved region to PAS_MEM_SETUP,
++	 * while qcom_mdt_load() only covers the loaded ELF segments (here
++	 * 0x5000 of the 0x10000 region).  The ipa_fws image contains a
++	 * PT_NULL segment at offset 0x5000 (runtime scratch for the uC);
++	 * if TZ only protects the segment range, the uC faults touching
++	 * it and wedges the IPA register port.  We therefore issue the
++	 * SCM calls ourselves with the full region size, and precede them
++	 * with PAS_SHUTDOWN (the vendor "qcom,pil-force-shutdown" flag).
++	 */
++	ret = qcom_scm_pas_shutdown(IPA_PAS_ID);
++
++	metadata = qcom_mdt_read_metadata(fw, &metadata_len, path, dev);
++	if (IS_ERR(metadata)) {
++		ret = PTR_ERR(metadata);
++		dev_err(dev, "error %d reading \"%s\" metadata\n", ret, path);
++	} else {
++		ret = qcom_scm_pas_init_image(IPA_PAS_ID, metadata,
++					    metadata_len, NULL);
++		kfree(metadata);
++	}
++
++	if (!ret) {
++		ret = qcom_scm_pas_mem_setup(IPA_PAS_ID, phys, size);
++	}
++
++	if (!ret) {
++		ret = qcom_mdt_load_no_init(dev, fw, path, virt, phys, size,
++					    NULL);
++	}
++
++	if (!ret) {
++		ret = qcom_scm_pas_auth_and_reset(IPA_PAS_ID);
++	}
++
++	if (!ret) {
++		/* Downstream has ~30 ms of natural latency between reset
++		 * release and the first register access; the uC needs a
++		 * moment to bring the register port up.
++		 */
++		mdelay(200);
++	} else {
+ 		dev_err(dev, "error %d loading \"%s\"\n", ret, path);
+-	else if ((ret = qcom_scm_pas_auth_and_reset(IPA_PAS_ID)))
+-		dev_err(dev, "error %d authenticating \"%s\"\n", ret, path);
++	}
+ 
+ 	memunmap(virt);
+ out_release_firmware:
+@@ -649,6 +691,10 @@ static const struct of_device_id ipa_match[] = {
+ 		.compatible	= "qcom,sc7180-ipa",
+ 		.data		= &ipa_data_v4_2,
+ 	},
++	{
++		.compatible	= "qcom,sm6115-ipa",
++		.data		= &ipa_data_v4_2,
++	},
+ 	{
+ 		.compatible	= "qcom,sdx55-ipa",
+ 		.data		= &ipa_data_v4_5,
+@@ -883,6 +929,18 @@ static int ipa_probe(struct platform_device *pdev)
+ 	if (WARN_ON(ret < 0))
+ 		goto err_power_put;
+ 
++	/* On some platforms (e.g. khaje) the IPA register interface is
++	 * gated until the uC firmware is loaded and the block is brought
++	 * out of reset by the PAS/TZ authentication.  Load the firmware
++	 * before touching any registers.
++	 */
++	if (loader == IPA_LOADER_SELF) {
++		/* The AP is loading GSI firmware; do so now */
++		ret = ipa_firmware_load(dev);
++		if (ret)
++			goto err_power_put;
++	}
++
+ 	ret = ipa_config(ipa, data);
+ 	if (ret)
+ 		goto err_power_put;
+@@ -895,12 +953,7 @@ static int ipa_probe(struct platform_device *pdev)
+ 	if (loader == IPA_LOADER_MODEM)
+ 		goto done;
+ 
+-	if (loader == IPA_LOADER_SELF) {
+-		/* The AP is loading GSI firmware; do so now */
+-		ret = ipa_firmware_load(dev);
+-		if (ret)
+-			goto err_deconfig;
+-	} /* Otherwise loader == IPA_LOADER_SKIP */
++	/* Otherwise loader == IPA_LOADER_SKIP or firmware already loaded */
+ 
+ 	/* GSI firmware is loaded; proceed to setup */
+ 	ret = ipa_setup(ipa);
+diff --git a/drivers/net/wireless/ath/ath10k/wmi.c b/drivers/net/wireless/ath/ath10k/wmi.c
+index e57588c19..f7f43aece 100644
+--- a/drivers/net/wireless/ath/ath10k/wmi.c
++++ b/drivers/net/wireless/ath/ath10k/wmi.c
+@@ -2733,10 +2733,18 @@ static void ath10k_wmi_event_chan_info_unpaired(struct ath10k *ar,
+ 		return;
+ 	}
+ 
++	/* The WCN3990 firmware reports a zero frequency for events that do
++	 * not map to a channel (e.g. during teardown). freq_to_idx() turns
++	 * that into an out-of-bounds index, which used to spam the log.
++	 */
++	if (!params->freq)
++		return;
++
+ 	idx = freq_to_idx(ar, params->freq);
+ 	if (idx >= ARRAY_SIZE(ar->survey)) {
+-		ath10k_warn(ar, "chan info: invalid frequency %d (idx %d out of bounds)\n",
+-			    params->freq, idx);
++		ath10k_dbg(ar, ATH10K_DBG_WMI,
++			   "chan info: invalid frequency %d (idx %d out of bounds)\n",
++			   params->freq, idx);
+ 		return;
+ 	}
+ 
+@@ -2764,10 +2772,14 @@ static void ath10k_wmi_event_chan_info_paired(struct ath10k *ar,
+ 	struct survey_info *survey;
+ 	int idx;
+ 
++	if (!params->freq)
++		return;
++
+ 	idx = freq_to_idx(ar, params->freq);
+ 	if (idx >= ARRAY_SIZE(ar->survey)) {
+-		ath10k_warn(ar, "chan info: invalid frequency %d (idx %d out of bounds)\n",
+-			    params->freq, idx);
++		ath10k_dbg(ar, ATH10K_DBG_WMI,
++			   "chan info: invalid frequency %d (idx %d out of bounds)\n",
++			   params->freq, idx);
+ 		return;
+ 	}
+ 
 diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c b/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
 index b87314c83..4c169662f 100644
 --- a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
@@ -14446,7 +14722,7 @@ index 000000000..7eae9afb4
 +
 +MODULE_DESCRIPTION("QTI khaje pinctrl driver");
 diff --git a/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c b/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
-index 76aed3296..5b6a5add3 100644
+index 76aed3296..123ed66ff 100644
 --- a/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
 +++ b/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
 @@ -61,7 +61,10 @@ static int lpi_gpio_write(struct lpi_pinctrl *state, unsigned int pin,
@@ -14476,6 +14752,25 @@ index 76aed3296..5b6a5add3 100644
  
  	mutex_unlock(&pctrl->lock);
  
+@@ -500,8 +508,17 @@ int lpi_pinctrl_probe(struct platform_device *pdev)
+ 		return ret;
+ 
+ 	ret = clk_bulk_prepare_enable(MAX_LPI_NUM_CLKS, pctrl->clks);
+-	if (ret)
++	if (ret) {
++		/* The "audio" clock is owned by the ADSP, which may still be
++		 * booting when we probe. -ETIMEDOUT means "not ready yet", not
++		 * "broken": defer so we retry once the ADSP is up.
++		 */
++		if (ret == -ETIMEDOUT) {
++			dev_dbg(dev, "audio clock not ready yet, deferring\n");
++			return -EPROBE_DEFER;
++		}
+ 		return dev_err_probe(dev, ret, "Can't enable clocks\n");
++	}
+ 
+ 	pctrl->desc.pctlops = &lpi_gpio_pinctrl_ops;
+ 	pctrl->desc.pmxops = &lpi_gpio_pinmux_ops;
 diff --git a/drivers/pinctrl/qcom/pinctrl-msm.c b/drivers/pinctrl/qcom/pinctrl-msm.c
 index 45b3a2763..8a378a449 100644
 --- a/drivers/pinctrl/qcom/pinctrl-msm.c
