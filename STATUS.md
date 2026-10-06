@@ -26,14 +26,16 @@
 | Thermal | TSENS (16 датчиков), cooling devices |
 | CPU | cpufreq-hw + schedutil, cpuidle |
 | GPU | Adreno 610: DRM/SMMU/GMU/ZAP, devfreq, Zonda PLL |
+| **Сенсоры (SSC)** | `hexagonrpcd` + `sensors-setup` портированы с pmOS (musl-бинарь, библиотеки в `/usr/lib/musl`): акселерометр `Z=9.8 m/s²`, свет ~100 Lux, proximity `FAR` — читаются через `ssccli` |
 | Мелочи | вибратор (FF_RUMBLE), фонарик `white:torch`, RTC, подсветка панели |
 
 ### В разработке (частично)
 
 | Компонент | Ограничение |
 |---|---|
-| Сенсоры (акселерометр/свет/приближение) | Переносится `hexagonrpcd` + `sensors-setup` под Ubuntu (в pmOS работало; бинарник собран под musl) |
 | GPS / GNSS | Драйвер и userspace-демон ещё не подняты |
+| Сенсоры: desktop-интеграция | Данные есть (`ssccli`), но `iio-sensor-proxy`/автоповорот в Ubuntu не подняты (нет пакета с libssc) |
+| Магнитометр / компас | В железе Redmi 10C их нет (проверено: данных нет) |
 | Audio calibration (ACDB) | Вендорная калибровка не перенесена: громкость/эквалайзация «как есть» |
 | RX mute sequencing | Вендор-подобная логика добавлена, проверена частично |
 | UIM-сессия | Загруз Android сбрасывает провижининг-сессию; восстанавливается вручную (`uim-recover`) |
