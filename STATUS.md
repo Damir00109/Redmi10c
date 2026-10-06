@@ -27,6 +27,7 @@
 | CPU | cpufreq-hw + schedutil, cpuidle |
 | GPU | Adreno 610: DRM/SMMU/GMU/ZAP, devfreq, Zonda PLL |
 | **Сенсоры (SSC)** | `hexagonrpcd` + `sensors-setup` портированы с pmOS (musl-бинарь, библиотеки в `/usr/lib/musl`): акселерометр `Z=9.8 m/s²`, свет ~100 Lux, proximity `FAR` — читаются через `ssccli` |
+| **Рабочий стол (прототип)** | Plasma Mobile 6.6.5 (Wayland, `kwin_wayland` + `plasmashell`) через SDDM с автологином; konsole, экранная клавиатура maliit, русская локаль и раскладка по умолчанию, Firefox 157 (deb из PPA Mozilla) с touch-дефолтами. Установлено живьём через apt, не вшито в образ — скрипт: `ubuntu/desktop/install-desktop.sh` |
 | Мелочи | вибратор (FF_RUMBLE), фонарик `white:torch`, RTC, подсветка панели |
 
 ### В разработке (частично)
