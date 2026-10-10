@@ -118,6 +118,8 @@ ensure_firmware() {
     focaltech_ts_fw_xinli.bin
     awinic/aw87xxx_acf.bin
     foursemi/fs1599.fsm
+    ipa_fws.mdt
+    scuba_ipa_fws.mdt
   )
   local missing=()
   for f in "${req[@]}"; do
