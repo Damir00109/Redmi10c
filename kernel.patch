@@ -4909,6 +4909,18 @@ index 41f590241..e0eeecda6 100644
  	clk_lucid_pll_configure(&gpucc_pll1, regmap, &gpucc_pll1_config);
  
  	ret = qcom_cc_really_probe(&pdev->dev, &gpucc_sm6375_desc, regmap);
+diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
+index 9b06a69d3..6d478531a 100644
+--- a/drivers/firmware/qcom/qcom_scm.c
++++ b/drivers/firmware/qcom/qcom_scm.c
+@@ -2319,6 +2319,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
+ 	{ .compatible = "qcom,x1e80100-crd" },
+ 	{ .compatible = "qcom,x1e80100-qcp" },
+ 	{ .compatible = "qcom,x1p42100-crd" },
++	{ .compatible = "xiaomi,fog" },
+ 	{ }
+ };
+ 
 diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
 index c59375aaa..55980cfee 100644
 --- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
