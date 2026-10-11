@@ -17361,3 +17361,78 @@ index 48825756a..b80051c0c 100644
  	if (core->fwk_version_supported)
  		kfree(core->fwk_version);
  	if (core->get_version_supported)
+diff --git a/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c b/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
+index 03838582a..eaa34d2ae 100644
+--- a/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
++++ b/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
+@@ -33,10 +33,33 @@ struct q6dsp_cc {
+ 	const struct q6dsp_clk_desc *desc;
+ };
+ 
++/*
++ * The clocks registered here live only as long as the q6prm device, which is
++ * a child of the ADSP glink edge.  When the ADSP goes down that device is
++ * removed and its clocks unregistered, but a consumer (an LPASS macro codec
++ * driver) may still hold a struct clk for one of them and prepare it from a
++ * PDR notifier.  clk->dev is stale by then, so bail out instead of oopsing
++ * the kernel in the pdr_indack workqueue.
++ */
++static struct q6dsp_cc *q6dsp_cc_get(struct q6dsp_clk *clk)
++{
++	struct q6dsp_cc *cc;
++
++	if (!clk->dev)
++		return NULL;
++	cc = dev_get_drvdata(clk->dev);
++	if (!cc || !cc->desc)
++		return NULL;
++	return cc;
++}
++
+ static int clk_q6dsp_prepare(struct clk_hw *hw)
+ {
+ 	struct q6dsp_clk *clk = to_q6dsp_clk(hw);
+-	struct q6dsp_cc *cc = dev_get_drvdata(clk->dev);
++	struct q6dsp_cc *cc = q6dsp_cc_get(clk);
++
++	if (!cc || !cc->desc->lpass_set_clk)
++		return -ENODEV;
+ 
+ 	return cc->desc->lpass_set_clk(clk->dev, clk->q6dsp_clk_id, clk->attributes,
+ 				     Q6DSP_LPASS_CLK_ROOT_DEFAULT, clk->rate);
+@@ -45,7 +68,10 @@ static int clk_q6dsp_prepare(struct clk_hw *hw)
+ static void clk_q6dsp_unprepare(struct clk_hw *hw)
+ {
+ 	struct q6dsp_clk *clk = to_q6dsp_clk(hw);
+-	struct q6dsp_cc *cc = dev_get_drvdata(clk->dev);
++	struct q6dsp_cc *cc = q6dsp_cc_get(clk);
++
++	if (!cc || !cc->desc->lpass_set_clk)
++		return;
+ 
+ 	cc->desc->lpass_set_clk(clk->dev, clk->q6dsp_clk_id, clk->attributes,
+ 			      Q6DSP_LPASS_CLK_ROOT_DEFAULT, 0);
+@@ -86,7 +112,10 @@ static const struct clk_ops clk_q6dsp_ops = {
+ static int clk_vote_q6dsp_block(struct clk_hw *hw)
+ {
+ 	struct q6dsp_clk *clk = to_q6dsp_clk(hw);
+-	struct q6dsp_cc *cc = dev_get_drvdata(clk->dev);
++	struct q6dsp_cc *cc = q6dsp_cc_get(clk);
++
++	if (!cc || !cc->desc->lpass_vote_clk)
++		return -ENODEV;
+ 
+ 	return cc->desc->lpass_vote_clk(clk->dev, clk->q6dsp_clk_id,
+ 				  clk_hw_get_name(&clk->hw), &clk->handle);
+@@ -95,7 +124,10 @@ static int clk_vote_q6dsp_block(struct clk_hw *hw)
+ static void clk_unvote_q6dsp_block(struct clk_hw *hw)
+ {
+ 	struct q6dsp_clk *clk = to_q6dsp_clk(hw);
+-	struct q6dsp_cc *cc = dev_get_drvdata(clk->dev);
++	struct q6dsp_cc *cc = q6dsp_cc_get(clk);
++
++	if (!cc || !cc->desc->lpass_unvote_clk)
++		return;
+ 
+ 	cc->desc->lpass_unvote_clk(clk->dev, clk->q6dsp_clk_id, clk->handle);
+ }
