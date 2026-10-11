@@ -84,11 +84,32 @@ apt-get install -y --no-install-recommends \
   bluez pulseaudio pulseaudio-module-bluetooth pulseaudio-utils \
   alsa-utils dbus-x11 python3-dbus adbd \
   gnss-share \
+  gcc libqmi-glib-dev pkg-config \
   fastboot upower fake-hwclock
 locale-gen en_US.UTF-8 || true
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 ' 2>&1 | tee "$LOG/apt-26.04.log"
+
+# rain-loc-tool: applies the Qualcomm A-GPS config (SUPL server, operation
+# mode, UTC time, XTRA orbits) that qmicli does not expose; built here because
+# it needs libqmi headers, which are removed again afterwards to keep the
+# image small.
+if [ -f "$ROOT/tools/rain-loc-tool.c" ]; then
+  sudo cp "$ROOT/tools/rain-loc-tool.c" "$RF/tmp/rain-loc-tool.c"
+  sudo chroot "$RF" bash -c '
+    set -e
+    export DEBIAN_FRONTEND=noninteractive
+    mkdir -p /usr/local/bin
+    gcc -O2 -o /usr/local/bin/rain-loc-tool /tmp/rain-loc-tool.c $(pkg-config --cflags --libs qmi-glib)
+    rm -f /tmp/rain-loc-tool.c
+    apt-get purge -y gcc libqmi-glib-dev pkg-config >/dev/null 2>&1 || true
+    apt-get autoremove -y >/dev/null 2>&1 || true
+    ls -la /usr/local/bin/rain-loc-tool
+  ' 2>&1 | tail -2
+else
+  echo "WARN: no $ROOT/tools/rain-loc-tool.c — A-GPS config will not be applied" >&2
+fi
 
 echo "=== [3/6] users / hostname / fstab ==="
 echo 'rain-ubuntu' | sudo tee "$RF/etc/hostname" >/dev/null
