@@ -1,8 +1,8 @@
 # Статус bring-up
 
-Последнее обновление: **2026-10-06**  
+Последнее обновление: **2026-10-11**  
 Устройство: **Xiaomi Redmi 10C `fog`/`rain`**, Qualcomm **SM6225/Khaje**.  
-Загрузка: постоянно со **слота B**; Android сохранён на слоте A; rootfs — Ubuntu на разделе `cust`.
+Загрузка: постоянно со **слота B**; Android сохранён на слоте A; rootfs — Ubuntu 26.04 на разделе `cust` (сборка — `rootfs/`).
 
 ## Сводка: работает / в разработке / не работает
 
@@ -10,39 +10,44 @@
 
 | Компонент | Что проверено |
 |---|---|
-| Загрузка Linux со слота B | IPA на ~7.5 с, модем на ~10 с, Wi-Fi на ~14 с |
+| Загрузка Linux со слота B | `systemd` `running`, 0 failed, ~39 с (kernel 10.7 + userspace 28.1) |
 | Android на слоте A | не тронут, переключение слотов работает |
-| Экран | DSI-панель Xinli FT8006S (`card0-DSI-1`, 720x1650, `connected`), DRM/MDSS/DPU/DSI PHY, simplefb-консоль |
-| USB | gadget ACM (консоль `/dev/ttyACM0`), UDC `4e00000.usb` |
-| Хранилище | UFS, SD-карта |
-| Wi-Fi | WCN3990 / ath10k, подключение и трафик |
-| Bluetooth | hci0 (QCA UART), A2DP |
-| Тачскрин | FocalTech FT8006S (SPI), multitouch |
-| **Сотовый интернет** | IPA v4.2 + модем + QMAP: LTE, `rmnet_ipa0`/`qmapmuxN`, ~9 Мбит/с, DNS |
-| Модем | регистрация в сети, QMI/UIM, IMEI; ModemManager |
-| Звук (динамик) | RX2 → `AUX_RDAC` → AW87xxx PA; сервис биндит `a7c0000.pinctrl` после ADSP |
-| Звук (гарнитура) | Jack detection, HPHL/HPHR через FSA4480 |
-| Питание | SMB1351 (зарядка), fuel gauge |
-| Thermal | TSENS (16 датчиков), cooling devices |
-| CPU | cpufreq-hw + schedutil, cpuidle |
+| Экран | DSI-панель Xinli FT8006S (`card0-DSI-1`, 720×1650@60, `connected`), апстрим `msm_dpu`/`msm_dsi`/`msm_dsi_phy` + наш `panel-xinli-ft8006s` |
+| USB | gadget ADB + ACM (консоль `/dev/ttyACM0`), UDC `4e00000.usb` |
+| Хранилище | UFS (`sda`, корень `sda8`); **SD-карта**: ro/rw, запись 8.6–10 МБ/с, чтение 77 МБ/с |
+| Wi-Fi | WCN3990 / ath10k, `wlan0`, ping 0%; board-2 собран из стокового `bd3qvdfu.bin` («invalid board magic» убран) |
+| Bluetooth | hci0 (QCA UART, `cmbtfw13.tlv`/`cmnv13t.bin`), контроллер powered |
+| **Bluetooth-аудио (A2DP)** | уши EW72: `bluez_sink…a2dp_sink` RUNNING, кодек SBC, музыка играет |
+| **Аудио (динамик/провод)** | ASoC-карта `0 [XiaomiRedmi10C]: qcm6490`; `aplay`/`speaker-test` играют |
+| Тачскрин | FocalTech FT8006S (SPI), multitouch (34 касания, 2 потока) |
+| **Кнопки** | Power (выключение), Громкость ↑ (`gpio-keys`), ↓ (`pm8941_resin`) — 172 нажатия |
+| **Сенсоры (SSC)** | `hexagonrpcd` (2 юнита) + `sensors-setup`: акселерометр X=9.8 м/с², свет ~69 Lux, proximity `FAR` через `ssccli` |
+| **GPS / GNSS (стек)** | движок в модеме (QMI LOC/PDS); MM Location + `gnss-share` отдают NMEA; `rain-loc-tool` применяет A-GPS-бандл (UTC-время, SUPL, MSB, XTRA-орбиты 168 ч); `gnss-keepalive` держит приёмник. **3GPP-локация (сота) работает** |
+| Сотовый интернет | IPA v4.2 + модем + QMAP: LTE Tele2 RU, `qmapmux0.0`, ping 0% |
+| Модем | регистрация, QMI/UIM, IMEI, ModemManager (`qcom-soc`), автовыбор carrier-конфига из PDC |
+| **Hot-swap SIM** | вынул/вставил в слоте 1 на ходу → `uim-hotplug` перепривязывает подписку, LTE поднимается без ребута |
+| Сеть | NetworkManager: LTE (`tele2`) + Wi-Fi одновременно, `nmtui`/`nmcli`; SSH (host-keys генерятся в сборке) |
+| Питание | SMB1351 (зарядка), fuel gauge (`Charging`, SOC, V, I) |
+| Thermal | TSENS (16 датчиков) + 4 cooling devices; **троттлинга нет** под 8-ядерной нагрузкой (плато ~59 °C, trip 95/125 °C) |
+| CPU | cpufreq-hw + schedutil (A53 1.9008 / A73 2.4 ГГц), cpuidle |
+| **Suspend / resume** | `s2idle`, сон/пробуждение кнопкой Power (см. ограничения) |
 | GPU | Adreno 610: DRM/SMMU/GMU/ZAP, devfreq, Zonda PLL |
-| **Сенсоры (SSC)** | `hexagonrpcd` + `sensors-setup` портированы с pmOS (musl-бинарь, библиотеки в `/usr/lib/musl`): акселерометр `Z=9.8 m/s²`, свет ~100 Lux, proximity `FAR` — читаются через `ssccli` |
-| **Рабочий стол (прототип)** | Plasma Mobile 6.6.5 (Wayland, `kwin_wayland` + `plasmashell`) через SDDM с автологином; konsole, экранная клавиатура maliit, русская локаль и раскладка по умолчанию, Firefox 157 (deb из PPA Mozilla) с touch-дефолтами. Установлено живьём через apt, не вшито в образ — скрипт: `ubuntu/desktop/install-desktop.sh` |
-| Мелочи | вибратор (FF_RUMBLE), фонарик `white:torch`, RTC, подсветка панели |
+| Мелочи | вибратор (FF_RUMBLE), фонарик `white:torch`, RTC (1970 by design + chrony), подсветка |
 
 ### В разработке (частично)
 
 | Компонент | Ограничение |
 |---|---|
-| GPS / GNSS | Драйвер и userspace-демон ещё не подняты |
-| Сенсоры: desktop-интеграция | Данные есть (`ssccli`), но `iio-sensor-proxy`/автоповорот в Ubuntu не подняты (нет пакета с libssc) |
+| **GPS: фикс координат** | Движок не захватывает спутники (`$GPGSA` пустой, `$GPGSV` без PRN) — условия приёма или созвездия (`Set GNSS Constellation` в libqmi нет). Решающий тест — GPS в Android на том же месте |
+| Сенсоры: desktop-интеграция | Данные есть (`ssccli`), но `iio-sensor-proxy` не поднят (в Ubuntu нет пакета с libssc); автоповорот без него не работает. Оси акселерометра повёрнуты (фирмварь отдаёт нулевую матрицу) |
 | Магнитометр / компас | В железе Redmi 10C их нет (проверено: данных нет) |
-| Audio calibration (ACDB) | Вендорная калибровка не перенесена: громкость/эквалайзация «как есть» |
-| RX mute sequencing | Вендор-подобная логика добавлена, проверена частично |
-| UIM-сессия | Загруз Android сбрасывает провижининг-сессию; восстанавливается вручную (`uim-recover`) |
-| ModemManager | Падает с SIGSEGV на неудачных попытках connect; смягчено backoff'ом в сервисе |
+| Audio calibration (ACDB) | Вендорная калибровка не перенесена: ВЧ-шум аналоговой полки кодека |
+| **Data в слоте 2 SIM** | Регистрация/голос идут, data модем отвергает (`cm error: no-service`); нужна DSD-подписка, которую ставит только RIL Android. Слот 2 погашен (`uim-provision`) |
+| Suspend при включённом BT | Блокируется драйвером: `hci_uart_qca qca_suspend → -110`. С выключенным BT сон уходит штатно |
+| ADB после resume | USB-гаджет не возвращается (`adb offline`) до ребута |
+| ModemManager | Падает с SIGSEGV на неудачных connect (quirk 1.25.95); смягчено перезапуском |
 | Голос/SMS через модем | Не тестировалось |
-| LTE attach-параметры | Задаются только Android-стороной (`WDS_SET_LTE_ATTACH_PARAMETERS` нет в qmicli/mmcli) |
+| HFP (звонки) через BT-гарнитуру | Не тестировалось (A2DP проверен) |
 
 ### Не работает
 
@@ -51,6 +56,18 @@
 | Камера | Драйвер не поднят (нет `/dev/video*`) |
 | Сканер отпечатков | Драйвер отсутствует |
 | NFC / ИК-порт | Нет в устройстве |
+
+## Сессия 2026-10-11: что сделано
+
+| Тема | Итог |
+|---|---|
+| **Сенсоры + аудио** | Корневая причина найдена: `rain-stable-boot.sh` глушил **все** remoteproc'и, включая ADSP (remoteproc1) — модем потом поднимался, а ADSP нет. Скрипт теперь глушит только модем. Следствия: заработали сенсоры (`/dev/fastrpc-adsp`, hexagonrpcd) и ASoC-карта (не было `no soundcards`) |
+| **Ядро** | `q6dsp-lpass-clocks.c`: guard `q6dsp_cc_get()` против NULL-deref на PDR-индикации ADSP (в `kernel.patch`, прошито) |
+| **BT-аудио** | `--disallow-module-loading` в `pulseaudio.service` мешал динамической загрузке `module-bluez5-device`; убран + ликвидирован второй инстанс PA |
+| **GPS** | `rain-loc-tool` (libqmi напрямую) воспроизводит бандл вендорского HAL: UTC-время, SUPL, режим MSB, **XTRA-орбиты**; `gnss-keepalive` держит приёмник. MM этого не может (ждёт индикаций) |
+| **Слот 2 / hotplug** | `uim-hotplug` перепривязывает подписку на ходу; слот 2 погашен как неподдерживаемый |
+| **Воспроизводимость** | Каталог `rootfs/` в репо: `build-rootfs.sh`, `pivot-init`, `tools/rain-overlay` (юниты, netplan, скрипты), `tools/rain-loc-tool.c`. Релизный тарбол теперь несёт `sensors/` (hexagonrpcd + musl) |
+| Стоковые данные | Распакован `super.img` (LP-метаданные) → `vendor` (ext4); GNSS-конфиги в `/mnt/128/stock-fw/gnss/` |
 
 ## Сводная таблица (детально, история)
 

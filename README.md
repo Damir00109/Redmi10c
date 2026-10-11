@@ -1,6 +1,20 @@
-# Kernel_Redmi10c
+# Redmi10c
 
-Чистый минимальный набор для сборки и тестирования mainline-ядра под Xiaomi Redmi 10C (`rain`/`fog`, Qualcomm SM6225 "Khaje").
+Mainline Linux на Xiaomi Redmi 10C (`rain`/`fog`, Qualcomm SM6225 «Khaje»):
+ядро + Ubuntu 26.04 на разделе `cust`, Android сохранён на слоте A (dual-boot).
+
+Актуальный статус железа: [`STATUS.md`](STATUS.md). Заметки по граблям и
+находкам: [`AGENTS.md`](AGENTS.md).
+
+## Что в репозитории
+
+| Каталог | Назначение |
+|---|---|
+| `kernel.patch`, `kernel.config`, `build.sh` | Ядро: единый патч поверх Linux `v7.1.5`, конфиг, сборка `Image.gz`+DTB+initramfs |
+| `initramfs/` | Rescue-initramfs (shell на экране и через USB ACM, без rootfs) |
+| `rootfs/` | **Ubuntu-rootfs**: `build-rootfs.sh`, `pivot-init` (mount `cust` → `switch_root`), `tools/rain-overlay/` (systemd-юниты, netplan, скрипты), `tools/rain-loc-tool.c` (A-GPS) |
+| `tools/` | `fetch-firmware.sh` (прошивки + sensors из релиза), `pack-firmware.sh`, `regen-patch.sh`, `boot-and-check.sh` |
+| `docs/` | Разборы bring-up (GPU, IPA, cellular, audio, …) |
 
 ## Поддерживаемые устройства
 
@@ -11,30 +25,43 @@
 | Xiaomi Redmi 10C (вариант SM6115+PM6125) | `fog` | SM6115 + PM6125 | `sm6225-xiaomi-fog-sm6115.dts` |
 
 Собранный по умолчанию DTB — `sm6225-xiaomi-fog.dtb`. Проверено на живом
-устройстве: **Redmi 10C (`fog`)**, слот `b`, через `fastboot boot` (без прошивки).
-
-Актуальная таблица рабочего и незавершённого bring-up: [`STATUS.md`](STATUS.md).
+устройстве: **Redmi 10C (`fog`)**, слот `b`.
 
 ## Быстрый старт
 
 ```bash
 # 1. зависимости (Debian/Ubuntu)
-sudo apt install git make python3 cpio gzip xz-utils zstd \
+sudo apt install git make python3 cpio gzip xz-utils zstd rsync \
   gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu adb fastboot
 
-# 2. закрытые прошивки (ADSP/модем/WLAN/BT/GPU/тачскрин) — из GitHub-релиза
+# 2. закрытые прошивки + sensors (hexagonrpcd/musl) — из GitHub-релиза
 tools/fetch-firmware.sh
 
-# 3. сборка: clone linux v7.1.5 -> kernel.patch -> kernel -> initramfs -> boot.img
+# 3. ядро: clone linux v7.1.5 -> kernel.patch -> Image.gz+DTB -> rescue boot.img
 ./build.sh
 
-# 4. загрузка на телефон (временно, ничего не прошивается)
-fastboot set_active b && fastboot reboot bootloader
-fastboot boot out/boot-display-console-rescue.img
+# 4. Ubuntu-rootfs (тяжело: apt в chroot) -> out/linux_rootfs.sparse.img
+REDMI=$PWD ./rootfs/build-rootfs.sh
+
+# 5. прошивка: rootfs в cust, boot-образ в boot_b (Android на слоте A цел)
+fastboot flash cust out/linux_rootfs.sparse.img
+fastboot flash boot_b out/boot-linux.img && fastboot set_active b && fastboot reboot
 ```
 
-Быстрая пересборка уже настроенного дерева — `tools/rebuild-rescue.sh`;
-загрузка + проверка состояния — `tools/boot-and-check.sh`.
+Быстрая пересборка ядра — `tools/rebuild-rescue.sh`; загрузка + проверка —
+`tools/boot-and-check.sh`. Переключение слотов: из Ubuntu `qbootctl -s a|b`,
+из Android `setprop sys.powerctl reboot,bootloader` → `fastboot set_active b`.
+
+## Что уже работает (кратко)
+
+Экран 720×1650 (наш panel-драйвер + апстрим `msm`), GPU Adreno 610, тачскрин
+(мультитач), **все три кнопки**, Wi-Fi WCN3990, Bluetooth + **A2DP-аудио**,
+**аудио (динамик/провод)**, USB/ADB, UFS + SD, CPU/cpufreq, термалка (без
+троттлинга), зарядка, фонарик, вибро, suspend/resume, **сенсоры (SSC:
+акселерометр/свет/proximity)**, **модем + SIM** (LTE, data, hot-swap,
+автовыбор оператора), NetworkManager, **GPS-стек** (движок в модеме, MM
+Location + `gnss-share`, A-GPS-бандл из mainline). Не работает: камера,
+сканер отпечатков, GPS-фикс в помещении. Детали и ограничения — `STATUS.md`.
 
 ## Что внутри
 
@@ -45,6 +72,11 @@ fastboot boot out/boot-display-console-rescue.img
 | `initramfs/display-console-rescue-init` | Initramfs: shell на экране (`/dev/console`) и через USB ACM (`/dev/ttyGS0`), без rootfs |
 | `initramfs/busybox.config` | Конфиг для статической сборки busybox под aarch64 |
 | `build.sh` | Один скрипт: clone → patch → build kernel → build initramfs → pack boot image |
+| `rootfs/build-rootfs.sh` | Ubuntu 26.04 rootfs: apt в chroot (qemu binfmt) → пользователи → `rain-overlay` → `rain-loc-tool` → ext4 + sparse |
+| `rootfs/pivot-init` | initramfs: монтирует `PARTLABEL=cust` и делает `switch_root` в Ubuntu |
+| `rootfs/tools/rain-overlay/` | systemd-юниты и скрипты: `rain-stable-boot`, `rain-audio`, `rain-bt`, `sensors-setup` + `hexagonrpcd-*`, `rain-gps` + `gnss-share`/`gnss-keepalive`, `uim-provision`/`uim-hotplug`, `qcom-firmware-stage`, netplan, udev-правила |
+| `rootfs/tools/rain-loc-tool.c` | A-GPS-бандл вендорского HAL через libqmi напрямую (UTC-время, SUPL, режим, XTRA-орбиты) — `qmicli` этого не умеет |
+| `tools/fetch-firmware.sh` | Тянет из GitHub-релиза `firmware/` (ADSP/модем/WLAN/BT/GPU/тач), `qcom/` (-R дерево) и `sensors/` (hexagonrpcd + musl) |
 | `out/` | Локальные исходники, сборка и готовый образ (не коммитятся) |
 
 ## Проверено на устройстве
