@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..66f1d4c95
+index 000000000..a0ee6e7b5
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,861 @@
+@@ -0,0 +1,877 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -1032,6 +1032,22 @@ index 000000000..66f1d4c95
 +&lpasscc {
 +	status = "okay";
 +};
++
++/*
++ * Camera subsystem (SM6225 "Khaje", TFE 340).
++ * CSI PHY rails from stock: mipi-csi-vdd1 = pm6125_l4 (0.88 V),
++ * mipi-csi-vdd2 = pm6125_l18 (1.232 V).
++ */
++&camss {
++	status = "okay";
++
++	vdd-csiphy-0p9-supply = <&pm6125_l4a>;
++	vdd-csiphy-1p2-supply = <&pm6125_l18a>;
++};
++
++&cci0 {
++	status = "okay";
++};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts
 new file mode 100644
 index 000000000..722422ee8
@@ -1111,10 +1127,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..cdbc8d6ae
+index 000000000..70ae2eb8c
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2229 @@
+@@ -0,0 +1,2440 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -1136,6 +1152,7 @@ index 000000000..cdbc8d6ae
 +#include <dt-bindings/sound/qcom,q6dsp-lpass-ports.h>
 +#include <dt-bindings/clock/qcom,sm6115-lpasscc.h>
 +#include <dt-bindings/interconnect/qcom,sm6115.h>
++#include <dt-bindings/interconnect/qcom,rpm-icc.h>
 +
 +/ {
 +	interrupt-parent = <&intc>;
@@ -1883,6 +1900,72 @@ index 000000000..cdbc8d6ae
 +				input-enable;
 +			};
 +
++			/* Camera CCI I2C (Android rain: qup? no — dedicated CCI pads) */
++			cci0_default: cci0-default-state {
++				pins = "gpio22", "gpio23";
++				function = "cci_i2c";
++				drive-strength = <2>;
++				bias-disable;
++			};
++
++			cci1_default: cci1-default-state {
++				pins = "gpio29", "gpio30";
++				function = "cci_i2c";
++				drive-strength = <2>;
++				bias-disable;
++			};
++
++			/* Camera MCLK0..3 (Android rain: cam_sensor_mclk0..3) */
++			mclk0_default: mclk0-default-state {
++				pins = "gpio20";
++				function = "cam_mclk";
++				drive-strength = <16>;
++				bias-disable;
++			};
++
++			mclk1_default: mclk1-default-state {
++				pins = "gpio21";
++				function = "cam_mclk";
++				drive-strength = <16>;
++				bias-disable;
++			};
++
++			mclk2_default: mclk2-default-state {
++				pins = "gpio27";
++				function = "cam_mclk";
++				drive-strength = <16>;
++				bias-disable;
++			};
++
++			mclk3_default: mclk3-default-state {
++				pins = "gpio28";
++				function = "cam_mclk";
++				drive-strength = <16>;
++				bias-disable;
++			};
++
++			/* Sensor reset lines (Android: cam_sensor_reset0..2) */
++			cam_reset0_default: cam-reset0-default-state {
++				pins = "gpio18";
++				function = "gpio";
++				drive-strength = <2>;
++				bias-disable;
++			};
++
++			cam_reset1_default: cam-reset1-default-state {
++				pins = "gpio24";
++				function = "gpio";
++				drive-strength = <2>;
++				bias-disable;
++			};
++
++			cam_reset2_default: cam-reset2-default-state {
++				pins = "gpio65";
++				function = "gpio";
++				drive-strength = <2>;
++				bias-disable;
++			};
++
 +			/* External SD (sdhc2) — SDC QDSD pads + CD gpio88 (Android rain) */
 +			sdc2_state_on: sdc2-on-state {
 +				clk-pins {
@@ -2263,6 +2346,150 @@ index 000000000..cdbc8d6ae
 +				     <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>,
 +				     <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>,
 +				     <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
++		};
++
++		/*
++		 * Camera subsystem (TFE/CSID/CSIPHY). SM6225 "Khaje" is a
++		 * QCM2290 derivative with a third CSIPHY/CSID/TFE instance:
++		 *   top    @ 0x5c11000
++		 *   csid0  @ 0x5c6e000  csid1  @ 0x5c75000  csid2  @ 0x5c7c000
++		 *   csiphy0@ 0x5c52000  csiphy1@ 0x5c54000  csiphy2@ 0x5c56000
++		 *   tpg0/1 @ 0x5c66000 / 0x5c68000
++		 *   vfe0   @ 0x5c6f000  vfe1   @ 0x5c76000  vfe2   @ 0x5c7d000
++		 */
++		camss: camss@5c11000 {
++			compatible = "qcom,sm6225-camss";
++
++			reg = <0x5c11000 0x1000>,
++			      <0x5c6e000 0x1000>,
++			      <0x5c75000 0x1000>,
++			      <0x5c7c000 0x1000>,
++			      <0x5c52000 0x1000>,
++			      <0x5c54000 0x1000>,
++			      <0x5c56000 0x1000>,
++			      <0x5c66000 0x400>,
++			      <0x5c68000 0x400>,
++			      <0x5c6f000 0x4000>,
++			      <0x5c76000 0x4000>,
++			      <0x5c7d000 0x4000>;
++			reg-names = "top",
++				    "csid0", "csid1", "csid2",
++				    "csiphy0", "csiphy1", "csiphy2",
++				    "csitpg0", "csitpg1",
++				    "vfe0", "vfe1", "vfe2";
++
++			clocks = <&gcc GCC_CAMERA_AHB_CLK>,
++				 <&gcc GCC_CAMSS_AXI_CLK>,
++				 <&gcc GCC_CAMSS_NRT_AXI_CLK>,
++				 <&gcc GCC_CAMSS_RT_AXI_CLK>,
++				 <&gcc GCC_CAMSS_TFE_0_CSID_CLK>,
++				 <&gcc GCC_CAMSS_TFE_1_CSID_CLK>,
++				 <&gcc GCC_CAMSS_TFE_2_CSID_CLK>,
++				 <&gcc GCC_CAMSS_CPHY_0_CLK>,
++				 <&gcc GCC_CAMSS_CSI0PHYTIMER_CLK>,
++				 <&gcc GCC_CAMSS_CPHY_1_CLK>,
++				 <&gcc GCC_CAMSS_CSI1PHYTIMER_CLK>,
++				 <&gcc GCC_CAMSS_CPHY_2_CLK>,
++				 <&gcc GCC_CAMSS_CSI2PHYTIMER_CLK>,
++				 <&gcc GCC_CAMSS_TOP_AHB_CLK>,
++				 <&gcc GCC_CAMSS_TFE_0_CLK>,
++				 <&gcc GCC_CAMSS_TFE_0_CPHY_RX_CLK>,
++				 <&gcc GCC_CAMSS_TFE_1_CLK>,
++				 <&gcc GCC_CAMSS_TFE_1_CPHY_RX_CLK>,
++				 <&gcc GCC_CAMSS_TFE_2_CLK>,
++				 <&gcc GCC_CAMSS_TFE_2_CPHY_RX_CLK>;
++			clock-names = "ahb",
++				      "axi",
++				      "camnoc_nrt_axi",
++				      "camnoc_rt_axi",
++				      "csi0", "csi1", "csi2",
++				      "csiphy0", "csiphy0_timer",
++				      "csiphy1", "csiphy1_timer",
++				      "csiphy2", "csiphy2_timer",
++				      "top_ahb",
++				      "vfe0", "vfe0_cphy_rx",
++				      "vfe1", "vfe1_cphy_rx",
++				      "vfe2", "vfe2_cphy_rx";
++
++			interrupts = <GIC_SPI 210 IRQ_TYPE_EDGE_RISING>,
++				     <GIC_SPI 212 IRQ_TYPE_EDGE_RISING>,
++				     <GIC_SPI 77 IRQ_TYPE_EDGE_RISING>,
++				     <GIC_SPI 72 IRQ_TYPE_EDGE_RISING>,
++				     <GIC_SPI 73 IRQ_TYPE_EDGE_RISING>,
++				     <GIC_SPI 74 IRQ_TYPE_EDGE_RISING>,
++				     <GIC_SPI 211 IRQ_TYPE_EDGE_RISING>,
++				     <GIC_SPI 213 IRQ_TYPE_EDGE_RISING>,
++				     <GIC_SPI 78 IRQ_TYPE_EDGE_RISING>;
++			interrupt-names = "csid0", "csid1", "csid2",
++					  "csiphy0", "csiphy1", "csiphy2",
++					  "vfe0", "vfe1", "vfe2";
++
++			interconnects = <&bimc MASTER_AMPSS_M0 RPM_ACTIVE_TAG
++					 &config_noc SLAVE_CAMERA_CFG RPM_ACTIVE_TAG>,
++					<&mmrt_virt MASTER_CAMNOC_HF RPM_ALWAYS_TAG
++					 &bimc SLAVE_EBI_CH0 RPM_ALWAYS_TAG>,
++					<&mmnrt_virt MASTER_CAMNOC_SF RPM_ALWAYS_TAG
++					 &bimc SLAVE_EBI_CH0 RPM_ALWAYS_TAG>;
++			interconnect-names = "ahb", "hf_mnoc", "sf_mnoc";
++
++			iommus = <&apps_smmu 0x400 0x0>,
++				 <&apps_smmu 0x800 0x0>,
++				 <&apps_smmu 0x820 0x0>,
++				 <&apps_smmu 0x840 0x0>;
++
++			power-domains = <&gcc GCC_CAMSS_TOP_GDSC>;
++
++			status = "disabled";
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++				};
++
++				port@1 {
++					reg = <1>;
++				};
++
++				port@2 {
++					reg = <2>;
++				};
++			};
++		};
++
++		cci0: cci@5c1b000 {
++			compatible = "qcom,qcm2290-cci", "qcom,msm8996-cci";
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			reg = <0x5c1b000 0x1000>;
++			interrupts = <GIC_SPI 206 IRQ_TYPE_EDGE_RISING>;
++			power-domains = <&gcc GCC_CAMSS_TOP_GDSC>;
++
++			clocks = <&gcc GCC_CAMSS_TOP_AHB_CLK>,
++				 <&gcc GCC_CAMSS_CCI_0_CLK>;
++			clock-names = "ahb", "cci";
++
++			pinctrl-names = "default";
++			pinctrl-0 = <&cci0_default &cci1_default>;
++
++			status = "disabled";
++
++			cci0_i2c0: i2c-bus@0 {
++				reg = <0>;
++				clock-frequency = <1000000>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++			};
++
++			cci0_i2c1: i2c-bus@1 {
++				reg = <1>;
++				clock-frequency = <1000000>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++			};
 +		};
 +
 +		/*
@@ -12299,6 +12526,247 @@ index 3ee12c8a4..36363ff0d 100644
  };
  
  static const char * const cnoc_intf_clocks[] = {
+diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
+index 9335636d7..fd644431f 100644
+--- a/drivers/media/platform/qcom/camss/camss.c
++++ b/drivers/media/platform/qcom/camss/camss.c
+@@ -820,6 +820,209 @@ static const struct resources_icc icc_res_2290[] = {
+ 	},
+ };
+ 
++/*
++ * SM6225 (Khaje) is a QCM2290 derivative with a third CSIPHY/CSID/TFE
++ * instance. The IP is register-compatible (CSIPHY 3ph-1.0, CSID 340,
++ * TFE 340), so CAMSS_2290 version handling is reused.
++ */
++static const struct camss_subdev_resources csiphy_res_sm6225[] = {
++	/* CSIPHY0 */
++	{
++		.regulators = {
++			{ .supply = "vdd-csiphy-0p9", .init_load_uA = 26700 },
++			{ .supply = "vdd-csiphy-1p2", .init_load_uA = 2600 }
++		},
++		.clock = { "top_ahb", "ahb", "csiphy0", "csiphy0_timer" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 240000000, 341330000, 384000000 },
++				{ 100000000, 200000000, 268800000 } },
++		.reg = { "csiphy0" },
++		.interrupt = { "csiphy0" },
++		.csiphy = {
++			.id = 0,
++			.hw_ops = &csiphy_ops_3ph_1_0,
++			.formats = &csiphy_formats_sdm845
++		}
++	},
++
++	/* CSIPHY1 */
++	{
++		.regulators = {
++			{ .supply = "vdd-csiphy-0p9", .init_load_uA = 26700 },
++			{ .supply = "vdd-csiphy-1p2", .init_load_uA = 2600 }
++		},
++		.clock = { "top_ahb", "ahb", "csiphy1", "csiphy1_timer" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 240000000, 341330000, 384000000 },
++				{ 100000000, 200000000, 268800000 } },
++		.reg = { "csiphy1" },
++		.interrupt = { "csiphy1" },
++		.csiphy = {
++			.id = 1,
++			.hw_ops = &csiphy_ops_3ph_1_0,
++			.formats = &csiphy_formats_sdm845
++		}
++	},
++
++	/* CSIPHY2 */
++	{
++		.regulators = {
++			{ .supply = "vdd-csiphy-0p9", .init_load_uA = 26700 },
++			{ .supply = "vdd-csiphy-1p2", .init_load_uA = 2600 }
++		},
++		.clock = { "top_ahb", "ahb", "csiphy2", "csiphy2_timer" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 240000000, 341330000, 384000000 },
++				{ 100000000, 200000000, 268800000 } },
++		.reg = { "csiphy2" },
++		.interrupt = { "csiphy2" },
++		.csiphy = {
++			.id = 2,
++			.hw_ops = &csiphy_ops_3ph_1_0,
++			.formats = &csiphy_formats_sdm845
++		}
++	}
++};
++
++static const struct camss_subdev_resources csid_res_sm6225[] = {
++	/* CSID0 */
++	{
++		.regulators = {},
++		.clock = { "top_ahb", "ahb", "csi0", "vfe0_cphy_rx", "vfe0" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 192000000, 240000000, 384000000, 426400000 },
++				{ 0 },
++				{ 0 } },
++		.reg = { "csid0" },
++		.interrupt = { "csid0" },
++		.csid = {
++			.hw_ops = &csid_ops_340,
++			.parent_dev_ops = &vfe_parent_dev_ops,
++			.formats = &csid_formats_gen2
++		}
++	},
++
++	/* CSID1 */
++	{
++		.regulators = {},
++		.clock = { "top_ahb", "ahb", "csi1", "vfe1_cphy_rx", "vfe1" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 192000000, 240000000, 384000000, 426400000 },
++				{ 0 },
++				{ 0 } },
++		.reg = { "csid1" },
++		.interrupt = { "csid1" },
++		.csid = {
++			.hw_ops = &csid_ops_340,
++			.parent_dev_ops = &vfe_parent_dev_ops,
++			.formats = &csid_formats_gen2
++		}
++	},
++
++	/* CSID2 */
++	{
++		.regulators = {},
++		.clock = { "top_ahb", "ahb", "csi2", "vfe2_cphy_rx", "vfe2" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 192000000, 240000000, 384000000, 426400000 },
++				{ 0 },
++				{ 0 } },
++		.reg = { "csid2" },
++		.interrupt = { "csid2" },
++		.csid = {
++			.hw_ops = &csid_ops_340,
++			.parent_dev_ops = &vfe_parent_dev_ops,
++			.formats = &csid_formats_gen2
++		}
++	}
++};
++
++static const struct camss_subdev_resources vfe_res_sm6225[] = {
++	/* VFE0 */
++	{
++		.regulators = {},
++		.clock = { "top_ahb", "ahb", "axi", "vfe0", "camnoc_rt_axi", "camnoc_nrt_axi" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 0 },
++				{ 19200000, 153600000, 192000000, 256000000, 384000000, 460800000 },
++				{ 0 },
++				{ 0 }, },
++		.reg = { "vfe0" },
++		.interrupt = { "vfe0" },
++		.vfe = {
++			.line_num = 4,
++			.hw_ops = &vfe_ops_340,
++			.formats_rdi = &vfe_formats_rdi_845,
++			.formats_pix = &vfe_formats_pix_845
++		}
++	},
++
++	/* VFE1 */
++	{
++		.regulators = {},
++		.clock = { "top_ahb", "ahb", "axi", "vfe1", "camnoc_rt_axi", "camnoc_nrt_axi" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 0 },
++				{ 19200000, 153600000, 192000000, 256000000, 384000000, 460800000 },
++				{ 0 },
++				{ 0 }, },
++		.reg = { "vfe1" },
++		.interrupt = { "vfe1" },
++		.vfe = {
++			.line_num = 4,
++			.hw_ops = &vfe_ops_340,
++			.formats_rdi = &vfe_formats_rdi_845,
++			.formats_pix = &vfe_formats_pix_845
++		}
++	},
++
++	/* VFE2 */
++	{
++		.regulators = {},
++		.clock = { "top_ahb", "ahb", "axi", "vfe2", "camnoc_rt_axi", "camnoc_nrt_axi" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 0 },
++				{ 19200000, 153600000, 192000000, 256000000, 384000000, 460800000 },
++				{ 0 },
++				{ 0 }, },
++		.reg = { "vfe2" },
++		.interrupt = { "vfe2" },
++		.vfe = {
++			.line_num = 4,
++			.hw_ops = &vfe_ops_340,
++			.formats_rdi = &vfe_formats_rdi_845,
++			.formats_pix = &vfe_formats_pix_845
++		}
++	},
++};
++
++static const struct resources_icc icc_res_sm6225[] = {
++	{
++		.name = "ahb",
++		.icc_bw_tbl.avg = 150000,
++		.icc_bw_tbl.peak = 300000,
++	},
++	{
++		.name = "hf_mnoc",
++		.icc_bw_tbl.avg = 2097152,
++		.icc_bw_tbl.peak = 3000000,
++	},
++	{
++		.name = "sf_mnoc",
++		.icc_bw_tbl.avg = 2097152,
++		.icc_bw_tbl.peak = 3000000,
++	},
++};
++
+ static const struct camss_subdev_resources csiphy_res_660[] = {
+ 	/* CSIPHY0 */
+ 	{
+@@ -5160,6 +5363,18 @@ static const struct camss_resources qcm2290_resources = {
+ 	.vfe_num = ARRAY_SIZE(vfe_res_2290),
+ };
+ 
++static const struct camss_resources sm6225_resources = {
++	.version = CAMSS_2290,
++	.csiphy_res = csiphy_res_sm6225,
++	.csid_res = csid_res_sm6225,
++	.vfe_res = vfe_res_sm6225,
++	.icc_res = icc_res_sm6225,
++	.icc_path_num = ARRAY_SIZE(icc_res_sm6225),
++	.csiphy_num = ARRAY_SIZE(csiphy_res_sm6225),
++	.csid_num = ARRAY_SIZE(csid_res_sm6225),
++	.vfe_num = ARRAY_SIZE(vfe_res_sm6225),
++};
++
+ static const struct camss_resources qcs8300_resources = {
+ 	.version = CAMSS_8300,
+ 	.pd_name = "top",
+@@ -5322,6 +5537,7 @@ static const struct of_device_id camss_dt_match[] = {
+ 	{ .compatible = "qcom,msm8996-camss", .data = &msm8996_resources },
+ 	{ .compatible = "qcom,qcm2290-camss", .data = &qcm2290_resources },
+ 	{ .compatible = "qcom,qcs8300-camss", .data = &qcs8300_resources },
++	{ .compatible = "qcom,sm6225-camss", .data = &sm6225_resources },
+ 	{ .compatible = "qcom,sa8775p-camss", .data = &sa8775p_resources },
+ 	{ .compatible = "qcom,sc7280-camss", .data = &sc7280_resources },
+ 	{ .compatible = "qcom,sc8280xp-camss", .data = &sc8280xp_resources },
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
 index 00683bf06..abc5e1363 100644
 --- a/drivers/misc/Kconfig
@@ -13061,10 +13529,10 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..7eae9afb4
+index 000000000..a47ca04ff
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1668 @@
+@@ -0,0 +1,1663 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -14610,19 +15078,14 @@ index 000000000..7eae9afb4
 +	15,
 +	16,
 +	17,
-+	18,
++	/* 18 camera reset0 (CAM_RESET0, main) */
 +	19,
-+	20,
-+	21,
-+	22,
-+	23,
-+	24,
++	/* 20/21/27/28 camera MCLK0..3 (CAMIF_MCLK) */
++	/* 22/23 camera CCI0 I2C (main) */
++	/* 24 camera reset1 (CAM_RESET1, front) */
 +	25,
 +	26,
-+	27,
-+	28,
-+	29,
-+	30,
++	/* 29/30 camera CCI1 I2C (front/depth) */
 +	31,
 +	32,
 +	33,
@@ -14657,7 +15120,7 @@ index 000000000..7eae9afb4
 +	62,
 +	63,
 +	64,
-+	65,
++	/* 65 camera reset2 (CAM_RESET2, depth) */
 +	66,
 +	67,
 +	68,
