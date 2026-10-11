@@ -283,6 +283,9 @@ systemctl enable rain-audio.service 2>/dev/null || true
 # /var/run/gnss-share.sock for geoclue/apps (device_driver="mm").
 systemctl enable gnss-share.service 2>/dev/null || true
 systemctl enable rain-gps.service 2>/dev/null || true
+# gnss-share stops the receiver when the last client disconnects, so a fix
+# (minutes of uninterrupted tracking) needs a permanent client.
+systemctl enable gnss-keepalive.service 2>/dev/null || true
 ' || true
 
 # Host adb public key → pre-authorized adbd (no RSA prompt on a headless device)

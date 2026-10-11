@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+# gnss-keepalive — keep the GNSS engine running.
+#
+# gnss-share stops the receiver as soon as the last client disconnects, so a
+# position fix (which needs minutes of uninterrupted tracking to collect the
+# ephemeris) never completes if clients come and go.  This holds the socket
+# open permanently and appends the NMEA to a log.
+import socket, sys, time
+
+SOCK = "/var/run/gnss-share.sock"
+LOG = sys.argv[2] if len(sys.argv) > 2 else "/var/log/gnss-nmea.log"
+
+while True:
+    try:
+        s = socket.socket(socket.AF_UNIX)
+        s.connect(SOCK)
+        s.settimeout(120)
+        with open(LOG, "a", buffering=1) as f:
+            f.write("# connected %s\n" % time.strftime("%F %T"))
+            while True:
+                d = s.recv(8192)
+                if not d:
+                    break
+                f.write(d.decode(errors="replace"))
+    except Exception as e:
+        with open(LOG, "a", buffering=1) as f:
+            f.write("# reconnect: %s\n" % e)
+        time.sleep(5)

@@ -1,0 +1,14 @@
+[Unit]
+Description=GNSS keep-alive (hold gnss-share open so the engine can fix)
+Documentation=man:mmcli(1)
+After=gnss-share.service rain-gps.service
+Wants=gnss-share.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/gnss-keepalive
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
