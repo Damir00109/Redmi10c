@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..a0ee6e7b5
+index 000000000..8d94b06ea
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,877 @@
+@@ -0,0 +1,1022 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -1047,6 +1047,151 @@ index 000000000..a0ee6e7b5
 +
 +&cci0 {
 +	status = "okay";
++};
++
++/* Camera PMIC (PM8008) — powers the rear/front camera rails. */
++/ {
++	pm8008_vin_1p2: regulator-pm8008-vin-1p2 {
++		compatible = "regulator-fixed";
++		regulator-name = "pm8008_vin_1p2";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-always-on;
++	};
++
++	pm8008_vin_2p8: regulator-pm8008-vin-2p8 {
++		compatible = "regulator-fixed";
++		regulator-name = "pm8008_vin_2p8";
++		regulator-min-microvolt = <3000000>;
++		regulator-max-microvolt = <3000000>;
++		regulator-always-on;
++	};
++};
++
++&i2c1 {
++	pm8008: pmic@8 {
++		compatible = "qcom,pm8008";
++		reg = <0x8>;
++
++		interrupt-parent = <&tlmm>;
++		interrupts = <25 IRQ_TYPE_EDGE_RISING>;
++
++		vdd-l1-l2-supply = <&pm8008_vin_1p2>;
++		vdd-l3-l4-supply = <&pm8008_vin_2p8>;
++		vdd-l5-supply = <&pm8008_vin_2p8>;
++		vdd-l6-supply = <&pm8008_vin_2p8>;
++		vdd-l7-supply = <&pm8008_vin_1p2>;
++
++		gpio-controller;
++		#gpio-cells = <2>;
++		gpio-ranges = <&pm8008 0 0 2>;
++
++		interrupt-controller;
++		#interrupt-cells = <2>;
++
++		#thermal-sensor-cells = <0>;
++
++		regulators {
++			/* Camera VANA 2.8 V */
++			pm8008_l3: ldo3 {
++				regulator-name = "pm8008_l3";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-always-on;
++			};
++
++			/* Camera VDIG 1.05 V */
++			pm8008_l2: ldo2 {
++				regulator-name = "pm8008_l2";
++				regulator-min-microvolt = <1050000>;
++				regulator-max-microvolt = <1050000>;
++				regulator-always-on;
++			};
++
++			/* Camera VIO 1.8 V */
++			pm8008_l7: ldo7 {
++				regulator-name = "pm8008_l7";
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-always-on;
++			};
++
++			pm8008_l1: ldo1 {
++				regulator-name = "pm8008_l1";
++				regulator-min-microvolt = <1200000>;
++				regulator-max-microvolt = <1200000>;
++				regulator-always-on;
++			};
++
++			pm8008_l4: ldo4 {
++				regulator-name = "pm8008_l4";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-always-on;
++			};
++
++			pm8008_l5: ldo5 {
++				regulator-name = "pm8008_l5";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-always-on;
++			};
++
++			pm8008_l6: ldo6 {
++				regulator-name = "pm8008_l6";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-always-on;
++			};
++		};
++	};
++};
++
++/* Rear main camera — Samsung S5KJN1 @ CCI master 0, CSIPHY0. */
++&cci0_i2c0 {
++	status = "okay";
++
++	camera@36 {
++		compatible = "samsung,s5kjn1";
++		reg = <0x36>;
++
++		clocks = <&gcc GCC_CAMSS_MCLK2_CLK>;
++		assigned-clocks = <&gcc GCC_CAMSS_MCLK2_CLK>;
++		assigned-clock-rates = <24000000>;
++
++		/* reset is driven via gpiod — do NOT add a pinctrl state for
++		 * gpio18 (pinctrl and gpiod fight over the pin). */
++		reset-gpios = <&tlmm 18 GPIO_ACTIVE_LOW>;
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&mclk2_default>;
++
++		vdda-supply = <&pm8008_l3>;
++		vddd-supply = <&pm8008_l2>;
++		vddio-supply = <&pm8008_l7>;
++
++		port {
++			s5kjn1_ep: endpoint {
++				data-lanes = <1 2 3 4>;
++				link-frequencies = /bits/ 64 <700000000>;
++				remote-endpoint = <&csiphy0_ep>;
++			};
++		};
++	};
++};
++
++&camss {
++	ports {
++		port@0 {
++			reg = <0>;
++
++			csiphy0_ep: endpoint {
++				clock-lanes = <7>;
++				data-lanes = <0 1 2 3>;
++				remote-endpoint = <&s5kjn1_ep>;
++			};
++		};
++	};
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts
 new file mode 100644
@@ -13529,7 +13674,7 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..a47ca04ff
+index 000000000..f40625cba
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
 @@ -0,0 +1,1663 @@
@@ -15083,8 +15228,8 @@ index 000000000..a47ca04ff
 +	/* 20/21/27/28 camera MCLK0..3 (CAMIF_MCLK) */
 +	/* 22/23 camera CCI0 I2C (main) */
 +	/* 24 camera reset1 (CAM_RESET1, front) */
-+	25,
-+	26,
++	/* 25/26 pm8008 IRQ + chip-en (camera PMIC) */
++
 +	/* 29/30 camera CCI1 I2C (front/depth) */
 +	31,
 +	32,

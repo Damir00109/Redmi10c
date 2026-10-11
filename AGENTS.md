@@ -116,18 +116,26 @@
   - **Проверено**: `camss` probe OK (`/dev/media0`, `vfe0_video0`, `v4l-subdev0..17`),
     `cci0` probe OK и регистрирует 2 i2c-шины (`/sys/bus/i2c/devices/i2c-0`,`i2c-1` →
     `5c1b000.cci`). Ошибок pinctrl/hang нет.
-- **Не сделано (следующие шаги)**:
-  - Сенсор **не поднимается**: нужны (а) питание рельсов сенсора и (б) точный i2c-адрес.
-    В стоковом DT адреса нет — он в `com.qti.sensor.c3q_sunny_s5kjn1.so` /
-    `com.qti.sensormodule.c3q_sunny_s5kjn1.bin` (в vendor внутри `super`). Из стока явно
-    заведён только `cam_vio = pm8008_l7` (для вспышки); rails `cam_vana/cam_vdig` в DT нет.
-  - Кандидаты рельсов: PM8008 (камерный PMIC, на `i2c@4a84000` = `&i2c1`, reg 0x88=7-бит 0x44;
-    LDO: l1=1.2V, l2=1.05V, l3/l4/l5/l6=2.8V, l7=1.8V). `CONFIG_MFD_QCOM_PM8008` /
-    `REGULATOR_QCOM_PM8008` в конфиге пока `=m` → сделать `=y` и завести узел.
+- **Сенсор S5KJN1 — попытка поднять (2026-10-11), пока НЕ работает**:
+  - Узел `camera@36` на `&cci0_i2c0` + `&camss port@0` уже в `fog.dts`. Драйвер
+    `s5kjn1` **находится** на CCI (`i2c-0`, адрес `0-0036`), т.е. адрес 0x36 правдоподобен.
+  - **reset-пин нельзя давать в pinctrl**: `gpiod` (reset-gpios) и `pinctrl` дерутся за пин
+    (`cannot get reset GPIO -EINVAL`). В `pinctrl-0` сенсора оставлен только `mclk2_default`.
+  - **MCLK-клок не заводится**: `gcc_camss_mclk2_clk` при enable валит
+    `WARNING clk-alpha-pll.c:421 wait_for_pll` + `clk.c:1188/1047` (PLL не лочится) — надо
+    разобраться с родителем/PLL для CAMSS MCLK (возможно, нужен CAMSS GDSC/CC или другой parent).
+  - **PM8008 (камерный PMIC) не отвечает**: узел `pmic@8` (и пробовал `@44`) на `&i2c1`;
+    `Failed to set masks in 0x916: -6` (ENXIO) → `failed to add IRQ chip` → MFD не поднимается,
+    рельсы `pm8008_l*` не регистрируются. Похоже, PM8008 **не запитан**: его VIN идут с PM6125
+    (не заведены) + нужен `chip-en`. В стоке: `qcom,pm8008@8 { reg = <0x88> }`,
+    `qcom,pm8008-chip@900`, `pm8008-chip-en`; IRQ = TLMM gpio25 (уже убран из reserved).
+    Рекомендация: найти реальные VIN-рельсы PM6125 из стока/схемы, завести `chip-en`,
+    и только потом ждать probe. `CONFIG_MFD_QCOM_PM8008`/`REGULATOR_QCOM_PM8008` уже `=y`.
   - Userspace: `v4l-utils`/`libcamera` в rootfs нет — нужен `media-ctl`/`v4l2-ctl`
-    для настройки пайплайна и захвата.
+    для настройки пайплайна и захвата (сейчас можно проверить только наличие `/dev/media0`).
   - Depth (OV02B1B) — драйвера в mainline нет вообще; front (HI-556) — драйвер есть, но ACPI-only
     (нет `of_match_table`), нужна доработка под DT.
+  - Сборка `s5kjn1`/`pm8008` как модулей — не делать; они `=y` (иначе не грузятся без sync модулей).
 - Полезное: vendor внутри `super` (sda9) монтируется через LP-метаданные:
   geometry @0x1000, header @0x3000 (парсер `/tmp/lpparse.py`); vendor_a extents →
   `mount -o ro,loop,offset=<sectors*512> /dev/sda9 /mnt/v`.
