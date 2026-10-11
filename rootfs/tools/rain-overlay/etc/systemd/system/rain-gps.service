@@ -1,0 +1,12 @@
+[Unit]
+Description=Enable ModemManager Location (GNSS over QMI LOC/PDS)
+After=ModemManager.service
+Wants=ModemManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/rain-gps-start.sh
+
+[Install]
+WantedBy=multi-user.target

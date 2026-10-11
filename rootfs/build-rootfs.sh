@@ -83,6 +83,7 @@ apt-get install -y --no-install-recommends \
   network-manager dbus \
   bluez pulseaudio pulseaudio-module-bluetooth pulseaudio-utils \
   alsa-utils dbus-x11 python3-dbus adbd \
+  gnss-share \
   fastboot upower fake-hwclock
 locale-gen en_US.UTF-8 || true
 apt-get clean
@@ -107,6 +108,8 @@ id rain >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo,netdev,video,plugdev,
 # unprivileged user hexagonrpcd runs as (Snapdragon Sensor Core)
 groupadd -r -f fastrpc
 id fastrpc >/dev/null 2>&1 || useradd -r -g fastrpc -d /var/lib/fastrpc -s /usr/sbin/nologin fastrpc
+# gnss-share chowns its NMEA socket to this group (else it exits 1)
+groupadd -r -f geoclue
 echo "rain:rain" | chpasswd
 echo "root:rain" | chpasswd
 mkdir -p /var/lib/systemd/linger
@@ -254,6 +257,11 @@ systemctl enable sensors-setup.service hexagonrpcd-adsp-rootpd.service hexagonrp
 # ADSP is what provides the LPASS clocks, so rain-stable-boot must not stop
 # remoteproc1 (see usr/local/sbin/rain-stable-boot.sh).
 systemctl enable rain-audio.service 2>/dev/null || true
+# GNSS: the modem exposes QMI LOC/PDS (QRTR service 16); ModemManager's
+# Location interface drives it and gnss-share republishes the NMEA on
+# /var/run/gnss-share.sock for geoclue/apps (device_driver="mm").
+systemctl enable gnss-share.service 2>/dev/null || true
+systemctl enable rain-gps.service 2>/dev/null || true
 ' || true
 
 # Host adb public key → pre-authorized adbd (no RSA prompt on a headless device)
