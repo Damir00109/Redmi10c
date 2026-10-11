@@ -19,9 +19,12 @@ pkill -x rmtfs 2>/dev/null || true
 pkill -x pd-mapper 2>/dev/null || true
 pkill -x ModemManager 2>/dev/null || true
 
-# Stop any running remoteproc (modem) — qcom-modem-start will restart it
+# Stop any running remoteproc (modem) — qcom-modem-start will restart it.
+# ONLY the modem: the ADSP must stay up, it is what hexagonrpcd/fastrpc
+# (Snapdragon Sensor Core) and the audio DSP talk to, and nothing restarts it.
 for RP in /sys/class/remoteproc/remoteproc*; do
   [ -d "$RP" ] || continue
+  [ "$(cat "$RP/name" 2>/dev/null)" = "modem" ] || continue
   [ -e "$RP/recovery" ] && echo disabled >"$RP/recovery" 2>/dev/null
   st=$(cat "$RP/state" 2>/dev/null)
   name=$(basename "$RP")

@@ -1,0 +1,72 @@
+#!/bin/sh
+# Prepare the Snapdragon Sensor Core (SSC) environment for hexagonrpcd.
+#
+# Ported from the postmarketOS image (Alpine) to Ubuntu.  The binaries come
+# from that image too: hexagonrpcd is a musl build, so it is run with the musl
+# loader from /usr/lib/ld-musl-aarch64.so.1 and the libraries from
+# /usr/lib/musl (see fetch-pmos-sensors.sh).  Never write through /lib --
+# on Ubuntu it is a symlink to usr/lib and clobbering it breaks every binary.
+set -u
+
+R=/usr/share/qcom/sm6225/Xiaomi/rain
+PERSIST_MP=/mnt/persist
+
+log() { echo "sensors-setup: $*"; }
+
+find_part() {
+	for u in /sys/class/block/*/uevent; do
+		[ -f "$u" ] || continue
+		[ "$(sed -n 's/^PARTNAME=//p' "$u")" = "$1" ] || continue
+		d=$(basename "$(dirname "$u")")
+		case "$d" in loop*|ram*|zram*) continue ;; esac
+		echo "/dev/$d"; return 0
+	done
+	return 1
+}
+
+# The SNS registry lives on the persist partition.
+mkdir -p "$PERSIST_MP"
+if ! mountpoint -q "$PERSIST_MP"; then
+	PERSIST=$(find_part persist || echo /dev/sda2)
+	mount -o ro "$PERSIST" "$PERSIST_MP" 2>/dev/null
+	log "persist mounted from $PERSIST"
+fi
+
+if [ -d "$PERSIST_MP/sensors/registry/registry" ]; then
+	mkdir -p "$R/sensors/registry" "$R/mnt_persist/sensors/registry"
+	cp -a "$PERSIST_MP/sensors/registry/registry/." "$R/sensors/registry/" 2>/dev/null
+	cp -a "$PERSIST_MP/sensors/registry/sns_reg_config" "$R/sensors/sns_reg.conf" 2>/dev/null
+	cp -a "$PERSIST_MP/sensors/registry/sns_reg_version" "$R/sensors/" 2>/dev/null
+	cp -a "$PERSIST_MP/sensors/sensors_list.txt" "$R/sensors/" 2>/dev/null
+	# The DSP resolves some files via the real /mnt/vendor/persist path, and
+	# persist files are only readable by uid 1000, so serve readable copies.
+	cp -a "$PERSIST_MP/sensors/registry/registry" "$R/mnt_persist/sensors/registry/" 2>/dev/null
+	cp -a "$PERSIST_MP/sensors/registry/sns_reg_version" "$R/mnt_persist/sensors/registry/" 2>/dev/null
+	log "registry staged: $(ls "$R/sensors/registry" 2>/dev/null | wc -l) files"
+fi
+printf 'END:AP\n' > "$R/sensors/sns_reg_ctrl"
+
+# hexagonrpcd runs as the unprivileged fastrpc user.
+chmod -R a+rX "$R"
+chown -R fastrpc:fastrpc "$R/mnt_persist" "$R/sensors/sns_reg_ctrl" 2>/dev/null || true
+
+# socinfo files the sensor PD reads via /sys/devices/soc0
+mkdir -p "$R/socinfo"
+echo 518     > "$R/socinfo/soc_id"
+echo 1.0     > "$R/socinfo/revision"
+echo bengal  > "$R/socinfo/hw_platform"
+echo fog     > "$R/socinfo/platform_subtype"
+echo 0       > "$R/socinfo/platform_subtype_id"
+echo 0x10000 > "$R/socinfo/platform_version"
+
+# Files the DSP resolves through the real filesystem.
+[ -L /mnt/vendor ] && rm -f /mnt/vendor
+mkdir -p /mnt/vendor
+[ -e /mnt/vendor/persist ] || ln -s "$R/mnt_persist" /mnt/vendor/persist 2>/dev/null
+[ -f /ro.boot.lcmtype ] || echo 1 > /ro.boot.lcmtype
+
+modprobe fastrpc 2>/dev/null
+i=0
+while [ "$i" -lt 20 ] && [ ! -e /dev/fastrpc-adsp ]; do sleep 1; i=$((i + 1)); done
+log "fastrpc device: $([ -e /dev/fastrpc-adsp ] && echo yes || echo no) (waited ${i}s)"
+log "done"

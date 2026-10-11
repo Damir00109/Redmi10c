@@ -4,6 +4,7 @@
 # The tarball has two top-level dirs:
 #   firmware/  — installed to /lib/firmware (initramfs + rootfs)
 #   qcom/      — hexagonrpcd -R tree, installed to /usr/share/qcom in the rootfs
+#   sensors/   — hexagonrpcd/ssccli + musl runtime + udev rules (Snapdragon Sensor Core)
 #
 # Usage: tools/pack-firmware.sh [output.tar.zst]
 # Then upload with:
@@ -27,6 +28,8 @@ trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP"
 cp -a "$R/initramfs/lib/firmware" "$TMP/firmware"
 cp -a "$R/vendor-qcom/qcom" "$TMP/qcom"
+# Snapdragon Sensor Core userspace (hexagonrpcd/ssccli + musl runtime + udev rules)
+[ -d "$R/sensors" ] && cp -a "$R/sensors" "$TMP/sensors"
 
 # IPA (GSI/uC) firmware: ipa.ko requests ipa_fws.mdt while pivot-init loads it,
 # before the rootfs exists — so it must ship in the initramfs /lib/firmware.

@@ -1,0 +1,17 @@
+[Unit]
+Description=Hexagonrpcd ADSP RootPD (Qualcomm Hexagon ADSP virtual FS)
+Documentation=file:/usr/local/share/sensors/README.md
+Requires=sensors-setup.service
+After=sensors-setup.service
+
+[Service]
+Type=simple
+User=fastrpc
+Group=fastrpc
+Environment=LD_LIBRARY_PATH=/usr/lib/musl
+ExecStart=/usr/bin/hexagonrpcd -f /dev/fastrpc-adsp -d adsp
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

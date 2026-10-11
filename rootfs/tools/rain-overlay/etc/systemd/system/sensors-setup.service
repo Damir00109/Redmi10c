@@ -1,0 +1,13 @@
+[Unit]
+Description=Snapdragon Sensor Core setup (SNS registry, socinfo, fastrpc device)
+Documentation=file:/usr/local/sbin/sensors-setup
+After=systemd-udev-settle.service local-fs.target
+Wants=systemd-udev-settle.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/sensors-setup
+
+[Install]
+WantedBy=multi-user.target

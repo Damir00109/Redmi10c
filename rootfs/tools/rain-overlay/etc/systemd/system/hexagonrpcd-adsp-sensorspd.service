@@ -1,0 +1,22 @@
+[Unit]
+Description=Hexagonrpcd ADSP SensorPD (Snapdragon Sensor Core virtual FS)
+Documentation=file:/usr/local/share/sensors/README.md
+Requires=sensors-setup.service
+After=sensors-setup.service
+Before=iio-sensor-proxy.service
+
+[Service]
+Type=simple
+User=fastrpc
+Group=fastrpc
+# hexagonrpcd is a musl build: its loader is /usr/lib/ld-musl-aarch64.so.1
+# (the interpreter path /lib/ld-musl-aarch64.so.1 resolves there) and its
+# libraries live in /usr/lib/musl -- deliberately not in /usr/lib, so they
+# cannot shadow the glibc libraries.
+Environment=LD_LIBRARY_PATH=/usr/lib/musl
+ExecStart=/usr/bin/hexagonrpcd -f /dev/fastrpc-adsp -d adsp -s -R /usr/share/qcom/sm6225/Xiaomi/rain
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -7,7 +7,7 @@ export PATH=/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
 # Already up?
 if hciconfig hci0 >/dev/null 2>&1 && hciconfig hci0 | grep -q "UP RUNNING"; then
   systemctl start bluetooth 2>/dev/null || true
-  systemctl start user@1000 2>/dev/null || true
+  systemctl start pulseaudio 2>/dev/null || true
   exit 0
 fi
 
@@ -20,8 +20,9 @@ done
 if hciconfig hci0 >/dev/null 2>&1; then
   hciconfig hci0 up 2>/dev/null || true
   systemctl start bluetooth 2>/dev/null || true
-  # Start PulseAudio user session for rain (requires linger enabled)
-  systemctl start user@1000 2>/dev/null || true
+  # PulseAudio runs in SYSTEM mode (see /etc/systemd/system/pulseaudio.service):
+  # a second per-user instance would fight over the BlueZ profiles.
+  systemctl start pulseaudio 2>/dev/null || true
   echo "BT: hci0 up"
 else
   echo "BT: hci0 not found"

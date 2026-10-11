@@ -4,6 +4,7 @@
 # The tarball contains:
 #   firmware/  → initramfs/lib/firmware (and out/build/initramfs/lib/firmware)
 #   qcom/      → vendor-qcom/qcom (hexagonrpcd -R tree, used by the pmOS build)
+#   sensors/   → sensors/ (hexagonrpcd/ssccli musl binaries + runtime + udev rules)
 #
 # Override with env vars:
 #   FIRMWARE_REPO=owner/repo  FIRMWARE_TAG=<tag>
@@ -39,4 +40,13 @@ if [ -d "$TMP/qcom" ]; then
 	rm -rf "$R/vendor-qcom/qcom"
 	cp -a "$TMP/qcom" "$R/vendor-qcom/qcom"
 	echo ">> unpacked hexagonrpcd tree into $R/vendor-qcom/qcom"
+fi
+
+# Snapdragon Sensor Core userspace: hexagonrpcd/ssccli (musl builds from the
+# postmarketOS image), their musl runtime and the udev rules.  Installed into
+# the rootfs by rootfs/build-rootfs.sh.
+if [ -d "$TMP/sensors" ]; then
+	rm -rf "$R/sensors"
+	cp -a "$TMP/sensors" "$R/sensors"
+	echo ">> unpacked sensors (hexagonrpcd + musl runtime) into $R/sensors"
 fi

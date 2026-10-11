@@ -35,6 +35,11 @@ if [ -n "$SLOTS" ]; then
     fi
     qmicli -d "$QRTR" --uim-sim-power-off=2 >/dev/null 2>&1 \
         && log "physical slot 2 powered off"
+    # Nothing in any slot -> nothing to provision; exit before the unit's timeout.
+    if ! echo "$SLOTS" | grep -q "Card status: present"; then
+        log "no SIM inserted"
+        exit 0
+    fi
 fi
 
 # --- wait for the USIM app (modem powers the card well after UIM is up) ---

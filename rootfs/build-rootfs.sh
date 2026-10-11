@@ -104,10 +104,15 @@ sudo chroot "$RF" bash -c '
 set -e
 groupadd -f netdev; groupadd -f video; groupadd -f plugdev; groupadd -f audio
 id rain >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo,netdev,video,plugdev,audio rain
+# unprivileged user hexagonrpcd runs as (Snapdragon Sensor Core)
+groupadd -r -f fastrpc
+id fastrpc >/dev/null 2>&1 || useradd -r -g fastrpc -d /var/lib/fastrpc -s /usr/sbin/nologin fastrpc
 echo "rain:rain" | chpasswd
 echo "root:rain" | chpasswd
 mkdir -p /var/lib/systemd/linger
 touch /var/lib/systemd/linger/rain
+# sshd needs host keys; they are not generated inside a chroot by the package
+ssh-keygen -A >/dev/null 2>&1 || true
 '
 
 # machine-id: cloudimg ships an EMPTY /etc/machine-id — dbus refuses to
@@ -148,6 +153,22 @@ if [ -n "$REDMI" ] && [ -d "$REDMI/vendor-qcom" ]; then
   sudo mkdir -p "$RF/usr/share/vendor-qcom"
   sudo rsync -a "$REDMI/vendor-qcom/" "$RF/usr/share/vendor-qcom/"
   echo ">> vendor-qcom tree staged"
+fi
+# Snapdragon Sensor Core userspace: hexagonrpcd/ssccli (musl builds from the
+# postmarketOS image, fetched by tools/fetch-firmware.sh into $REDMI/sensors)
+# plus the -R tree the sensor PD is served from (/usr/share/qcom, the path
+# hexagonrpcd-adsp-sensorspd.service passes on the command line).
+if [ -n "$REDMI" ] && [ -d "$REDMI/sensors" ]; then
+  sudo install -m755 "$REDMI"/sensors/bin/* "$RF/usr/bin/"
+  sudo install -m755 "$REDMI/sensors/ld-musl-aarch64.so.1" "$RF/usr/lib/ld-musl-aarch64.so.1"
+  sudo mkdir -p "$RF/usr/lib/musl"
+  sudo rsync -a "$REDMI/sensors/lib-musl/" "$RF/usr/lib/musl/"
+  sudo mkdir -p "$RF/usr/share/qcom"
+  [ -d "$REDMI/vendor-qcom/qcom" ] && \
+    sudo rsync -a "$REDMI/vendor-qcom/qcom/" "$RF/usr/share/qcom/"
+  echo ">> sensors (hexagonrpcd + musl runtime + -R tree) staged"
+else
+  echo "WARN: no $REDMI/sensors — run $REDMI/tools/fetch-firmware.sh for hexagonrpcd" >&2
 fi
 sudo chmod 755 "$RF/var/lib/tqftpserv"
 
@@ -226,7 +247,13 @@ systemctl enable rain-audio.service rain-bt.service bluetooth rain-serial-consol
 systemctl enable qcom-firmware-stage.service qrtr-ns.service rmtfs.service pd-mapper.service tqftpserv.service 2>/dev/null || true
 systemctl enable qcom-modem-start.service ath10k-snoc-load.service uim-provision.service uim-hotplug.service 2>/dev/null || true
 systemctl enable ModemManager.service NetworkManager.service NetworkManager-dispatcher.service 2>/dev/null || true
-systemctl disable ssh 2>/dev/null || true
+systemctl enable ssh 2>/dev/null || true
+# Snapdragon Sensor Core (hexagonrpcd -> ADSP fastrpc)
+systemctl enable sensors-setup.service hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service 2>/dev/null || true
+# ASoC/WCD9375 stack (speaker + headset).  Needs the ADSP to stay up: the
+# ADSP is what provides the LPASS clocks, so rain-stable-boot must not stop
+# remoteproc1 (see usr/local/sbin/rain-stable-boot.sh).
+systemctl enable rain-audio.service 2>/dev/null || true
 ' || true
 
 # Host adb public key → pre-authorized adbd (no RSA prompt on a headless device)

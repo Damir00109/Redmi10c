@@ -5,7 +5,11 @@ Wants=bluetooth.service dbus.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/pulseaudio --system --disallow-exit --disallow-module-loading
+# NOTE: --disallow-module-loading must NOT be used here: module-bluez5-discover
+# loads module-bluez5-device dynamically when a Bluetooth audio device
+# connects, and the flag makes that fail with
+# "Failed to load module for device ..." -> no BT sink ever appears.
+ExecStart=/usr/bin/pulseaudio --system --disallow-exit
 Restart=on-failure
 RestartSec=3
 
