@@ -53,7 +53,7 @@
 
 | Компонент | Причина |
 |---|---|
-| Камера | Драйвер не поднят (нет `/dev/video*`) |
+| Камера (сенсор) | CAMSS/TFE + CCI подняты (`/dev/media0`, `vfe0_video0`, CCI `i2c-0/1`); S5KJN1 находится на CCI `0x36`, но probe падает: MCLK-клок (PLL) + питание рельсов (PM8008 не отвечает) |
 | Сканер отпечатков | Драйвер отсутствует |
 | NFC / ИК-порт | Нет в устройстве |
 
@@ -102,7 +102,7 @@
 | Модем (control plane) | **Работает** | ModemManager 1.25 находит модем по QRTR (`qcom-soc`), читает IMEI/прошивку MPSS; нужна SIM (сейчас `sim-missing`) |
 | Модем (data / мобильный интернет) | **Не реализовано** | Требуется порт драйвера IPA для Khaje (см. ниже); без net-порта `modem-net` подставляет bridge-интерфейс |
 | GNSS / GPS | **Частично** | QMI LOC/PDS (QRTR service 16) отвечает, `--loc-start` проходит; фикс требует обзора неба; `gnss-share` (mm-драйвер) поднят |
-| Камера | **Не реализовано** | Драйверы и pipeline не поднимались |
+| Камера (CAMSS/TFE) | **Частично** | `camss` (3× TFE/CSID/CSIPHY, `qcom,sm6225-camss`) и `cci0` подняты: `/dev/media0`, `vfe0_video0`, `v4l-subdev0..17`, CCI `i2c-0/1`. Сенсор S5KJN1 детектится на CCI `0x36`, но не probe'ится (MCLK PLL + рельсы PM8008). Userspace-пайплайн (media-ctl/libcamera) не настроен |
 | Audio microphone / recording | **Не завершено** | Полный capture path не подтверждён |
 
 ## Что означает статус
