@@ -1,0 +1,25 @@
+network:
+  version: 2
+  wifis:
+    NM-99d5b859-d478-4034-96d4-89d08ec45e18:
+      renderer: NetworkManager
+      match:
+        name: "wlan0"
+      dhcp4: true
+      dhcp6: true
+      access-points:
+        "Xiaomi_E4C4":
+          auth:
+            key-management: "psk"
+            password: "GP54006948"
+          networkmanager:
+            uuid: "99d5b859-d478-4034-96d4-89d08ec45e18"
+            name: "Xiaomi_E4C4"
+            passthrough:
+              wifi-security.auth-alg: "open"
+              ipv6.addr-gen-mode: "default"
+              ipv6.ip6-privacy: "-1"
+              proxy._: ""
+      networkmanager:
+        uuid: "99d5b859-d478-4034-96d4-89d08ec45e18"
+        name: "Xiaomi_E4C4"

@@ -1,0 +1,15 @@
+[Unit]
+Description=Bind USIM app to primary GW provisioning session
+After=qcom-modem-start.service
+Before=ModemManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/uim-provision.sh
+# If ModemManager already probed and failed before the bind, re-probe.
+# --no-block is required: a blocking restart deadlocks the service job.
+ExecStartPost=/bin/systemctl --no-block try-restart ModemManager.service
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

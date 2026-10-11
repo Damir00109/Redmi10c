@@ -1,0 +1,18 @@
+network:
+  version: 2
+  modems:
+    NM-53894882-b22a-4eea-a63e-f365c5d3be66:
+      renderer: NetworkManager
+      match:
+        name: "qrtr0"
+      dhcp4: true
+      dhcp6: false
+      apn: "internet.tele2.ru"
+      networkmanager:
+        uuid: "53894882-b22a-4eea-a63e-f365c5d3be66"
+        name: "tele2"
+        passthrough:
+          ipv6.method: "disabled"
+          ipv6.addr-gen-mode: "default"
+          ipv6.ip6-privacy: "-1"
+          proxy._: ""

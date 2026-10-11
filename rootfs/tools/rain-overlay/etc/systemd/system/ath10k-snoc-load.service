@@ -1,0 +1,14 @@
+[Unit]
+Description=Load ath10k_snoc WiFi driver (after modem is up)
+DefaultDependencies=no
+After=qcom-modem-start.service
+Requires=qcom-modem-start.service
+Before=qcom-wifi-connect.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/ath10k-snoc-load.sh
+
+[Install]
+WantedBy=sysinit.target

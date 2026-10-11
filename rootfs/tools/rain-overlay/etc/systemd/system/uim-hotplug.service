@@ -1,0 +1,11 @@
+[Unit]
+Description=Keep the SIM provisioned across runtime SIM insert/remove (hot-swap)
+After=qcom-modem-start.service
+
+[Service]
+ExecStart=/usr/local/sbin/uim-hotplug.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

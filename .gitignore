@@ -1,6 +1,7 @@
 # Build artifacts
 out/
 logs/
+cache/
 ref/
 *.img
 *.log
