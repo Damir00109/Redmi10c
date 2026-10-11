@@ -87,3 +87,50 @@
 - Ноде вибратора (gpio36) нельзя давать pinctrl — gpiod/pinctrl дерутся за пин.
 - devmem-поки по TLMM на этом чипе вешают шину — использовать `vibtest` (EV_FF ioctl).
 - Магнитометра/компаса в железе нет. devinfo slot byte не работает — слоты переключаются через GPT type GUID + UFS boot LUN.
+
+## Камеры (SM6225 CAMSS/TFE) — bring-up 2026-10-11
+
+Железо (из Android-пропов + стокового dtbo `fdt-stock-fog.dts`):
+
+| Камера | Сенсор | Модуль | CSIPHY | CCI | MCLK / RESET |
+|---|---|---|---|---|---|
+| Main | Samsung **S5KJN1** (50 МП) | sunny | 0 | m0 | GPIO27 / GPIO18 |
+| Front | Hynix **HI-556** (5 МП) | aac | 2 | m1 | GPIO20 / GPIO24 |
+| Depth | OmniVision **OV02B1B** (2 МП) | aac | 1 | m1 | GPIO21 / GPIO65 |
+
+- Блоки: TFE 340 (`tfe0/1/2` @ `0x5c6e000/0x5c75000/0x5c7c000`), CSID 340, CSIPHY v1.2.1 ×3
+  (@ `0x5c52000/0x5c54000/0x5c56000`), CCI v1.2 @ `0x5c1b000`, CPAS @ `0x5c11000`.
+  SM6225 = QCM2290 + третий CSIPHY/CSID/TFE (адреса/IRQ первых двух совпадают).
+- **Что уже сделано (работает на устройстве)**:
+  - `camss.c`: добавлены `sm6225_resources` (3× CSIPHY/CSID/TFE), переиспользуется
+    обработка `CAMSS_2290` (csiphy_ops_3ph_1_0 / csid_ops_340 / vfe_ops_340);
+    compatible `qcom,sm6225-camss` в `camss_dt_match`.
+  - `sm6225.dtsi`: узлы `camss@5c11000` (top/csid0-2/csiphy0-2/tpg/vfe0-2, GCC CAMSS-клоки,
+    IRQ, ICC, SMMU, `GCC_CAMSS_TOP_GDSC`) и `cci@5c1b000` (`qcom,qcm2290-cci`,
+    `qcom,msm8996-cci`); camera-pinctrl (`cci0/1`, `mclk0-3`, `cam_reset0-2`).
+  - `fog.dts`: `&camss`/`&cci0` okay; CSI PHY-рельсы `pm6125_l4a` (0.88 V) / `pm6125_l18a` (1.232 V).
+  - `pinctrl-khaje.c`: из `khaje_reserved_gpios` убраны пины камеры (18,20-24,27-30,65) —
+    без этого `pinctrl` не мог их замуксить (`msm_gpio_init_valid_mask` помечал их невалидными).
+  - config: `MEDIA_SUPPORT`, `MEDIA_CAMERA_SUPPORT`, `VIDEO_QCOM_CAMSS`, `I2C_QCOM_CCI`,
+    `V4L2_CCI_I2C`, `VIDEO_S5KJN1` (=y).
+  - **Проверено**: `camss` probe OK (`/dev/media0`, `vfe0_video0`, `v4l-subdev0..17`),
+    `cci0` probe OK и регистрирует 2 i2c-шины (`/sys/bus/i2c/devices/i2c-0`,`i2c-1` →
+    `5c1b000.cci`). Ошибок pinctrl/hang нет.
+- **Не сделано (следующие шаги)**:
+  - Сенсор **не поднимается**: нужны (а) питание рельсов сенсора и (б) точный i2c-адрес.
+    В стоковом DT адреса нет — он в `com.qti.sensor.c3q_sunny_s5kjn1.so` /
+    `com.qti.sensormodule.c3q_sunny_s5kjn1.bin` (в vendor внутри `super`). Из стока явно
+    заведён только `cam_vio = pm8008_l7` (для вспышки); rails `cam_vana/cam_vdig` в DT нет.
+  - Кандидаты рельсов: PM8008 (камерный PMIC, на `i2c@4a84000` = `&i2c1`, reg 0x88=7-бит 0x44;
+    LDO: l1=1.2V, l2=1.05V, l3/l4/l5/l6=2.8V, l7=1.8V). `CONFIG_MFD_QCOM_PM8008` /
+    `REGULATOR_QCOM_PM8008` в конфиге пока `=m` → сделать `=y` и завести узел.
+  - Userspace: `v4l-utils`/`libcamera` в rootfs нет — нужен `media-ctl`/`v4l2-ctl`
+    для настройки пайплайна и захвата.
+  - Depth (OV02B1B) — драйвера в mainline нет вообще; front (HI-556) — драйвер есть, но ACPI-only
+    (нет `of_match_table`), нужна доработка под DT.
+- Полезное: vendor внутри `super` (sda9) монтируется через LP-метаданные:
+  geometry @0x1000, header @0x3000 (парсер `/tmp/lpparse.py`); vendor_a extents →
+  `mount -o ro,loop,offset=<sectors*512> /dev/sda9 /mnt/v`.
+  Стоковый ROM: `/mnt/931/fog_global_images_V14.0.9.0.TGEMIXM_13.0/`.
+  Сборка/тест: `REDMI=/mnt/128/Redmi10c bash rootfs/tools/pack-boot-linux.sh` →
+  `fastboot boot rootfs/out/boot-linux.img` (неразрушающе).
