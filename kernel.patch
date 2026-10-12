@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..8d94b06ea
+index 000000000..cc130c7c9
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1022 @@
+@@ -0,0 +1,939 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -330,12 +330,12 @@ index 000000000..8d94b06ea
 +		compatible = "qcom,rpm-pm6125-regulators";
 +
 +		pm6125_s6a: s6 {
-+			regulator-min-microvolt = <320000>;
++			regulator-min-microvolt = <1352000>;
 +			regulator-max-microvolt = <1456000>;
 +		};
 +
 +		pm6125_s7a: s7 {
-+			regulator-min-microvolt = <1280000>;
++			regulator-min-microvolt = <2040000>;
 +			regulator-max-microvolt = <2040000>;
 +		};
 +
@@ -1049,101 +1049,19 @@ index 000000000..8d94b06ea
 +	status = "okay";
 +};
 +
-+/* Camera PMIC (PM8008) — powers the rear/front camera rails. */
-+/ {
-+	pm8008_vin_1p2: regulator-pm8008-vin-1p2 {
-+		compatible = "regulator-fixed";
-+		regulator-name = "pm8008_vin_1p2";
-+		regulator-min-microvolt = <1800000>;
-+		regulator-max-microvolt = <1800000>;
-+		regulator-always-on;
-+	};
-+
-+	pm8008_vin_2p8: regulator-pm8008-vin-2p8 {
-+		compatible = "regulator-fixed";
-+		regulator-name = "pm8008_vin_2p8";
-+		regulator-min-microvolt = <3000000>;
-+		regulator-max-microvolt = <3000000>;
-+		regulator-always-on;
-+	};
-+};
-+
++/* Camera PMIC - RAIN uses an Omnivision WL2866D 4-channel LDO on the
++ * Geni-I2C bus (i2c-2 @0x28), NOT a PM8008 (stock RAIN dtbo entry).
++ * gpio26 = chip EN, gpio54 = camera IOVDD switch.
++ * inits (stock RAIN): DVDD2=0x4b, AVDD2=0x78, VOL_ENABLE=0x0a (DVDD2+AVDD2). */
 +&i2c1 {
-+	pm8008: pmic@8 {
-+		compatible = "qcom,pm8008";
-+		reg = <0x8>;
++	wl2866d: camera-pmic@28 {
++		compatible = "ovti,wl2866d-i2c";
++		reg = <0x28>;
 +
-+		interrupt-parent = <&tlmm>;
-+		interrupts = <25 IRQ_TYPE_EDGE_RISING>;
++		en-gpios = <&tlmm 26 GPIO_ACTIVE_HIGH>;
++		iov-gpios = <&tlmm 54 GPIO_ACTIVE_HIGH>;
 +
-+		vdd-l1-l2-supply = <&pm8008_vin_1p2>;
-+		vdd-l3-l4-supply = <&pm8008_vin_2p8>;
-+		vdd-l5-supply = <&pm8008_vin_2p8>;
-+		vdd-l6-supply = <&pm8008_vin_2p8>;
-+		vdd-l7-supply = <&pm8008_vin_1p2>;
-+
-+		gpio-controller;
-+		#gpio-cells = <2>;
-+		gpio-ranges = <&pm8008 0 0 2>;
-+
-+		interrupt-controller;
-+		#interrupt-cells = <2>;
-+
-+		#thermal-sensor-cells = <0>;
-+
-+		regulators {
-+			/* Camera VANA 2.8 V */
-+			pm8008_l3: ldo3 {
-+				regulator-name = "pm8008_l3";
-+				regulator-min-microvolt = <2800000>;
-+				regulator-max-microvolt = <2800000>;
-+				regulator-always-on;
-+			};
-+
-+			/* Camera VDIG 1.05 V */
-+			pm8008_l2: ldo2 {
-+				regulator-name = "pm8008_l2";
-+				regulator-min-microvolt = <1050000>;
-+				regulator-max-microvolt = <1050000>;
-+				regulator-always-on;
-+			};
-+
-+			/* Camera VIO 1.8 V */
-+			pm8008_l7: ldo7 {
-+				regulator-name = "pm8008_l7";
-+				regulator-min-microvolt = <1800000>;
-+				regulator-max-microvolt = <1800000>;
-+				regulator-always-on;
-+			};
-+
-+			pm8008_l1: ldo1 {
-+				regulator-name = "pm8008_l1";
-+				regulator-min-microvolt = <1200000>;
-+				regulator-max-microvolt = <1200000>;
-+				regulator-always-on;
-+			};
-+
-+			pm8008_l4: ldo4 {
-+				regulator-name = "pm8008_l4";
-+				regulator-min-microvolt = <2800000>;
-+				regulator-max-microvolt = <2800000>;
-+				regulator-always-on;
-+			};
-+
-+			pm8008_l5: ldo5 {
-+				regulator-name = "pm8008_l5";
-+				regulator-min-microvolt = <2800000>;
-+				regulator-max-microvolt = <2800000>;
-+				regulator-always-on;
-+			};
-+
-+			pm8008_l6: ldo6 {
-+				regulator-name = "pm8008_l6";
-+				regulator-min-microvolt = <2800000>;
-+				regulator-max-microvolt = <2800000>;
-+				regulator-always-on;
-+			};
-+		};
++		inits = /bits/ 8 <0x04 0x4b 0x06 0x78 0x0e 0x0a>;
 +	};
 +};
 +
@@ -1151,13 +1069,13 @@ index 000000000..8d94b06ea
 +&cci0_i2c0 {
 +	status = "okay";
 +
-+	camera@36 {
++	camera@10 {
 +		compatible = "samsung,s5kjn1";
-+		reg = <0x36>;
++		reg = <0x10>;
 +
 +		clocks = <&gcc GCC_CAMSS_MCLK2_CLK>;
 +		assigned-clocks = <&gcc GCC_CAMSS_MCLK2_CLK>;
-+		assigned-clock-rates = <24000000>;
++		assigned-clock-rates = <19200000>;
 +
 +		/* reset is driven via gpiod — do NOT add a pinctrl state for
 +		 * gpio18 (pinctrl and gpiod fight over the pin). */
@@ -1166,9 +1084,8 @@ index 000000000..8d94b06ea
 +		pinctrl-names = "default";
 +		pinctrl-0 = <&mclk2_default>;
 +
-+		vdda-supply = <&pm8008_l3>;
-+		vddd-supply = <&pm8008_l2>;
-+		vddio-supply = <&pm8008_l7>;
++		/* Rails come from the WL2866D camera PMIC; it is enabled at
++		 * probe time, so no consumer supplies are wired here yet. */
 +
 +		port {
 +			s5kjn1_ep: endpoint {
@@ -1272,10 +1189,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..70ae2eb8c
+index 000000000..9d82757a8
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2440 @@
+@@ -0,0 +1,2443 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -2050,14 +1967,14 @@ index 000000000..70ae2eb8c
 +				pins = "gpio22", "gpio23";
 +				function = "cci_i2c";
 +				drive-strength = <2>;
-+				bias-disable;
++				bias-pull-up;
 +			};
 +
 +			cci1_default: cci1-default-state {
 +				pins = "gpio29", "gpio30";
 +				function = "cci_i2c";
 +				drive-strength = <2>;
-+				bias-disable;
++				bias-pull-up;
 +			};
 +
 +			/* Camera MCLK0..3 (Android rain: cam_sensor_mclk0..3) */
@@ -2555,6 +2472,9 @@ index 000000000..70ae2eb8c
 +				      "vfe0", "vfe0_cphy_rx",
 +				      "vfe1", "vfe1_cphy_rx",
 +				      "vfe2", "vfe2_cphy_rx";
++
++			assigned-clocks = <&gcc GCC_CAMSS_AXI_CLK>;
++			assigned-clock-rates = <300000000>;
 +
 +			interrupts = <GIC_SPI 210 IRQ_TYPE_EDGE_RISING>,
 +				     <GIC_SPI 212 IRQ_TYPE_EDGE_RISING>,
@@ -5047,10 +4967,393 @@ index ec9dbb1f4..767d4ae1f 100644
  
  static struct platform_driver disp_cc_sm6375_driver = {
 diff --git a/drivers/clk/qcom/gcc-sm6115.c b/drivers/clk/qcom/gcc-sm6115.c
-index 4c3804701..b2945c168 100644
+index 4c3804701..e241dfccd 100644
 --- a/drivers/clk/qcom/gcc-sm6115.c
 +++ b/drivers/clk/qcom/gcc-sm6115.c
-@@ -1521,6 +1521,8 @@ static struct clk_branch gcc_ahb2phy_usb_clk = {
+@@ -9,6 +9,7 @@
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/clk-provider.h>
++#include <linux/clk.h>
+ #include <linux/regmap.h>
+ #include <linux/reset-controller.h>
+ 
+@@ -54,6 +55,11 @@ static const struct pll_vco gpll10_vco[] = {
+ 	{ 750000000, 1500000000, 1 },
+ };
+ 
++/* Khaje (SM6225) GCC PLLs use the LUCID (== TRION) register layout. */
++static const struct pll_vco lucid_vco[] = {
++	{ 249600000, 2000000000, 0 },
++};
++
+ static struct clk_alpha_pll gpll0 = {
+ 	.offset = 0x0,
+ 	.vco_table = default_vco,
+@@ -84,7 +90,7 @@ static struct clk_alpha_pll_postdiv gpll0_out_aux2 = {
+ 	.post_div_table = post_div_table_gpll0_out_aux2,
+ 	.num_post_div = ARRAY_SIZE(post_div_table_gpll0_out_aux2),
+ 	.width = 4,
+-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT_EVO],
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+ 	.clkr.hw.init = &(struct clk_init_data){
+ 		.name = "gpll0_out_aux2",
+ 		.parent_hws = (const struct clk_hw *[]){ &gpll0.clkr.hw },
+@@ -104,7 +110,7 @@ static struct clk_alpha_pll_postdiv gpll0_out_main = {
+ 	.post_div_table = post_div_table_gpll0_out_main,
+ 	.num_post_div = ARRAY_SIZE(post_div_table_gpll0_out_main),
+ 	.width = 4,
+-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT_EVO],
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+ 	.clkr.hw.init = &(struct clk_init_data){
+ 		.name = "gpll0_out_main",
+ 		.parent_hws = (const struct clk_hw *[]){ &gpll0.clkr.hw },
+@@ -116,19 +122,20 @@ static struct clk_alpha_pll_postdiv gpll0_out_main = {
+ /* 1152MHz configuration */
+ static const struct alpha_pll_config gpll10_config = {
+ 	.l = 0x3c,
+-	.vco_val = 0x1 << 20,
+-	.vco_mask = GENMASK(21, 20),
+-	.main_output_mask = BIT(0),
+-	.config_ctl_val = 0x4001055b,
+-	.test_ctl_hi1_val = 0x1,
+-	.test_ctl_hi_mask = 0x1,
++	.alpha = 0x0,
++	.config_ctl_val = 0x20485699,
++	.config_ctl_hi_val = 0x00002261,
++	.config_ctl_hi1_val = 0x329A299C,
++	.user_ctl_val = 0x00000001,
++	.user_ctl_hi_val = 0x00000805,
++	.user_ctl_hi1_val = 0x00000000,
+ };
+ 
+ static struct clk_alpha_pll gpll10 = {
+ 	.offset = 0xa000,
+-	.vco_table = gpll10_vco,
+-	.num_vco = ARRAY_SIZE(gpll10_vco),
+-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT_EVO],
++	.vco_table = lucid_vco,
++	.num_vco = ARRAY_SIZE(lucid_vco),
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+ 	.clkr = {
+ 		.enable_reg = 0x79000,
+ 		.enable_mask = BIT(10),
+@@ -138,6 +145,7 @@ static struct clk_alpha_pll gpll10 = {
+ 				.fw_name = "bi_tcxo",
+ 			},
+ 			.num_parents = 1,
++			.flags = CLK_IS_CRITICAL,
+ 			.ops = &clk_alpha_pll_ops,
+ 		},
+ 	},
+@@ -154,13 +162,13 @@ static struct clk_alpha_pll_postdiv gpll10_out_main = {
+ 	.post_div_table = post_div_table_gpll10_out_main,
+ 	.num_post_div = ARRAY_SIZE(post_div_table_gpll10_out_main),
+ 	.width = 4,
+-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT_EVO],
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+ 	.clkr.hw.init = &(struct clk_init_data){
+ 		.name = "gpll10_out_main",
+ 		.parent_hws = (const struct clk_hw *[]){ &gpll10.clkr.hw },
+ 		.num_parents = 1,
+ 		.flags = CLK_SET_RATE_PARENT,
+-		.ops = &clk_alpha_pll_postdiv_ops,
++		.ops = &clk_alpha_pll_postdiv_lucid_ops,
+ 	},
+ };
+ 
+@@ -208,7 +216,7 @@ static struct clk_alpha_pll_postdiv gpll11_out_main = {
+ 	.post_div_table = post_div_table_gpll11_out_main,
+ 	.num_post_div = ARRAY_SIZE(post_div_table_gpll11_out_main),
+ 	.width = 4,
+-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT_EVO],
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+ 	.clkr.hw.init = &(struct clk_init_data){
+ 		.name = "gpll11_out_main",
+ 		.parent_hws = (const struct clk_hw *[]){ &gpll11.clkr.hw },
+@@ -267,7 +275,7 @@ static struct clk_alpha_pll_postdiv gpll4_out_main = {
+ 	.post_div_table = post_div_table_gpll4_out_main,
+ 	.num_post_div = ARRAY_SIZE(post_div_table_gpll4_out_main),
+ 	.width = 4,
+-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT_EVO],
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+ 	.clkr.hw.init = &(struct clk_init_data){
+ 		.name = "gpll4_out_main",
+ 		.parent_hws = (const struct clk_hw *[]){ &gpll4.clkr.hw },
+@@ -306,7 +314,7 @@ static struct clk_alpha_pll_postdiv gpll6_out_main = {
+ 	.post_div_table = post_div_table_gpll6_out_main,
+ 	.num_post_div = ARRAY_SIZE(post_div_table_gpll6_out_main),
+ 	.width = 4,
+-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT_EVO],
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+ 	.clkr.hw.init = &(struct clk_init_data){
+ 		.name = "gpll6_out_main",
+ 		.parent_hws = (const struct clk_hw *[]){ &gpll6.clkr.hw },
+@@ -345,7 +353,7 @@ static struct clk_alpha_pll_postdiv gpll7_out_main = {
+ 	.post_div_table = post_div_table_gpll7_out_main,
+ 	.num_post_div = ARRAY_SIZE(post_div_table_gpll7_out_main),
+ 	.width = 4,
+-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT_EVO],
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+ 	.clkr.hw.init = &(struct clk_init_data){
+ 		.name = "gpll7_out_main",
+ 		.parent_hws = (const struct clk_hw *[]){ &gpll7.clkr.hw },
+@@ -402,7 +410,7 @@ static struct clk_alpha_pll_postdiv gpll8_out_main = {
+ 	.post_div_table = post_div_table_gpll8_out_main,
+ 	.num_post_div = ARRAY_SIZE(post_div_table_gpll8_out_main),
+ 	.width = 4,
+-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_DEFAULT_EVO],
++	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+ 	.clkr.hw.init = &(struct clk_init_data){
+ 		.name = "gpll8_out_main",
+ 		.parent_hws = (const struct clk_hw *[]){ &gpll8.clkr.hw },
+@@ -412,7 +420,7 @@ static struct clk_alpha_pll_postdiv gpll8_out_main = {
+ 	},
+ };
+ 
+-/* 1152MHz configuration */
++/* 1440MHz configuration */
+ static const struct alpha_pll_config gpll9_config = {
+ 	.l = 0x3C,
+ 	.alpha = 0x0,
+@@ -516,7 +524,7 @@ static const struct clk_parent_data gcc_parents_3[] = {
+ 	{ .fw_name = "bi_tcxo" },
+ 	{ .hw = &gpll0.clkr.hw },
+ 	{ .hw = &gpll9.clkr.hw },
+-	{ .hw = &gpll10_out_main.clkr.hw },
++	{ .hw = &gpll10.clkr.hw },
+ 	{ .hw = &gpll9_out_main.clkr.hw },
+ };
+ 
+@@ -547,7 +555,7 @@ static const struct clk_parent_data gcc_parents_5[] = {
+ 	{ .fw_name = "bi_tcxo" },
+ 	{ .hw = &gpll0.clkr.hw },
+ 	{ .hw = &gpll8.clkr.hw },
+-	{ .hw = &gpll10_out_main.clkr.hw },
++	{ .hw = &gpll10.clkr.hw },
+ 	{ .hw = &gpll8_out_main.clkr.hw },
+ 	{ .hw = &gpll9_out_main.clkr.hw },
+ };
+@@ -566,7 +574,7 @@ static const struct clk_parent_data gcc_parents_6[] = {
+ 	{ .fw_name = "bi_tcxo" },
+ 	{ .hw = &gpll0.clkr.hw },
+ 	{ .hw = &gpll8.clkr.hw },
+-	{ .hw = &gpll10_out_main.clkr.hw },
++	{ .hw = &gpll10.clkr.hw },
+ 	{ .hw = &gpll6_out_main.clkr.hw },
+ 	{ .hw = &gpll9_out_main.clkr.hw },
+ 	{ .hw = &gpll3.clkr.hw },
+@@ -585,7 +593,7 @@ static const struct clk_parent_data gcc_parents_7[] = {
+ 	{ .fw_name = "bi_tcxo" },
+ 	{ .hw = &gpll0.clkr.hw },
+ 	{ .hw = &gpll0_out_aux2.clkr.hw },
+-	{ .hw = &gpll10_out_main.clkr.hw },
++	{ .hw = &gpll10.clkr.hw },
+ 	{ .hw = &gpll4_out_main.clkr.hw },
+ 	{ .hw = &gpll3.clkr.hw },
+ };
+@@ -604,7 +612,7 @@ static const struct clk_parent_data gcc_parents_8[] = {
+ 	{ .fw_name = "bi_tcxo" },
+ 	{ .hw = &gpll0.clkr.hw },
+ 	{ .hw = &gpll8.clkr.hw },
+-	{ .hw = &gpll10_out_main.clkr.hw },
++	{ .hw = &gpll10.clkr.hw },
+ 	{ .hw = &gpll8_out_main.clkr.hw },
+ 	{ .hw = &gpll9_out_main.clkr.hw },
+ 	{ .hw = &gpll3.clkr.hw },
+@@ -624,7 +632,7 @@ static const struct clk_parent_data gcc_parents_9[] = {
+ 	{ .fw_name = "bi_tcxo" },
+ 	{ .hw = &gpll0.clkr.hw },
+ 	{ .hw = &gpll0_out_aux2.clkr.hw },
+-	{ .hw = &gpll10_out_main.clkr.hw },
++	{ .hw = &gpll10.clkr.hw },
+ 	{ .hw = &gpll8_out_main.clkr.hw },
+ 	{ .hw = &gpll9_out_main.clkr.hw },
+ 	{ .hw = &gpll3.clkr.hw },
+@@ -643,7 +651,7 @@ static const struct clk_parent_data gcc_parents_10[] = {
+ 	{ .fw_name = "bi_tcxo" },
+ 	{ .hw = &gpll0.clkr.hw },
+ 	{ .hw = &gpll8.clkr.hw },
+-	{ .hw = &gpll10_out_main.clkr.hw },
++	{ .hw = &gpll10.clkr.hw },
+ 	{ .hw = &gpll6.clkr.hw },
+ 	{ .hw = &gpll9_out_main.clkr.hw },
+ };
+@@ -702,7 +710,6 @@ static struct clk_rcg2 gcc_camss_axi_clk_src = {
+ 		.name = "gcc_camss_axi_clk_src",
+ 		.parent_data = gcc_parents_7,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_7),
+-		.flags = CLK_SET_RATE_PARENT,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -723,7 +730,7 @@ static struct clk_rcg2 gcc_camss_cci_clk_src = {
+ 		.name = "gcc_camss_cci_clk_src",
+ 		.parent_data = gcc_parents_9,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_9),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -731,8 +738,7 @@ static struct clk_rcg2 gcc_camss_cci_clk_src = {
+ static const struct freq_tbl ftbl_gcc_camss_csi0phytimer_clk_src[] = {
+ 	F(19200000, P_BI_TCXO, 1, 0, 0),
+ 	F(100000000, P_GPLL0_OUT_AUX2, 3, 0, 0),
+-	F(200000000, P_GPLL0_OUT_AUX2, 1.5, 0, 0),
+-	F(268800000, P_GPLL4_OUT_MAIN, 3, 0, 0),
++	F(300000000, P_GPLL0_OUT_AUX2, 1, 0, 0),
+ 	{ }
+ };
+ 
+@@ -746,7 +752,7 @@ static struct clk_rcg2 gcc_camss_csi0phytimer_clk_src = {
+ 		.name = "gcc_camss_csi0phytimer_clk_src",
+ 		.parent_data = gcc_parents_4,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_4),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -761,7 +767,7 @@ static struct clk_rcg2 gcc_camss_csi1phytimer_clk_src = {
+ 		.name = "gcc_camss_csi1phytimer_clk_src",
+ 		.parent_data = gcc_parents_4,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_4),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -776,7 +782,7 @@ static struct clk_rcg2 gcc_camss_csi2phytimer_clk_src = {
+ 		.name = "gcc_camss_csi2phytimer_clk_src",
+ 		.parent_data = gcc_parents_4,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_4),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -798,7 +804,7 @@ static struct clk_rcg2 gcc_camss_mclk0_clk_src = {
+ 		.name = "gcc_camss_mclk0_clk_src",
+ 		.parent_data = gcc_parents_3,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_3),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -813,7 +819,7 @@ static struct clk_rcg2 gcc_camss_mclk1_clk_src = {
+ 		.name = "gcc_camss_mclk1_clk_src",
+ 		.parent_data = gcc_parents_3,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_3),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -828,7 +834,7 @@ static struct clk_rcg2 gcc_camss_mclk2_clk_src = {
+ 		.name = "gcc_camss_mclk2_clk_src",
+ 		.parent_data = gcc_parents_3,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_3),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -843,7 +849,7 @@ static struct clk_rcg2 gcc_camss_mclk3_clk_src = {
+ 		.name = "gcc_camss_mclk3_clk_src",
+ 		.parent_data = gcc_parents_3,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_3),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -865,7 +871,6 @@ static struct clk_rcg2 gcc_camss_ope_ahb_clk_src = {
+ 		.name = "gcc_camss_ope_ahb_clk_src",
+ 		.parent_data = gcc_parents_8,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_8),
+-		.flags = CLK_SET_RATE_PARENT,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -924,7 +929,6 @@ static struct clk_rcg2 gcc_camss_tfe_0_clk_src = {
+ 		.name = "gcc_camss_tfe_0_clk_src",
+ 		.parent_data = gcc_parents_5,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_5),
+-		.flags = CLK_SET_RATE_PARENT,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -932,9 +936,7 @@ static struct clk_rcg2 gcc_camss_tfe_0_clk_src = {
+ static const struct freq_tbl ftbl_gcc_camss_tfe_0_csid_clk_src[] = {
+ 	F(19200000, P_BI_TCXO, 1, 0, 0),
+ 	F(120000000, P_GPLL0_OUT_EARLY, 5, 0, 0),
+-	F(192000000, P_GPLL6_OUT_MAIN, 2, 0, 0),
+ 	F(240000000, P_GPLL0_OUT_EARLY, 2.5, 0, 0),
+-	F(384000000, P_GPLL6_OUT_MAIN, 1, 0, 0),
+ 	F(426400000, P_GPLL3_OUT_EARLY, 2.5, 0, 0),
+ 	{ }
+ };
+@@ -949,7 +951,6 @@ static struct clk_rcg2 gcc_camss_tfe_0_csid_clk_src = {
+ 		.name = "gcc_camss_tfe_0_csid_clk_src",
+ 		.parent_data = gcc_parents_6,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_6),
+-		.flags = CLK_SET_RATE_PARENT,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -964,7 +965,6 @@ static struct clk_rcg2 gcc_camss_tfe_1_clk_src = {
+ 		.name = "gcc_camss_tfe_1_clk_src",
+ 		.parent_data = gcc_parents_5,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_5),
+-		.flags = CLK_SET_RATE_PARENT,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -979,7 +979,6 @@ static struct clk_rcg2 gcc_camss_tfe_1_csid_clk_src = {
+ 		.name = "gcc_camss_tfe_1_csid_clk_src",
+ 		.parent_data = gcc_parents_6,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_6),
+-		.flags = CLK_SET_RATE_PARENT,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -994,7 +993,6 @@ static struct clk_rcg2 gcc_camss_tfe_2_clk_src = {
+ 		.name = "gcc_camss_tfe_2_clk_src",
+ 		.parent_data = gcc_parents_5,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_5),
+-		.flags = CLK_SET_RATE_PARENT,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -1009,7 +1007,6 @@ static struct clk_rcg2 gcc_camss_tfe_2_csid_clk_src = {
+ 		.name = "gcc_camss_tfe_2_csid_clk_src",
+ 		.parent_data = gcc_parents_6,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_6),
+-		.flags = CLK_SET_RATE_PARENT,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -1032,7 +1029,7 @@ static struct clk_rcg2 gcc_camss_tfe_cphy_rx_clk_src = {
+ 		.name = "gcc_camss_tfe_cphy_rx_clk_src",
+ 		.parent_data = gcc_parents_10,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_10),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -1054,7 +1051,7 @@ static struct clk_rcg2 gcc_camss_top_ahb_clk_src = {
+ 		.name = "gcc_camss_top_ahb_clk_src",
+ 		.parent_data = gcc_parents_7,
+ 		.num_parents = ARRAY_SIZE(gcc_parents_7),
+-		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
++		.flags = CLK_OPS_PARENT_ENABLE,
+ 		.ops = &clk_rcg2_shared_ops,
+ 	},
+ };
+@@ -1521,6 +1518,8 @@ static struct clk_branch gcc_ahb2phy_usb_clk = {
  		.enable_mask = BIT(0),
  		.hw.init = &(struct clk_init_data){
  			.name = "gcc_ahb2phy_usb_clk",
@@ -5059,7 +5362,7 @@ index 4c3804701..b2945c168 100644
  			.ops = &clk_branch2_ops,
  		},
  	},
-@@ -2875,7 +2877,7 @@ static struct clk_branch gcc_ufs_phy_axi_clk = {
+@@ -2875,7 +2874,7 @@ static struct clk_branch gcc_ufs_phy_axi_clk = {
  
  static struct clk_branch gcc_ufs_phy_ice_core_clk = {
  	.halt_reg = 0x45044,
@@ -5068,7 +5371,7 @@ index 4c3804701..b2945c168 100644
  	.hwcg_reg = 0x45044,
  	.hwcg_bit = 1,
  	.clkr = {
-@@ -2926,6 +2928,19 @@ static struct clk_branch gcc_ufs_phy_rx_symbol_0_clk = {
+@@ -2926,6 +2925,19 @@ static struct clk_branch gcc_ufs_phy_rx_symbol_0_clk = {
  	},
  };
  
@@ -5088,7 +5391,7 @@ index 4c3804701..b2945c168 100644
  static struct clk_branch gcc_ufs_phy_tx_symbol_0_clk = {
  	.halt_reg = 0x45018,
  	.halt_check = BRANCH_HALT_SKIP,
-@@ -2971,7 +2986,8 @@ static struct clk_branch gcc_usb30_prim_master_clk = {
+@@ -2971,7 +2983,8 @@ static struct clk_branch gcc_usb30_prim_master_clk = {
  				&gcc_usb30_prim_master_clk_src.clkr.hw,
  			},
  			.num_parents = 1,
@@ -5098,7 +5401,7 @@ index 4c3804701..b2945c168 100644
  			.ops = &clk_branch2_ops,
  		},
  	},
-@@ -2989,7 +3005,7 @@ static struct clk_branch gcc_usb30_prim_mock_utmi_clk = {
+@@ -2989,7 +3002,7 @@ static struct clk_branch gcc_usb30_prim_mock_utmi_clk = {
  				&gcc_usb30_prim_mock_utmi_postdiv_clk_src.clkr.hw,
  			},
  			.num_parents = 1,
@@ -5107,7 +5410,7 @@ index 4c3804701..b2945c168 100644
  			.ops = &clk_branch2_ops,
  		},
  	},
-@@ -3003,6 +3019,7 @@ static struct clk_branch gcc_usb30_prim_sleep_clk = {
+@@ -3003,6 +3016,7 @@ static struct clk_branch gcc_usb30_prim_sleep_clk = {
  		.enable_mask = BIT(0),
  		.hw.init = &(struct clk_init_data){
  			.name = "gcc_usb30_prim_sleep_clk",
@@ -5115,7 +5418,7 @@ index 4c3804701..b2945c168 100644
  			.ops = &clk_branch2_ops,
  		},
  	},
-@@ -3211,6 +3228,12 @@ static struct gdsc gcc_usb30_prim_gdsc = {
+@@ -3211,6 +3225,12 @@ static struct gdsc gcc_usb30_prim_gdsc = {
  		.name = "gcc_usb30_prim",
  	},
  	.pwrsts = PWRSTS_OFF_ON,
@@ -5128,7 +5431,7 @@ index 4c3804701..b2945c168 100644
  };
  
  static struct gdsc gcc_vcodec0_gdsc = {
-@@ -3388,6 +3411,7 @@ static struct clk_regmap *gcc_sm6115_clocks[] = {
+@@ -3388,6 +3408,7 @@ static struct clk_regmap *gcc_sm6115_clocks[] = {
  	[GCC_UFS_PHY_PHY_AUX_CLK] = &gcc_ufs_phy_phy_aux_clk.clkr,
  	[GCC_UFS_PHY_PHY_AUX_CLK_SRC] = &gcc_ufs_phy_phy_aux_clk_src.clkr,
  	[GCC_UFS_PHY_RX_SYMBOL_0_CLK] = &gcc_ufs_phy_rx_symbol_0_clk.clkr,
@@ -12671,8 +12974,213 @@ index 3ee12c8a4..36363ff0d 100644
  };
  
  static const char * const cnoc_intf_clocks[] = {
+diff --git a/drivers/media/i2c/s5kjn1.c b/drivers/media/i2c/s5kjn1.c
+index a707cb740..42a044c7d 100644
+--- a/drivers/media/i2c/s5kjn1.c
++++ b/drivers/media/i2c/s5kjn1.c
+@@ -16,6 +16,7 @@
+ 
+ #define S5KJN1_LINK_FREQ_700MHZ		(700ULL * HZ_PER_MHZ)
+ #define S5KJN1_MCLK_FREQ_24MHZ		(24 * HZ_PER_MHZ)
++#define S5KJN1_MCLK_FREQ_19_2MHZ	(19200000)
+ #define S5KJN1_DATA_LANES		4
+ 
+ /* Register map is similar to MIPI CCS compliant camera sensors */
+@@ -405,17 +406,17 @@ static const struct cci_reg_sequence s5kjn1_4080x3072_30fps_mode[] = {
+ 	{ CCI_REG16(0x0116), 0x3000 },
+ 
+ 	/* Clock settings */
+-	{ CCI_REG16(0x0136), 0x1800 },
+-	{ CCI_REG16(0x013e), 0x0000 },
++	{ CCI_REG16(0x0136), 0x1300 },
++	{ CCI_REG16(0x013e), 0x00c8 },
+ 	{ CCI_REG16(0x0300), 0x0006 },
+ 	{ CCI_REG16(0x0302), 0x0001 },
+-	{ CCI_REG16(0x0304), 0x0004 },
+-	{ CCI_REG16(0x0306), 0x008c },
++	{ CCI_REG16(0x0304), 0x0003 },
++	{ CCI_REG16(0x0306), 0x0083 },
+ 	{ CCI_REG16(0x0308), 0x0008 },
+ 	{ CCI_REG16(0x030a), 0x0001 },
+ 	{ CCI_REG16(0x030c), 0x0000 },
+-	{ CCI_REG16(0x030e), 0x0004 },
+-	{ CCI_REG16(0x0310), 0x0092 },
++	{ CCI_REG16(0x030e), 0x0003 },
++	{ CCI_REG16(0x0310), 0x0089 },
+ 	{ CCI_REG16(0x0312), 0x0000 },
+ 
+ 	{ CCI_REG16(0x080e), 0x0000 },
+@@ -689,17 +690,17 @@ static const struct cci_reg_sequence s5kjn1_8160x6144_10fps_mode[] = {
+ 	{ CCI_REG16(0x0116), 0x3000 },
+ 
+ 	/* Clock settings */
+-	{ CCI_REG16(0x0136), 0x1800 },
+-	{ CCI_REG16(0x013e), 0x0000 },
++	{ CCI_REG16(0x0136), 0x1300 },
++	{ CCI_REG16(0x013e), 0x00c8 },
+ 	{ CCI_REG16(0x0300), 0x0006 },
+ 	{ CCI_REG16(0x0302), 0x0001 },
+-	{ CCI_REG16(0x0304), 0x0004 },
+-	{ CCI_REG16(0x0306), 0x008c },
++	{ CCI_REG16(0x0304), 0x0003 },
++	{ CCI_REG16(0x0306), 0x0083 },
+ 	{ CCI_REG16(0x0308), 0x0008 },
+ 	{ CCI_REG16(0x030a), 0x0001 },
+ 	{ CCI_REG16(0x030c), 0x0000 },
+-	{ CCI_REG16(0x030e), 0x0004 },
+-	{ CCI_REG16(0x0310), 0x0074 },
++	{ CCI_REG16(0x030e), 0x0003 },
++	{ CCI_REG16(0x0310), 0x006d },
+ 	{ CCI_REG16(0x0312), 0x0000 },
+ 
+ 	{ CCI_REG16(0x080e), 0x0000 },
+@@ -1311,7 +1312,7 @@ static int s5kjn1_probe(struct i2c_client *client)
+ 				     "failed to get MCLK clock\n");
+ 
+ 	freq = clk_get_rate(s5kjn1->mclk);
+-	if (freq != S5KJN1_MCLK_FREQ_24MHZ)
++	if (freq != S5KJN1_MCLK_FREQ_24MHZ && freq != S5KJN1_MCLK_FREQ_19_2MHZ)
+ 		return dev_err_probe(s5kjn1->dev, -EINVAL,
+ 				     "MCLK clock frequency %lu is not supported\n",
+ 				     freq);
+diff --git a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
+index 415483274..dac87d493 100644
+--- a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
++++ b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
+@@ -14,6 +14,7 @@
+ #include <linux/delay.h>
+ #include <linux/interrupt.h>
+ #include <linux/io.h>
++#include <linux/of.h>
+ 
+ #define CSIPHY_3PH_LNn_CFG1(n)			(0x000 + 0x100 * (n))
+ #define CSIPHY_3PH_LNn_CFG1_SWI_REC_DLY_PRG	(BIT(7) | BIT(6))
+@@ -399,6 +400,111 @@ csiphy_lane_regs lane_regs_sm8250[] = {
+ 	{0x0884, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
+ };
+ 
++/* GEN2 1.2.1 2PH, SM6225 (Khaje) stock: lane CFG5 = 0x80 */
++static const struct
++csiphy_lane_regs lane_regs_sm6225[] = {
++	{0x0030, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0900, 0x05, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0908, 0x10, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0904, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0904, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0004, 0x0C, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x002C, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0034, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0010, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x001C, 0x08, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x003C, 0xB8, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0008, 0x10, 0x00, CSIPHY_SETTLE_CNT_LOWER_BYTE},
++	{0x0000, 0x8D, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x000c, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0038, 0xFE, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0014, 0x80, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0028, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0024, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0800, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0884, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0730, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0C80, 0x05, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0C88, 0x10, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0C84, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0C84, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0704, 0x0C, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x072C, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0734, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0710, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x071C, 0x08, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x073C, 0xB8, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0708, 0x10, 0x00, CSIPHY_SETTLE_CNT_LOWER_BYTE},
++	{0x0700, 0x80, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x070c, 0xA5, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0738, 0x1F, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0714, 0x80, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0728, 0x04, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0724, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0800, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0884, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0230, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0A00, 0x05, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0A08, 0x10, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0A04, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0A04, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0204, 0x0C, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x022C, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0234, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0210, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x021C, 0x08, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x023C, 0xB8, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0208, 0x10, 0x00, CSIPHY_SETTLE_CNT_LOWER_BYTE},
++	{0x0200, 0x8D, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x020c, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0238, 0xFE, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0214, 0x80, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0228, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0224, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0800, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0884, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0430, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0B00, 0x05, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0B08, 0x10, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0B04, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0B04, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0404, 0x0C, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x042C, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0434, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0410, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x041C, 0x08, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x043C, 0xB8, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0408, 0x10, 0x00, CSIPHY_SETTLE_CNT_LOWER_BYTE},
++	{0x0400, 0x8D, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x040c, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0438, 0xFE, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0414, 0x80, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0428, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0424, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0800, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0884, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0630, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0C00, 0x05, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0C08, 0x10, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0C04, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0C04, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0604, 0x0C, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x062C, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0634, 0x07, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0610, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x061C, 0x08, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x063C, 0xB8, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0608, 0x10, 0x00, CSIPHY_SETTLE_CNT_LOWER_BYTE},
++	{0x0600, 0x8D, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x060c, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0638, 0xFE, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0614, 0x80, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0628, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0624, 0x00, 0x00, CSIPHY_DNP_PARAMS},
++	{0x0800, 0x02, 0x00, CSIPHY_DEFAULT_PARAMS},
++	{0x0884, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
++};
++
+ /* 14nm 2PH v 2.0.1 2p5Gbps 4 lane DPHY mode */
+ static const struct
+ csiphy_lane_regs lane_regs_qcm2290[] = {
+@@ -1102,6 +1208,11 @@ static int csiphy_init(struct csiphy_device *csiphy)
+ 		break;
+ 	case CAMSS_2290:
+ 	case CAMSS_6150:
++		if (of_device_is_compatible(dev->of_node, "qcom,sm6225-camss")) {
++			regs->lane_regs = &lane_regs_sm6225[0];
++			regs->lane_array_size = ARRAY_SIZE(lane_regs_sm6225);
++			break;
++		}
+ 		regs->lane_regs = &lane_regs_qcm2290[0];
+ 		regs->lane_array_size = ARRAY_SIZE(lane_regs_qcm2290);
+ 		break;
 diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
-index 9335636d7..fd644431f 100644
+index 9335636d7..6c4416d3e 100644
 --- a/drivers/media/platform/qcom/camss/camss.c
 +++ b/drivers/media/platform/qcom/camss/camss.c
 @@ -820,6 +820,209 @@ static const struct resources_icc icc_res_2290[] = {
@@ -12753,7 +13261,7 @@ index 9335636d7..fd644431f 100644
 +		.clock = { "top_ahb", "ahb", "csi0", "vfe0_cphy_rx", "vfe0" },
 +		.clock_rate = { { 0 },
 +				{ 0 },
-+				{ 192000000, 240000000, 384000000, 426400000 },
++				{ 426400000 },
 +				{ 0 },
 +				{ 0 } },
 +		.reg = { "csid0" },
@@ -12771,7 +13279,7 @@ index 9335636d7..fd644431f 100644
 +		.clock = { "top_ahb", "ahb", "csi1", "vfe1_cphy_rx", "vfe1" },
 +		.clock_rate = { { 0 },
 +				{ 0 },
-+				{ 192000000, 240000000, 384000000, 426400000 },
++				{ 426400000 },
 +				{ 0 },
 +				{ 0 } },
 +		.reg = { "csid1" },
@@ -12789,7 +13297,7 @@ index 9335636d7..fd644431f 100644
 +		.clock = { "top_ahb", "ahb", "csi2", "vfe2_cphy_rx", "vfe2" },
 +		.clock_rate = { { 0 },
 +				{ 0 },
-+				{ 192000000, 240000000, 384000000, 426400000 },
++				{ 426400000 },
 +				{ 0 },
 +				{ 0 } },
 +		.reg = { "csid2" },
@@ -12810,7 +13318,7 @@ index 9335636d7..fd644431f 100644
 +		.clock_rate = { { 0 },
 +				{ 0 },
 +				{ 0 },
-+				{ 19200000, 153600000, 192000000, 256000000, 384000000, 460800000 },
++				{ 460800000 },
 +				{ 0 },
 +				{ 0 }, },
 +		.reg = { "vfe0" },
@@ -12830,7 +13338,7 @@ index 9335636d7..fd644431f 100644
 +		.clock_rate = { { 0 },
 +				{ 0 },
 +				{ 0 },
-+				{ 19200000, 153600000, 192000000, 256000000, 384000000, 460800000 },
++				{ 460800000 },
 +				{ 0 },
 +				{ 0 }, },
 +		.reg = { "vfe1" },
@@ -12850,7 +13358,7 @@ index 9335636d7..fd644431f 100644
 +		.clock_rate = { { 0 },
 +				{ 0 },
 +				{ 0 },
-+				{ 19200000, 153600000, 192000000, 256000000, 384000000, 460800000 },
++				{ 460800000 },
 +				{ 0 },
 +				{ 0 }, },
 +		.reg = { "vfe2" },
@@ -12912,11 +13420,19 @@ index 9335636d7..fd644431f 100644
  	{ .compatible = "qcom,sa8775p-camss", .data = &sa8775p_resources },
  	{ .compatible = "qcom,sc7280-camss", .data = &sc7280_resources },
  	{ .compatible = "qcom,sc8280xp-camss", .data = &sc8280xp_resources },
+@@ -5377,6 +5593,7 @@ static const struct dev_pm_ops camss_pm_ops = {
+ 	SET_RUNTIME_PM_OPS(camss_runtime_suspend, camss_runtime_resume, NULL)
+ };
+ 
++
+ static struct platform_driver qcom_camss_driver = {
+ 	.probe = camss_probe,
+ 	.remove = camss_remove,
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index 00683bf06..abc5e1363 100644
+index 00683bf06..b7403c769 100644
 --- a/drivers/misc/Kconfig
 +++ b/drivers/misc/Kconfig
-@@ -661,4 +661,14 @@ source "drivers/misc/mchp_pci1xxxx/Kconfig"
+@@ -661,4 +661,23 @@ source "drivers/misc/mchp_pci1xxxx/Kconfig"
  source "drivers/misc/keba/Kconfig"
  source "drivers/misc/amd-sbi/Kconfig"
  source "drivers/misc/rp1/Kconfig"
@@ -12930,16 +13446,26 @@ index 00683bf06..abc5e1363 100644
 +	  The analog-input PA is configured with the register tables
 +	  decoded from the vendor aw87xxx_acf.bin blob.
 +
++config WL2866D
++	tristate "Omnivision WL2866D camera LDO (minimal)"
++	depends on I2C
++	help
++	  Minimal driver for the Omnivision WL2866D 4-channel camera
++	  PMIC used on Xiaomi Redmi 10C (rain). Raises the EN and IOVDD
++	  GPIOs, verifies the chip ID and applies the register init
++	  pairs from the "inits" device property.
++
  endmenu
 diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
-index b32a2597d..3bdb6fc57 100644
+index b32a2597d..e54721153 100644
 --- a/drivers/misc/Makefile
 +++ b/drivers/misc/Makefile
-@@ -75,3 +75,4 @@ obj-$(CONFIG_MCHP_LAN966X_PCI)	+= lan966x-pci.o
+@@ -75,3 +75,5 @@ obj-$(CONFIG_MCHP_LAN966X_PCI)	+= lan966x-pci.o
  obj-y				+= keba/
  obj-y				+= amd-sbi/
  obj-$(CONFIG_MISC_RP1)		+= rp1/
 +obj-$(CONFIG_AW87XXX_MINI)		+= aw87xxx-mini.o
++obj-$(CONFIG_WL2866D)		+= wl2866d.o
 diff --git a/drivers/misc/aw87xxx-mini.c b/drivers/misc/aw87xxx-mini.c
 new file mode 100644
 index 000000000..2ffb1dbb0
@@ -13150,6 +13676,108 @@ index f3a493845..7e7fec5cb 100644
  	ctx = fastrpc_context_alloc(fl, kernel, sc, args);
  	if (IS_ERR(ctx))
  		return PTR_ERR(ctx);
+diff --git a/drivers/misc/wl2866d.c b/drivers/misc/wl2866d.c
+new file mode 100644
+index 000000000..b9639bc66
+--- /dev/null
++++ b/drivers/misc/wl2866d.c
+@@ -0,0 +1,96 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Omnivision WL2866D 4-channel camera LDO driver (bring-up variant).
++ *
++ * Powers the chip via its EN GPIO, optionally raises the camera IOVDD
++ * switch GPIO, verifies the chip ID and applies the {reg, val} init
++ * pairs from the "inits" device property. Outputs stay enabled for the
++ * lifetime of the driver; that is all the RAIN variant needs to feed
++ * the camera rails.
++ */
++
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/i2c.h>
++#include <linux/module.h>
++#include <linux/property.h>
++
++#define WL2866D_ID_REG		0x03
++#define WL2866D_ID		0x64
++#define WL2866D_ID_ALT		0x55
++
++static int wl2866d_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct gpio_desc *iov;
++	u8 inits[64];
++	int n, i, id, ret;
++
++	/* Chip enable + camera IO voltage switch. */
++	ret = PTR_ERR_OR_ZERO(devm_gpiod_get_optional(dev, "en",
++						      GPIOD_OUT_HIGH));
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to get en-gpio\n");
++
++	iov = devm_gpiod_get_optional(dev, "iov", GPIOD_OUT_HIGH);
++	if (IS_ERR(iov))
++		return dev_err_probe(dev, PTR_ERR(iov),
++				     "failed to get iov-gpio\n");
++
++	msleep(10);
++
++	for (i = 0; i < 5; i++) {
++		id = i2c_smbus_read_byte_data(client, WL2866D_ID_REG);
++		if (id >= 0)
++			break;
++		msleep(5);
++	}
++	if (id < 0)
++		return dev_err_probe(dev, -EPROBE_DEFER,
++				     "no response from chip (%d)\n", id);
++
++	if (id != WL2866D_ID && id != WL2866D_ID_ALT)
++		dev_warn(dev, "unexpected chip id 0x%02x\n", id);
++	else
++		dev_info(dev, "chip id 0x%02x\n", id);
++
++	n = device_property_count_u8(dev, "inits");
++	if (n <= 0)
++		return 0;
++	if (n & 1 || n > sizeof(inits))
++		return dev_err_probe(dev, -EINVAL,
++				     "inits must be reg/val pairs\n");
++
++	ret = device_property_read_u8_array(dev, "inits", inits, n);
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to read inits\n");
++
++	for (i = 0; i < n; i += 2) {
++		ret = i2c_smbus_write_byte_data(client, inits[i], inits[i + 1]);
++		if (ret < 0)
++			return dev_err_probe(dev, ret,
++					     "failed to write reg 0x%02x\n",
++					     inits[i]);
++	}
++
++	dev_info(dev, "outputs enabled\n");
++	return 0;
++}
++
++static const struct of_device_id wl2866d_of_match[] = {
++	{ .compatible = "ovti,wl2866d-i2c" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, wl2866d_of_match);
++
++static struct i2c_driver wl2866d_driver = {
++	.driver = {
++		.name = "wl2866d",
++		.of_match_table = wl2866d_of_match,
++	},
++	.probe = wl2866d_probe,
++};
++module_i2c_driver(wl2866d_driver);
++
++MODULE_DESCRIPTION("Omnivision WL2866D camera LDO driver");
++MODULE_LICENSE("GPL");
 diff --git a/drivers/net/ipa/ipa_main.c b/drivers/net/ipa/ipa_main.c
 index 788dd99af..cfa63d5c3 100644
 --- a/drivers/net/ipa/ipa_main.c
@@ -13674,7 +14302,7 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..f40625cba
+index 000000000..0d27b0fc3
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
 @@ -0,0 +1,1663 @@
@@ -15254,7 +15882,7 @@ index 000000000..f40625cba
 +	51,
 +	52,
 +	53,
-+	54,
++	/* 54 camera IOVDD switch - wl2866d iov-gpio */
 +	55,
 +	56,
 +	57,

@@ -16,6 +16,7 @@ git add -N \
 	drivers/gpu/drm/msm/dsi/phy/dsi_phy.c \
 	drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c \
 	drivers/misc/aw87xxx-mini.c \
+	drivers/misc/wl2866d.c \
 	drivers/pinctrl/qcom/pinctrl-khaje.c \
 	drivers/power/supply/sh366101_fg_bringup.c \
 	drivers/power/supply/smb1351_charger_bringup.c

@@ -296,3 +296,179 @@ D-Bus-имя, и сервисы показывали `stopped`/`failed`. Overlay
 
 **Итог по загрузке: 34 с до сети** (было ~60–65 с): ~10–14 с дало zstd,
 ~16–20 с — снятие ложных зависимостей. Образ 50.81 МиБ.
+
+## Камера S5KJN1: clock-разбор (2026-10-12, ветка kernel)
+
+Разобраны два «hard lockup»-источника на пути STREAMON и доведён pipeline до
+стрима без падений. Кадров пока нет.
+
+**1. Lockup №1 — propagation в живой GPLL0.** Камерные RCG в
+`drivers/clk/qcom/gcc-sm6115.c` шли с `clk_rcg2_shared_ops` + `CLK_SET_RATE_PARENT`.
+`clk_set_rate(csiphy0, 240M)` поднимался до `gpll0` и перепрограммировал главный
+PLL системы на ходу (в логе: `CLKDBG ... calc done top=gpll0` → смерть всех CPU).
+Ремонт: `CLK_SET_RATE_PARENT` с камерных RCG снят, у них оставлен
+`CLK_OPS_PARENT_ENABLE` (как в стоковом `gcc-khaje.c`).
+
+**2. Lockup №2 / «tfe_0_clk stuck at 'off'» — неверный тип PLL.** Аппаратура
+Khaje использует layout **LUCID (== TRION)**, а драйвер описывал GCC PLL как
+`CLK_ALPHA_PLL_TYPE_DEFAULT_EVO` (bengal). Из-за сдвига офсетов (USER_CTL 0x0c
+vs 0x18, CONFIG_CTL 0x18 vs 0x20, ALPHA 0x40) `gpll10` оставался залочен, но
+**его выход не был включён** → мультиплексор RCG на мёртвом источнике →
+`CMD_UPDATE` не завершался → ветка TFE «stuck at off» (-16).
+Ремонт для gpll10: `.regs = CLK_ALPHA_PLL_TYPE_LUCID`, `.ops = clk_alpha_pll_ops`,
+`CLK_IS_CRITICAL`, VCO `lucid_vco`, конфиг из стокового `gcc-khaje.c`
+(`l=0x3C, config_ctl=0x20485699, config_ctl_hi=0x2261, config_ctl_hi1=0x329A299C,
+user_ctl=0x1, user_ctl_hi=0x805`), `clk_alpha_pll_configure()` (не trion-вариант —
+тот гасит PLL). После этого `gpll10` = 1152 МГц, enabled, а `gpll10_out_main`
+читается как 1152 МГц (постдив /1).
+
+**3. Инструментация bisect.** `CAMSS_ABORT(dev,n)` в `camss.h` делает голый
+`return -EIO` — в `vfe_get()` это оставляет `vfe->power_lock` захваченным и все
+последующие тесты виснут на мутексe (выглядит как «hard lockup», на самом деле
+D-состояние). Для bisect уровень ставить только там, где abort не внутри
+залоченной секции, либо починить макрос на `goto`.
+
+**Текущее состояние.** `STREAMON` проходит полностью: sensor → csiphy0 → csid0 →
+vfe0_rdi0, сенсор реально стримит (0x0100=1 через CCI), CSID RDI0 = RAW10/VC0/4
+линии/PHY0 включён, CSIPHY lane-регистры совпадают с qcm2290-таблицей, система
+не падает. Кадров нет: IRQ CSIPHY/CSID/VFE по данным не приходят, `DQBUF` →
+poll timeout. Дальше искать, почему CSI-2 не доходит от сенсора до PHY
+(сверить с Android: lane-assign/combo-mode/data-rate из модуля
+`com.qti.sensormodule.c3q_sunny_s5kjn1.bin`, либо снять дамп регистров CSIPHY/CSID
+на стоке при работающей камере).
+
+### Продолжение (2026-10-12, вечер): сенсор стримит, PHY видит данные
+
+**3. Постдивы PLL — тот же layout-баг.** `gpll0_out_aux2` (родитель
+`csiphy0_timer`) читался как 74.4 МГц вместо 297.6 — постдивы остались на
+`DEFAULT_EVO`. После перевода всех `clk_alpha_pll_postdiv` на LUCID:
+`gpll0_out_aux2` = 297.6 МГц, `gpll10_out_main` = 1152 МГц, timer = 297.6 МГц.
+
+**4. PLL сенсора S5KJN1 зависит от MCLK.** В драйвере стояли 24-МГц значения
+(`0x0136=0x1800, 0x013e=0x0000, 0x0304=0x0004, 0x0306=0x008c, 0x030e=0x0004,
+0x0310=0x0092`), а MCLK у нас 19.2 МГц (совпадает со стоковым DTB:
+`clock-rates = <0x124f800>`). Взяты 19.2-МГц значения из upstream-патча
+(Danila Tikhonov, «s5kjn1: Add support for 19.2MHz MCLK»):
+`0x0136=0x1300, 0x013e=0x00c8, 0x0304=0x0003, 0x0306=0x0083, 0x030e=0x0003,
+0x0310=0x0089` (и `0x0310=0x006d` для 8160x6144). Остальные регистры обеих
+mode-последовательностей совпадают с upstream (проверено diff'ом).
+
+**5. Что проверено и работает.** `STREAMON` проходит; сенсор реально стримит
+(`0x0100=1` по CCI); PLL-регистры сенсора держат 19.2-МГц значения; CSIPHY
+(3ph, layout qcm2290) сконфигурирован — lane-регистры `0x0=0xD7, 0x1c=0x0A,
+0x2c=0x01, 0x30=0x02`, CTRL5=0xD5 (clk + lanes 0..3), CTRL6=0x1, CTRL7=0x2;
+CSID RDI0 = `0x802BF000` (DT=0x2B RAW10, VC=0, ENABLE), `CSI2_RX_CFG0 =
+0x00132103` (4 линии, lane_assign 0x3210, PHY0, D-PHY); все камерные клоки
+(238/297.6/192/153.6 МГц) включены.
+
+**6. Главный факт A/B.** Статусные регистры CSIPHY (`0x8b0/0x8b8/0x8c4`)
+меняются с 0 на `0x4/0x80/0x10` **только когда сенсор стримит** (проверено
+через `skip_stream`). То есть сенсор передаёт, и PHY это видит. Но IRQ
+CSID0/VFE0 по данным не приходят и `DQBUF` не возвращается — данные не
+проходят PHY→CSID→VFE.
+
+**Дальше искать**: связку CSIPHY→CSID (кодирование `PHY_NUM_SEL`/DLX для этой
+ревизии, доп. регистры CSIPHY 3ph, settle/timing) — сверять со стоковым
+Android (дамп CSIPHY/CSID при работающей камере) либо с downstream-исходниками
+Khaje. Инструментация `CAMSS_ABORT` для bisect требует починки (голый
+`return` оставляет mutex захваченным).
+
+## КАМЕРА S5KJN1 РАБОТАЕТ (2026-10-12, 20:00)
+
+Кадры пошли: `capN 6 8` даёт 8 кадров подряд (seq 0..7), по 15679488 байт
+(4080x3072 RAW10 packed). Первый кадр сохранён: `out/backups/first-frame-s5kjn1.png`.
+
+### Что чинилось (по порядку)
+
+1. **`CLK_SET_RATE_PARENT` на камерных RCG** → `clk_set_rate(csiphy0)` уходил вверх
+   и перепрограммировал живой `gpll0` → hard lockup всех CPU. Убрано (как в стоке).
+
+2. **Тип GCC-PLL.** Khaje использует layout **LUCID (== TRION)**, драйвер описывал
+   PLL как `DEFAULT_EVO` (bengal) → `gpll10` был залочен, но выход не включён →
+   мультиплексор RCG на мёртвом источнике → `CMD_UPDATE` не завершался →
+   `tfe_0_clk status stuck at 'off'`. Переведено: `gpll10` → LUCID + конфиг из
+   стокового `gcc-khaje.c`; все `clk_alpha_pll_postdiv` → LUCID
+   (это же починило `gpll0_out_aux2`: было 74.4 МГц, стало 297.6 МГц — родитель
+   `csiphy0_timer`).
+
+3. **PLL сенсора зависит от MCLK.** В драйвере стояли 24-МГц значения, MCLK 19.2 МГц
+   (совпадает со стоковым DTB). Взяты 19.2-МГц значения из upstream-патча:
+   `0x0136=0x1300, 0x013e=0x00c8, 0x0304=0x0003, 0x0306=0x0083, 0x030e=0x0003,
+   0x0310=0x0089` (и `0x0310=0x006d` для 8160x6144).
+
+4. **CSIPHY — чужая таблица.** В стоке `qcom,csiphy-v1.2.1`; mainline для SM6225
+   писал таблицу `lane_regs_qcm2290`. Добавлена `lane_regs_sm6225` (копия
+   mainline-таблицы 1.2.1 со `0x?14 = 0x80`, как в стоке), выбор по
+   `qcom,sm6225-camss`. **После этого пошли данные:** CSID увидел SOT/EOT на всех
+   4 линиях.
+
+5. **Клоки CSID/TFE были в 2-3 раза ниже стоковых** (192/153.6 МГц вместо
+   426.4/460.8 МГц) → FIFO всех линий CSID переполнялись, шли CRC/ECC.
+   Заданы стоковые: `tfe_0_csid_clk = 426.4 МГц` (GPLL3/2.5), `tfe_0_clk = 460.8 МГц`.
+
+6. **CSID RDI:** добавлены `RDI_CFG1 = 2` (TIMESTAMP_STB_POST_IRQ) и
+   `RDI_ERR_RECOVERY_CFG0 = 0x9` (детект ошибок/переполнения) — как в стоке.
+
+7. **TFE write-master:** добавлен `bw_limit = 0xf` (в стоке пишется, в mainline нет).
+   Это убрало `VFE0: Input data violation`.
+
+8. **ГЛАВНОЕ: камерный AXI-клок.** Сток (узел `cam-cpas`) задаёт
+   `gcc_camss_axi_clk` = 80/150/240/**300 МГц** по уровням. У нас он оставался
+   **19.2 МГц** (парковка на TCXO), потому что `vfe_match_clock_names()` не
+   пропускал имя `"axi"` — частота вообще не задавалась. Шина записи в память
+   не успевала → `RDI0_OVERFLOW`. Добавлено `"axi"` в matcher + частота
+   `300000000` в `vfe_res_sm6225`. **После этого пошли кадры.**
+
+### Что осталось
+
+- Цвета/байеровский паттерн проверить (`SGRBG10P` — подтверждён GRBG численно,
+  остался вопрос цветокоррекции в userspace).
+- Проверить второй режим (8160x6144) и переднюю камеру (Hi556, CCI1).
+- Автоэкспозиция: сейчас фикс. exposure/gain через `/dev/v4l-subdev18`
+  (напр. `exposure=4266, analogue_gain=32` → картинка как в Android-референсе).
+
+## Аудит/чистка камерных патчей (2026-10-12, после рабочего стрима)
+
+Сняли «лишнее» по одному изменению за раз, после каждого — сборка +
+`fastboot boot` на слот B + `capN 6 3` (3 кадра, 15679488 байт, без
+violation/overflow в dmesg). Сравнение шло с upstream v7.1.5
+(собственной поддержки sm6225 там нет — ресурсы сверялись со стоковым
+`gcc-khaje`/DTB).
+
+### Фаза 1 — убрана отладка (не влияла на функцию)
+
+`CLKDBG` (clk.c), `RCG2DBG` (clk-rcg2.c), `BRINGUP gpll9/gpll10`
+force-enable (gcc-sm6115.c), вся `CAMSS_ABORT`-машинерия + маркеры
+(camss*.c, camss.h), `skip_stream` и no-op `power_off`, i2c-sweep и
+отладочные `dev_err` (s5kjn1.c), ICC-логирование в runtime_suspend/resume
+(camss.c). После чистки стрим работает.
+
+### Фаза 2 — A/B-тест «настоящих» костылей
+
+| Изменение | Результат | Вердикт |
+|---|---|---|
+| `"axi"` в `vfe_match_clock_names` + rate в `vfe_res` | Убрано; частота перенесена в DTS: `assigned-clocks = <&gcc GCC_CAMSS_AXI_CLK>; assigned-clock-rates = <300000000>` на узле `camss`. AXI=297.6 МГц ещё до стрима, кадры идут | **Заменено DT-способом, `camss-vfe.c` теперь upstream-identical** |
+| `CSID_RDI_CFG1=0x2` (timestamp strobe) | Убрано — стрим идёт без него | **Не нужно, удалено** |
+| `CSID_RDI_ERR_RECOVERY_CFG0=0x9` | Убрано — стрим идёт без него | **Не нужно, удалено** (обнаружение overflow работает и так — видимо, включено по умолчанию/через другие биты) |
+| `TFE_BUS_BW_LIMIT=0xf` | Убрано — стрим идёт без него | **Не нужно, удалено.** Раньше «чинило» `Input data violation` только в связке с остальным; реальная причина была в клоках CSID/TFE/AXI |
+| BRAMMO enable-бит в `clk_alpha_pll_enable` | Убрано — стрим идёт | **Не нужно при LUCID-ops** — `clk_alpha_pll_configure` из probe и on-demand enable покрывают путь |
+| `CLK_SET_RATE_PARENT` на 18 camss-RCG | Вернул апстримный флаг → **hard lockup при STREAMON** (capN завис, система встала) | **Снятие флага ОБЯЗАТЕЛЬНО.** Пропагация `clk_set_rate` уходит в живой PLL (gpll0/gpll10-chain). Альтернатива на будущее: сделать разделяемые PLL fixed-ops, как у downstream, — тогда флаг можно вернуть |
+| `lane_regs_sm6225` (100 строк) | Дедуп с upstream: отличается от `lane_regs_sm8250` (та же 1.2.1 3ph) только в `0x?14`: `0x80` vs `0x60` на всех 5 линиях | **Оставлена целиком** — 100-строчная таблица на SoC — нормальная практика этого файла; ради 1 регистра усложнять механизм записи не стоит |
+| `clk.c` `reparent_orphans` (без before/after dance) | Вне камеры (DSI PHY PLL WARN'и на SM6225) | **Оставлено**, отдельный A/B на дисплейном пути |
+
+### Итоговый остаток diff (камера)
+
+- `camss.c` +217 — таблицы `*_res_sm6225` (3× CSIPHY/CSID/VFE, ICC, ops).
+- `camss-csiphy-3ph-1-0.c` +111 — `lane_regs_sm6225` + выбор по compat.
+- `s5kjn1.c` ±13 — MCLK 19.2 МГц + PLL-значения.
+- `gcc-sm6115.c` — LUCID-PLL/postdiv, `gpll10_config`, снятые флаги
+  `CLK_SET_RATE_PARENT` на camss-RCG, `CLK_IS_CRITICAL` на gpll10.
+- `clk-alpha-pll.c` — фикс `zonda_pll_adjust_l_val` (баг бэкпорта:
+  `quotient` вместо `rate` → PLL_L_VAL).
+- `clk.c` — `reparent_orphans` workaround (дисплейный, не камерный).
+- `sm6225.dtsi` — `assigned-clocks` для `GCC_CAMSS_AXI_CLK`.
+- `camss-video.c`, `camss-vfe.c`, `camss-vfe-340.c`, `camss-csid.c`,
+  `camss-csid-340.c`, `camss-csiphy.c`, `camss.h`, `clk-rcg2.c` —
+  **полностью upstream-identical.**
+
+Бэкап чистого образа: `out/backups/boot-linux-cleanup-audit.img`.
