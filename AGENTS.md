@@ -31,7 +31,7 @@
 
 Работает: экран DSI, USB gadget, UFS+SD, Wi-Fi (ath10k/WCN3990), BT+A2DP, тачскрин FT8006S (SPI), LTE через IPA v4.2/QMAP (~9 Мбит/с), модем+QMI/ModemManager, звук (динамик + гарнитура FSA4480), зарядка SMB1351 + fuel gauge, thermal, cpufreq, GPU Adreno 610 (SMMU/GMU/ZAP, devfreq), сенсоры через SSC/hexagonrpcd, Plasma Mobile + Firefox, вибратор, фонарик, RTC.
 
-В разработке: GPS, iio-sensor-proxy, ACDB, голос/SMS. Не работает: камера, сканер отпечатков.
+Работает также задняя камера S5KJN1 (полный CAMSS-пайплайн, RAW10 4080x3072). В разработке: GPS, iio-sensor-proxy, ACDB, голос/SMS, AE/AWB для камеры (ISP-уровень), передняя камера Hi556. Не работает: сканер отпечатков.
 
 ## Соседняя папка: /mnt/128/rootfs-ubuntu
 
