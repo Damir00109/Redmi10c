@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..cc130c7c9
+index 000000000..9bf56a1c0
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,939 @@
+@@ -0,0 +1,985 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -1052,7 +1052,13 @@ index 000000000..cc130c7c9
 +/* Camera PMIC - RAIN uses an Omnivision WL2866D 4-channel LDO on the
 + * Geni-I2C bus (i2c-2 @0x28), NOT a PM8008 (stock RAIN dtbo entry).
 + * gpio26 = chip EN, gpio54 = camera IOVDD switch.
-+ * inits (stock RAIN): DVDD2=0x4b, AVDD2=0x78, VOL_ENABLE=0x0a (DVDD2+AVDD2). */
++ * inits (stock, dumped on Android with front/rear camera open):
++ *   reg 0x03 DVDD1 = 0x64 (1.20 V, front sensor core)
++ *   reg 0x04 DVDD2 = 0x4b (1.05 V, rear sensor core)
++ *   reg 0x05 AVDD1 = 0x80 (2.80 V, front analog)
++ *   reg 0x06 AVDD2 = 0x80 (2.80 V, rear analog)
++ *   reg 0x0e VOL_ENABLE bitmask: bit0=DVDD1 bit1=DVDD2 bit2=AVDD1 bit3=AVDD2
++ *   (0x05 = front pair, 0x0a = rear pair; 0x0f = all four powered). */
 +&i2c1 {
 +	wl2866d: camera-pmic@28 {
 +		compatible = "ovti,wl2866d-i2c";
@@ -1061,7 +1067,37 @@ index 000000000..cc130c7c9
 +		en-gpios = <&tlmm 26 GPIO_ACTIVE_HIGH>;
 +		iov-gpios = <&tlmm 54 GPIO_ACTIVE_HIGH>;
 +
-+		inits = /bits/ 8 <0x04 0x4b 0x06 0x78 0x0e 0x0a>;
++		inits = /bits/ 8 <0x03 0x64 0x04 0x4b 0x05 0x80 0x06 0x80
++				  0x0e 0x0f>;
++	};
++};
++
++/* Front camera — Hynix Hi556 @ CCI master 1, CSIPHY2 (stock cam-sensor1:
++ * cci-master=1, csiphy-sd-index=2, MCLK0 gpio20, CAM_RESET1 gpio24, yaw=0). */
++&cci0_i2c1 {
++	status = "okay";
++
++	camera@28 {
++		compatible = "hynix,hi556";
++		reg = <0x28>;
++
++		clocks = <&gcc GCC_CAMSS_MCLK0_CLK>;
++		clock-names = "clk";
++		assigned-clocks = <&gcc GCC_CAMSS_MCLK0_CLK>;
++		assigned-clock-rates = <19200000>;
++
++		reset-gpios = <&tlmm 24 GPIO_ACTIVE_LOW>;
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&mclk0_default>;
++
++		port {
++			hi556_ep: endpoint {
++				data-lanes = <1 2>;
++				link-frequencies = /bits/ 64 <437000000>;
++				remote-endpoint = <&csiphy2_ep>;
++			};
++		};
 +	};
 +};
 +
@@ -1106,6 +1142,16 @@ index 000000000..cc130c7c9
 +				clock-lanes = <7>;
 +				data-lanes = <0 1 2 3>;
 +				remote-endpoint = <&s5kjn1_ep>;
++			};
++		};
++
++		port@2 {
++			reg = <2>;
++
++			csiphy2_ep: endpoint {
++				clock-lanes = <7>;
++				data-lanes = <0 1>;
++				remote-endpoint = <&hi556_ep>;
 +			};
 +		};
 +	};
@@ -1189,7 +1235,7 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..9d82757a8
+index 000000000..4bdef70dc
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 @@ -0,0 +1,2443 @@
@@ -2551,7 +2597,7 @@ index 000000000..9d82757a8
 +
 +			cci0_i2c1: i2c-bus@1 {
 +				reg = <1>;
-+				clock-frequency = <1000000>;
++				clock-frequency = <100000>;
 +				#address-cells = <1>;
 +				#size-cells = <0>;
 +			};
@@ -12974,6 +13020,28 @@ index 3ee12c8a4..36363ff0d 100644
  };
  
  static const char * const cnoc_intf_clocks[] = {
+diff --git a/drivers/media/i2c/hi556.c b/drivers/media/i2c/hi556.c
+index de573cee4..58a7ce80c 100644
+--- a/drivers/media/i2c/hi556.c
++++ b/drivers/media/i2c/hi556.c
+@@ -1437,10 +1437,17 @@ static const struct acpi_device_id hi556_acpi_ids[] = {
+ MODULE_DEVICE_TABLE(acpi, hi556_acpi_ids);
+ #endif
+ 
++static const struct of_device_id hi556_of_ids[] = {
++	{ .compatible = "hynix,hi556" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, hi556_of_ids);
++
+ static struct i2c_driver hi556_i2c_driver = {
+ 	.driver = {
+ 		.name = "hi556",
+ 		.acpi_match_table = ACPI_PTR(hi556_acpi_ids),
++		.of_match_table = hi556_of_ids,
+ 		.pm = pm_sleep_ptr(&hi556_pm_ops),
+ 	},
+ 	.probe = hi556_probe,
 diff --git a/drivers/media/i2c/s5kjn1.c b/drivers/media/i2c/s5kjn1.c
 index a707cb740..42a044c7d 100644
 --- a/drivers/media/i2c/s5kjn1.c
