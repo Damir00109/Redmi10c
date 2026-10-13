@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..8d8fadfcd
+index 000000000..d122f5cd4
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1011 @@
+@@ -0,0 +1,1065 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -653,6 +653,32 @@ index 000000000..8d8fadfcd
 +		regulator-always-on;
 +	};
 +
++	/* Rear AF actuator supply — stock "cam_vaf" 2.8V switched by
++	 * gpio102 (CAM_VAF0, pinctrl cam_sensor_rear0_vaf_*). */
++	cam_vaf: regulator-cam-vaf {
++		compatible = "regulator-fixed";
++		regulator-name = "cam_vaf";
++		regulator-min-microvolt = <2800000>;
++		regulator-max-microvolt = <2800000>;
++		gpio = <&tlmm 102 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++	};
++
++	/* Depth module rails are not individually modelled (module is fed
++	 * from PMIC LDOs that RPM keeps on); dummy consumers for the driver. */
++	depth_vddio: regulator-depth-vddio {
++		compatible = "regulator-fixed";
++		regulator-name = "depth_vddio";
++		regulator-always-on;
++	};
++
++	depth_avdd: regulator-depth-avdd {
++		compatible = "regulator-fixed";
++		regulator-name = "depth_avdd";
++		regulator-always-on;
++	};
++
 +	/* DSI PHY reference generator. The vendor DT exposes it as
 +	 * soc/refgen-regulator@1600000 ("qcom,refgen-kona-regulator"); the
 +	 * mainline qcom-refgen driver only matches sdm845/sm8250, so model it
@@ -1085,13 +1111,30 @@ index 000000000..8d8fadfcd
 +		read-only;
 +	};
 +
-+	/* Depth module EEPROM (AAC "B313", OV02B1B) — 256 B device at a
-+	 * non-AT24 address; content verified via raw CCI reads. */
-+	eeprom@59 {
-+		compatible = "atmel,24c02";
++	/* Depth sensor — OmniVision OV02B1B (stock cam-sensor2: cci-master 1,
++	 * csiphy1, MCLK1 gpio21, CAM_RESET2 gpio65, CAM_CUSTOM2 gpio66).
++	 * Address 0x59 verified live on the bus. */
++	camera@59 {
++		compatible = "ovti,ov02b1b";
++		status = "disabled";
 +		reg = <0x59>;
-+		pagesize = <8>;
-+		read-only;
++
++		clocks = <&gcc GCC_CAMSS_MCLK1_CLK>;
++		assigned-clocks = <&gcc GCC_CAMSS_MCLK1_CLK>;
++		assigned-clock-rates = <19200000>;
++
++		reset-gpios = <&tlmm 65 GPIO_ACTIVE_LOW>;
++
++		vddio-supply = <&depth_vddio>;
++		avdd-supply = <&depth_avdd>;
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&mclk1_default>;
++
++		/* Port omitted while disabled — a dangling remote-endpoint
++		 * makes camss's async notifier wait forever (all sensor
++		 * links silently missing). Wire camss port@1 + both
++		 * remote-endpoints together when enabling depth. */
 +	};
 +
 +	camera@28 {
@@ -1129,6 +1172,15 @@ index 000000000..8d8fadfcd
 +		reg = <0x51>;
 +		pagesize = <64>;
 +		read-only;
++	};
++
++	/* Autofocus VCM — Giantec GT9764 (stock qcom,actuator0, cci-master 0,
++	 * cam_vaf rail on gpio102). dw9768 register-compatible. */
++	actuator@18 {
++		compatible = "giantec,gt9764";
++		reg = <0x18>;
++		vin-supply = <&cam_vaf>;
++		vdd-supply = <&cam_vaf>;
 +	};
 +
 +	camera@10 {
@@ -1171,6 +1223,7 @@ index 000000000..8d8fadfcd
 +			};
 +		};
 +
++
 +		port@2 {
 +			reg = <2>;
 +
@@ -1182,6 +1235,7 @@ index 000000000..8d8fadfcd
 +		};
 +	};
 +};
++
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts
 new file mode 100644
 index 000000000..722422ee8
@@ -1261,10 +1315,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..4bdef70dc
+index 000000000..20a877efa
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2443 @@
+@@ -0,0 +1,2446 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -2616,7 +2670,10 @@ index 000000000..4bdef70dc
 +
 +			cci0_i2c0: i2c-bus@0 {
 +				reg = <0>;
-+				clock-frequency = <1000000>;
++				/* GT9764 VCM is FAST (400 kHz) only — downstream uses
++				 * per-device i2c freq; single rate for the bus must
++				 * fit the slowest device on it. */
++				clock-frequency = <400000>;
 +				#address-cells = <1>;
 +				#size-cells = <0>;
 +			};
@@ -13046,6 +13103,51 @@ index 3ee12c8a4..36363ff0d 100644
  };
  
  static const char * const cnoc_intf_clocks[] = {
+diff --git a/drivers/media/i2c/Kconfig b/drivers/media/i2c/Kconfig
+index 8f2ba4121..82a9d348d 100644
+--- a/drivers/media/i2c/Kconfig
++++ b/drivers/media/i2c/Kconfig
+@@ -402,6 +402,16 @@ config VIDEO_OV02A10
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called ov02a10.
+ 
++config VIDEO_OV02B1B
++	tristate "OmniVision OV02B1B sensor support"
++	select V4L2_CCI_I2C
++	help
++	  This is a Video4Linux2 sensor driver for the OmniVision
++	  OV02B1B camera (monochrome 2MP depth/auxiliary sensor).
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called ov02b1b.
++
+ config VIDEO_OV02E10
+ 	tristate "OmniVision OV02E10 sensor support"
+ 	select V4L2_CCI_I2C
+diff --git a/drivers/media/i2c/Makefile b/drivers/media/i2c/Makefile
+index 90b276a74..2361243ef 100644
+--- a/drivers/media/i2c/Makefile
++++ b/drivers/media/i2c/Makefile
+@@ -87,6 +87,7 @@ obj-$(CONFIG_VIDEO_OG0VE1B) += og0ve1b.o
+ obj-$(CONFIG_VIDEO_OS05B10) += os05b10.o
+ obj-$(CONFIG_VIDEO_OV01A10) += ov01a10.o
+ obj-$(CONFIG_VIDEO_OV02A10) += ov02a10.o
++obj-$(CONFIG_VIDEO_OV02B1B) += ov02b1b.o
+ obj-$(CONFIG_VIDEO_OV02C10) += ov02c10.o
+ obj-$(CONFIG_VIDEO_OV02E10) += ov02e10.o
+ obj-$(CONFIG_VIDEO_OV08D10) += ov08d10.o
+diff --git a/drivers/media/i2c/dw9768.c b/drivers/media/i2c/dw9768.c
+index d037d3009..5f40f991b 100644
+--- a/drivers/media/i2c/dw9768.c
++++ b/drivers/media/i2c/dw9768.c
+@@ -530,6 +530,7 @@ static void dw9768_remove(struct i2c_client *client)
+ static const struct of_device_id dw9768_of_table[] = {
+ 	{ .compatible = "dongwoon,dw9768" },
+ 	{ .compatible = "giantec,gt9769" },
++	{ .compatible = "giantec,gt9764" },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, dw9768_of_table);
 diff --git a/drivers/media/i2c/hi556.c b/drivers/media/i2c/hi556.c
 index de573cee4..58a7ce80c 100644
 --- a/drivers/media/i2c/hi556.c

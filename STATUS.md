@@ -498,3 +498,97 @@ i2c read на `/dev/i2c-0` адрес 0x10): во время стрима `0x020
 analogue_gain=64` кадр экспонирован нормально (mean ~484, детали чёткие:
 перфорация, кабели, текстура стены). Зелёный/желтоватый оттенок и
 виньетка — отсутствие color matrix/AWB/LSC (задача ISP-стека, не драйвера).
+
+## РЕШЕНО: EPIPE при STREAMON = неверный fourcc (2026-10-13, вечер)
+
+Симптом: `VIDIOC_STREAMON returned -1 (Broken pipe)`, в dmesg тишина (ни
+`Failed to start media pipeline`, ни `failed to start streaming`).
+Затрагивало **обе** камеры (заднюю и переднюю) → выглядело как поломка CAMSS.
+
+### Причина
+
+В ядре 7.1.5 четырёхбуквенные коды packed-Bayer **исправлены** относительно
+старых версий (`include/uapi/linux/videodev2.h`):
+
+| Определение | fourcc |
+|---|---|
+| `V4L2_PIX_FMT_SBGGR10P` | `'pBAA'` |
+| `V4L2_PIX_FMT_SGBRG10P` | `'pGAA'` |
+| `V4L2_PIX_FMT_SGRBG10P` | `'pgAA'` |
+| `V4L2_PIX_FMT_SRGGB10P` | `'pRAA'` |
+
+Сенсор S5KJN1 (и Hi556) отдают media-bus код `SGRBG10_1X10`, которому
+соответствует **`V4L2_PIX_FMT_SGRBG10P = 'pgAA'`**. Мы же ставили `pBAA`
+(= `SBGGR10P`, другой байеровский порядок). `video_check_format()` в
+`camss-video.c` сравнивает pixelformat видео-ноды с форматом субдева и при
+несовпадении возвращает `-EPIPE` — молча, до вызова `s_stream`.
+
+Диагноз получен временным `dev_err` в `video_check_format()` + в цикле
+`s_stream` (после отладки принты убраны):
+
+```
+CAMDBG check_format: pix[fmt=pBAA 4080x3072 planes=1 field=1] sd[fmt=pgAA 4080x3072 planes=1 field=1]
+```
+
+### Правильный рецепт захвата (проверено на #74)
+
+Задняя (S5KJN1, `/dev/video0`):
+
+```sh
+FMT="SGRBG10_1X10/4080x3072"
+media-ctl -d /dev/media0 -l '"msm_csiphy0":1 -> "msm_csid0":0 [1]'
+media-ctl -d /dev/media0 -l '"msm_csid0":1 -> "msm_vfe0_rdi0":0 [1]'
+for p in '"s5kjn1 0-0010":0' '"msm_csiphy0":0' '"msm_csiphy0":1' \
+         '"msm_csid0":0' '"msm_csid0":1' '"msm_vfe0_rdi0":0' '"msm_vfe0_rdi0":1'; do
+  media-ctl -d /dev/media0 --set-v4l2 "$p [fmt:$FMT]"
+done
+v4l2-ctl -d /dev/video0 --set-fmt-video=width=4080,height=3072,pixelformat=pgAA \
+  --stream-mmap=4 --stream-count=10 --stream-to=/tmp/rear.raw
+```
+
+Передняя (Hi556, `/dev/video8`): то же, но `SGRBG10_1X10/2592x1944`,
+`msm_csiphy2`→`msm_csid2`→`msm_vfe2_rdi0`, `width=2592,height=1944`.
+
+Размер кадра: задняя 15679488 Б (stride 5104, полезных 5100), передняя
+6298560 Б. Распаковка — 5 байт = 4 px (см. раздел выше).
+
+## GT9764 (автофокус задней камеры): статус на 2026-10-13
+
+Железо по данным Android: `afAvailableModes=[0 1 2 3 4]`,
+`minimumFocusDistance=10cm`, AF-калибровка в EEPROM `0-0051`
+(inf≈488–522, macro≈987). Стоковый XML модуля `c3q_sunny_s5kjn1`:
+slave addr `0x18`, Fast I²C, VAF-only power-up.
+
+Что сделано и проверено в Linux:
+
+- узел `actuator@18` на `cci0_i2c0`, драйвер `dw9768` с compatible
+  `giantec,gt9764` — **привязывается** (`0-0018`, name `gt9764`);
+- `cam_vaf` (fixed regulator на TLMM gpio102) — `enabled`, 2800000 мкВ,
+  пин `gpio102: out high func0 2mA pull down` (в стоке active — bias-disable);
+- WL2866D запрограммирован (ID `0x64`), перебор `0x0e` ∈ {0x0f, 0x15, 0x1f}
+  (5-й выход из стокового трейса не подтвердился: бит4 не читается обратно);
+- частота CCI0 пробовалась 1 МГц и 400 кГц.
+
+**Проблема:** устройство `0x18` не отвечает ACK ни на read, ни на write —
+ни в покое, ни во время стрима сенсора (когда шина «горячая»: `0x10` и
+`0x51` ACK'ают), ни при включённом VAF. Слепая запись DAC (reg 0x03/0x04)
+изменений фокуса не дала, **но** тест-сцена была тёмной/плоской
+(max 120 из 1023, diff кадров ≈ 0.5 кода) — тест неубедителен, не
+доказательство отсутствия AF.
+
+Гипотезы на следующий раз (по убыванию вероятности):
+
+1. **Питание VAF реально не доходит**: gpio102 — ключ, а вход ключа может
+   питаться от рельсы, которую Android включает (в диффе регуляторов при
+   открытой камере менялись `pm6125_l5`, `pm6125_l14`, `pm6125_s5_level`,
+   `gcc_camss_top_gdsc`). Нужно снять дифф регуляторов Android ещё раз и
+   завести найденную рельсу в DT как supply для `cam_vaf`.
+2. **Адрес отличается** от 0x18 в этой ревизии модуля (XML мог быть от
+   другого варианта) — перебрать адреса слепой записью DAC с проверкой
+   фокуса по кадрам.
+3. Повторить DAC-тест на **текстурной освещённой сцене** (обязательно:
+   текущий кадр — почти чёрный).
+
+Ссылки: бэкап состояния — `/mnt/128/backups/camera-20261013-af-depth-start/`,
+инструменты `eetool` (dump/w8/w16/rd16/scan) и `i2cack` (address-only ACK
+probe) — в `/tmp`, исходники рядом.
