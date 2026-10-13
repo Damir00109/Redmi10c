@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..d122f5cd4
+index 000000000..0329267bb
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1065 @@
+@@ -0,0 +1,1162 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -329,6 +329,9 @@ index 000000000..d122f5cd4
 +	regulators-0 {
 +		compatible = "qcom,rpm-pm6125-regulators";
 +
++		/* PM8008 camera-PMIC VINs (stock: vdd_l1_l2 = s6, vdd_l7 = s7).
++		 * Left off: the PM8008 itself is disabled on this device (see the
++		 * pmic@8 node), so these rails have no consumer. */
 +		pm6125_s6a: s6 {
 +			regulator-min-microvolt = <1352000>;
 +			regulator-max-microvolt = <1456000>;
@@ -654,7 +657,11 @@ index 000000000..d122f5cd4
 +	};
 +
 +	/* Rear AF actuator supply — stock "cam_vaf" 2.8V switched by
-+	 * gpio102 (CAM_VAF0, pinctrl cam_sensor_rear0_vaf_*). */
++	 * gpio102 (CAM_VAF0, pinctrl cam_sensor_rear0_vaf_*: output-high,
++	 * bias-disable, 2 mA). The stock DTBO maps cam_vaf-supply to L5P
++	 * (PM8008 LDO5), but PM8008 is disabled in the firmware and the live
++	 * Android tree has no cam_vaf-supply at all, so the switch's input is
++	 * hardwired. Model it as the plain gpio102 switch it is. */
 +	cam_vaf: regulator-cam-vaf {
 +		compatible = "regulator-fixed";
 +		regulator-name = "cam_vaf";
@@ -1075,10 +1082,11 @@ index 000000000..d122f5cd4
 +	status = "okay";
 +};
 +
-+/* Camera PMIC - RAIN uses an Omnivision WL2866D 4-channel LDO on the
-+ * Geni-I2C bus (i2c-2 @0x28), NOT a PM8008 (stock RAIN dtbo entry).
-+ * gpio26 = chip EN, gpio54 = camera IOVDD switch.
-+ * inits (stock, dumped on Android with front/rear camera open):
++/* Camera PMICs on the Geni-I2C bus (stock i2c@4a84000 = our i2c1/i2c-2):
++ * an Omnivision WL2866D 4-channel LDO @0x28 (sensor core/analog rails) AND a
++ * Qualcomm PM8008 dedicated camera PMIC @0x8 (module cluster rails).
++ * gpio26 = shared camera enable (WL2866D EN *and* PM8008 EN), gpio54 = IOVDD.
++ * WL2866D inits (stock, dumped on Android with front/rear camera open):
 + *   reg 0x03 DVDD1 = 0x64 (1.20 V, front sensor core)
 + *   reg 0x04 DVDD2 = 0x4b (1.05 V, rear sensor core)
 + *   reg 0x05 AVDD1 = 0x80 (2.80 V, front analog)
@@ -1095,6 +1103,95 @@ index 000000000..d122f5cd4
 +
 +		inits = /bits/ 8 <0x03 0x64 0x04 0x4b 0x05 0x80 0x06 0x80
 +				  0x0e 0x0f>;
++	};
++
++	/*
++	 * PM8008 — dedicated camera PMIC in the shared Qualcomm DT. It is
++	 * present here for reference only and stays DISABLED, exactly like the
++	 * stock firmware does (base DTB status="disable", and the applied DTBO
++	 * fragment re-disables it: __fixups__ pm8008_8/pm8008_9 -> "disabled";
++	 * the live Android tree confirms status=disable for both nodes).
++	 *
++	 * Why it matters for the rear autofocus: in the stock DTBO every camera
++	 * supply resolves to a PM8008 LDO (L5P->cam_vaf, L7P->cam_vio,
++	 * L4P/L2P->rear vana/vdig, L6P/L1P->front vana/vdig, L3P->depth), and
++	 * the downstream actuator node declares "cam_vaf". But because PM8008 is
++	 * disabled, the live Android tree has no cam_vaf-supply at all and the
++	 * downstream driver logs "supply cam_vaf not found, using dummy
++	 * regulator" — i.e. VAF is only the gpio102 load switch in stock too.
++	 *
++	 * Measured on this unit (2-0008, i2c1/Geni): the chip never ACKs, with
++	 * the VINs on (s6/s7), gpio26 (EN, shared with the WL2866D) held high,
++	 * an EN low->high power-cycle, and any probe register. Other devices on
++	 * the same bus (wl2866d 0x28, fs15xx 0x34, sh366101 0x55, aw87xxx 0x58)
++	 * answer fine. So PM8008 is not usable as the VAF source here.
++	 */
++	pm8008: pmic@8 {
++		compatible = "qcom,pm8008";
++		reg = <0x8>;
++		status = "disabled";
++
++		interrupt-parent = <&tlmm>;
++		interrupts = <25 IRQ_TYPE_EDGE_RISING>;
++
++		vdd-l1-l2-supply = <&pm6125_s6a>;
++		vdd-l7-supply = <&pm6125_s7a>;
++
++		gpio-controller;
++		#gpio-cells = <2>;
++		gpio-ranges = <&pm8008 0 0 2>;
++
++		interrupt-controller;
++		#interrupt-cells = <2>;
++
++		#thermal-sensor-cells = <0>;
++
++		/* Voltages are the stock ranges (fdt-stock-fog.dts, pm8008-l*). */
++		regulators {
++			ldo1 {
++				regulator-name = "pm8008_l1";
++				regulator-min-microvolt = <1100000>;
++				regulator-max-microvolt = <1300000>;
++			};
++
++			ldo2 {
++				regulator-name = "pm8008_l2";
++				regulator-min-microvolt = <950000>;
++				regulator-max-microvolt = <1150000>;
++			};
++
++			ldo3 {
++				regulator-name = "pm8008_l3";
++				regulator-min-microvolt = <2700000>;
++				regulator-max-microvolt = <2900000>;
++			};
++
++			ldo4 {
++				regulator-name = "pm8008_l4";
++				regulator-min-microvolt = <2700000>;
++				regulator-max-microvolt = <2900000>;
++			};
++
++			/* cam_vaf: rear AF actuator (GT9764) + eeprom0/1 */
++			pm8008_l5: ldo5 {
++				regulator-name = "pm8008_l5";
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-always-on;
++			};
++
++			ldo6 {
++				regulator-name = "pm8008_l6";
++				regulator-min-microvolt = <2700000>;
++				regulator-max-microvolt = <2900000>;
++			};
++
++			pm8008_l7: ldo7 {
++				regulator-name = "pm8008_l7";
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++			};
++		};
 +	};
 +};
 +
