@@ -35,9 +35,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential gcc-aarch64-linux-gnu bc flex bison \
-            libssl-dev libelf-dev libncurses-dev cpio gzip xz-utils zstd \
-            device-tree-compiler python3 rsync kmod file curl wget git
+            build-essential gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
+            bc flex bison libssl-dev libelf-dev libncurses-dev cpio gzip \
+            xz-utils zstd device-tree-compiler python3 rsync kmod file \
+            curl wget git
+
+      - name: Проверка кросс-тулчейна
+        run: |
+          printf 'int main(void){return 0;}\n' > /tmp/t.c
+          aarch64-linux-gnu-gcc /tmp/t.c -o /tmp/t
+          test -f /usr/aarch64-linux-gnu/include/limits.h
+          echo "кросс-тулчейн и заголовки glibc на месте"
 
       - name: Ядро + rescue-образ (клон v7.1.5, kernel.patch, прошивки)
         run: ./build.sh
