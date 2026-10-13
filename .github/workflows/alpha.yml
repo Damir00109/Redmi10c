@@ -1,0 +1,201 @@
+name: alpha
+
+# Собирает из исходников и публикует в prerelease (пометка «alpha»):
+#   boot-linux.img              — ядро (v7.1.5 + kernel.patch) + pivot-initramfs
+#   boot-display-console-rescue.img — rescue-образ (консоль на экране/USB)
+#   linux_rootfs.sparse.img     — Ubuntu 26.04 для раздела cust
+#
+# Ничего не прошивается автоматически: это только артефакты для ручной загрузки.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Тег релиза (по умолчанию alpha-<дата>-<номер сборки>)'
+        required: false
+        type: string
+  push:
+    tags:
+      - 'alpha*'
+
+permissions:
+  contents: write
+
+jobs:
+  boot:
+    name: kernel + boot.img
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Зависимости
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc-aarch64-linux-gnu bc flex bison \
+            libssl-dev libelf-dev libncurses-dev cpio gzip xz-utils zstd \
+            device-tree-compiler python3 rsync kmod file curl wget git
+
+      - name: Ядро + rescue-образ (клон v7.1.5, kernel.patch, прошивки)
+        run: ./build.sh
+
+      - name: 'Модули ядра (нужны rootfs-джобе: ADSP, звук, сенсоры)'
+        run: |
+          make -C out/src/linux O="$PWD/out/build/linux-7.1.5" ARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- modules -j"$(nproc)"
+          make -C out/src/linux O="$PWD/out/build/linux-7.1.5" ARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- modules_install \
+            INSTALL_MOD_PATH="$PWD/out/build/linux-7.1.5"
+
+      - name: boot-linux.img (ядро + pivot-initramfs)
+        run: REDMI="$PWD" bash rootfs/tools/pack-boot-linux.sh
+
+      - name: Артефакты
+        run: |
+          mkdir -p dist
+          cp rootfs/out/boot-linux.img dist/
+          cp out/boot-display-console-rescue.img dist/
+          tar -C out/build/linux-7.1.5 -czf dist/modules.tar.gz lib/modules
+          sha256sum dist/* > dist/sha256sums.txt
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boot
+          path: dist/
+          retention-days: 7
+
+  rootfs:
+    name: rootfs.img (Ubuntu 26.04)
+    needs: boot
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Зависимости
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            rsync e2fsprogs xz-utils zstd curl wget kmod ca-certificates \
+            android-sdk-libsparse-utils
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: boot
+          path: /tmp/boot
+
+      - name: Модули ядра из kernel-джобы + проприетарные прошивки
+        run: |
+          mkdir -p out/build/linux-7.1.5
+          tar -C out/build/linux-7.1.5 -xzf /tmp/boot/modules.tar.gz
+          ls out/build/linux-7.1.5/lib/modules
+          ./tools/fetch-firmware.sh
+
+      - name: ADB-ключ (без него adbd поднимется, но хост будет unauthorized)
+        env:
+          ADB_PUBKEY: ${{ secrets.ADB_PUBKEY }}
+        run: |
+          sudo mkdir -p rootfs/tools/rain-overlay/etc/adb
+          sudo touch rootfs/tools/rain-overlay/etc/adb/adb_keys
+          if [ -n "$ADB_PUBKEY" ]; then
+            echo "$ADB_PUBKEY" | sudo tee -a rootfs/tools/rain-overlay/etc/adb/adb_keys >/dev/null
+          fi
+          sudo chmod 644 rootfs/tools/rain-overlay/etc/adb/adb_keys
+          echo "ключей в образе: $(sudo grep -c . rootfs/tools/rain-overlay/etc/adb/adb_keys)"
+
+      - name: Базовый cloud-образ Ubuntu 26.04 (arm64)
+        run: |
+          mkdir -p rootfs/cache
+          curl -L --fail --retry 3 -o rootfs/cache/ubuntu-26.04-server-cloudimg-arm64-root.tar.xz \
+            https://cloud-images.ubuntu.com/releases/resolute/release/ubuntu-26.04-server-cloudimg-arm64-root.tar.xz
+
+      - name: Сборка rootfs (chroot apt → rain-overlay → ext4 → sparse)
+        run: sudo env REDMI="$GITHUB_WORKSPACE" bash rootfs/build-rootfs.sh
+
+      - name: Артефакты
+        run: |
+          mkdir -p dist
+          cp rootfs/out/linux_rootfs.sparse.img dist/
+          sha256sum dist/* > dist/sha256sums.txt
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rootfs
+          path: dist/
+          retention-days: 7
+
+  release:
+    name: prerelease (alpha)
+    needs: [boot, rootfs]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Публикация prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          TAG="$INPUT_TAG"
+          if [ -z "$TAG" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          fi
+          if [ -z "$TAG" ]; then
+            TAG="alpha-$(date -u +%Y%m%d)-${GITHUB_RUN_NUMBER}"
+          fi
+          echo "TAG=$TAG"
+
+          cat > notes.md <<'EOF'
+          Сборка из исходников (ядро Linux v7.1.5 + `kernel.patch`, rootfs Ubuntu 26.04).
+
+          **Артефакты**
+
+          | Файл | Куда |
+          |---|---|
+          | `boot-linux.img` | ядро + pivot-initramfs: `fastboot boot boot-linux.img` (слот B, Android на слоте A не трогается) |
+          | `boot-display-console-rescue.img` | rescue-образ: консоль на экране телефона и через USB ACM |
+          | `linux_rootfs.sparse.img` | Ubuntu-rootfs: `fastboot flash cust linux_rootfs.sparse.img` |
+          | `sha256sums.txt` | контрольные суммы |
+
+          **Загрузка**
+
+          ```sh
+          adb shell "reboot bootloader"
+          fastboot set_active b                 # Linux только на слоте B (в A — Android, там же нет DTBO)
+          fastboot boot boot-linux.img
+          # первый раз, если rootfs ещё не прошит:
+          fastboot flash cust linux_rootfs.sparse.img
+          ```
+
+          **Логин в rootfs**: пользователь `rain` / пароль `rain` (root: `rain`).
+          ADB работает без диалога авторизации: публичный ключ хоста зашит в
+          `/etc/adb/adb_keys` (плюс опциональный секрет репозитория `ADB_PUBKEY`).
+
+          Это **alpha**: вещи могут быть сломаны, данные — потеряны. Ничего не
+          прошивается в слот A автоматически.
+          EOF
+
+          gh release create "$TAG" \
+            --prerelease \
+            --title "alpha $TAG" \
+            --notes-file notes.md \
+            dist/boot/boot-linux.img \
+            dist/boot/boot-display-console-rescue.img \
+            dist/boot/sha256sums.txt \
+            dist/rootfs/linux_rootfs.sparse.img \
+            dist/rootfs/sha256sums.txt
+
+          echo "release: https://github.com/${{ github.repository }}/releases/tag/$TAG"

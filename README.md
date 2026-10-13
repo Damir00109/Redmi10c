@@ -190,6 +190,29 @@ cd Kernel_Redmi10c
 
 Результат: `out/boot-display-console-rescue.img` (~11.5 MiB).
 
+## Релизы alpha (GitHub Actions)
+
+Воркфлоу [`.github/workflows/alpha.yml`](.github/workflows/alpha.yml) собирает
+всё из исходников и публикует в **prerelease** с тегом `alpha-…`:
+
+| Артефакт | Что это | Куда |
+|---|---|---|
+| `boot-linux.img` | ядро (`v7.1.5` + `kernel.patch`) + pivot-initramfs | `fastboot boot boot-linux.img` |
+| `boot-display-console-rescue.img` | rescue-образ (консоль на экране и через USB ACM) | `fastboot boot` |
+| `linux_rootfs.sparse.img` | Ubuntu 26.04 | `fastboot flash cust …` |
+| `sha256sums.txt` | контрольные суммы | — |
+
+Запуск: Actions → *alpha* → **Run workflow** (тег можно задать вручную), либо
+пуш тега `alpha*`.
+
+- boot собирается на `ubuntu-24.04` (кросс-компилятор `aarch64-linux-gnu`),
+  rootfs — на `ubuntu-24.04-arm` (нативно, без qemu);
+- прошивки подтягиваются из релиза `firmware-2026.09.25` (`tools/fetch-firmware.sh`);
+- **ADB работает без диалога авторизации**: публичный ключ хоста зашит в
+  `rootfs/tools/rain-overlay/etc/adb/adb_keys`, дополнительно можно положить
+  свой ключ в секрет репозитория `ADB_PUBKEY`;
+- логин в rootfs: пользователь `rain`, пароль `rain` (root: `rain`).
+
 ## Загрузка на телефон
 
 Телефон должен быть в fastboot. **Важно:** active slot должен быть `b`, иначе Android-dtbo из активного слота наложится на mainline DTB и загрузка сломается.
