@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..9bf56a1c0
+index 000000000..8d8fadfcd
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,985 @@
+@@ -0,0 +1,1011 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -1077,6 +1077,23 @@ index 000000000..9bf56a1c0
 +&cci0_i2c1 {
 +	status = "okay";
 +
++	/* Front module EEPROM (AAC "V6457", Hi556 AWB/LSC calib) — wraps at 8K */
++	eeprom@51 {
++		compatible = "atmel,24c64";
++		reg = <0x51>;
++		pagesize = <32>;
++		read-only;
++	};
++
++	/* Depth module EEPROM (AAC "B313", OV02B1B) — 256 B device at a
++	 * non-AT24 address; content verified via raw CCI reads. */
++	eeprom@59 {
++		compatible = "atmel,24c02";
++		reg = <0x59>;
++		pagesize = <8>;
++		read-only;
++	};
++
 +	camera@28 {
 +		compatible = "hynix,hi556";
 +		reg = <0x28>;
@@ -1104,6 +1121,15 @@ index 000000000..9bf56a1c0
 +/* Rear main camera — Samsung S5KJN1 @ CCI master 0, CSIPHY0. */
 +&cci0_i2c0 {
 +	status = "okay";
++
++	/* Rear module EEPROM (Sunny, 16K wrap) — module info + AWB/LSC/AF
++	 * calibration; AF DAC endpoints live here for GT9764 bring-up. */
++	eeprom@51 {
++		compatible = "atmel,24c128";
++		reg = <0x51>;
++		pagesize = <64>;
++		read-only;
++	};
 +
 +	camera@10 {
 +		compatible = "samsung,s5kjn1";

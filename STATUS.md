@@ -103,6 +103,7 @@
 | GNSS / GPS | **Частично** | QMI LOC/PDS (QRTR service 16) отвечает, `--loc-start` проходит; фикс требует обзора неба; `gnss-share` (mm-драйвер) поднят |
 | Камера задняя S5KJN1 | **Работает** | Полный путь сенсор→CSIPHY0→CSID0→TFE0→память: кадры 4080x3072 RAW10 непрерывно (проверено сотнями кадров). Контролы exposure/gain/vblank/hblank доходят до регистров. WL2866D питает рельсы. Ограничения: нет AE/AWB/LSC/color matrix (задача ISP-стека, не драйвера), второй режим 8160x6144 не проверен |
 | Камера передняя Hi556 | **Работает** | Сенсор на CCI1 (i2c-1) адрес 0x28 (не 0x40!), CSIPHY2→CSID2→VFE2_RDI0→/dev/video8. Кадры 2592x1944 GRBG10 RAW10. Питание: WL2866D DVDD1=1.2В/AVDD1=2.8В (enable 0x05), MCLK0 19.2МГц gpio20, reset gpio24. Фикс: upstream-драйвер был ACPI-only → добавлен of_match_table. Ограничения: нет AE/AWB (как у задней) |
+| Камера EEPROM ×3 | **Работает** | Все три модульных EEPROM привязаны через at24 и читаются из sysfs: задний S5KJN1 `0-0051` 16КБ (24c128, Sunny: module info + AWB/LSC + AF-калибровка DAC для GT9764), передний Hi556 `1-0051` 8КБ (24c64, AAC "V6457"), depth OV02B1B `1-0059` 256Б (24c02, AAC "B313"). Содержимое совпало с raw-дампами побайтово. Бэкап: `/mnt/128/backups/camera-20261013-eeprom/` |
 | Audio microphone / recording | **Не завершено** | Полный capture path не подтверждён |
 
 ## Что означает статус
