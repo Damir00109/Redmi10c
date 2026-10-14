@@ -24,10 +24,14 @@ permissions:
 jobs:
   boot:
     name: kernel + boot.img
-    runs-on: ubuntu-24.04
+    # Нативный aarch64-раннер: build.sh не только собирает busybox для arm64,
+    # но и запускает его (`./busybox --list`) для создания симлинков — на
+    # x86_64-раннере это «Exec format error» (локально спасает binfmt/qemu).
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 150
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CROSS_COMPILE: ''
     steps:
       - uses: actions/checkout@v4
 
@@ -35,17 +39,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
-            bc flex bison libssl-dev libelf-dev libncurses-dev cpio gzip \
-            xz-utils zstd device-tree-compiler python3 rsync kmod file \
-            curl wget git
+            build-essential bc flex bison libssl-dev libelf-dev \
+            libncurses-dev cpio gzip xz-utils zstd device-tree-compiler \
+            python3 rsync kmod file curl wget git
 
-      - name: Проверка кросс-тулчейна
+      - name: Проверка тулчейна
         run: |
+          test "$(uname -m)" = aarch64
           printf 'int main(void){return 0;}\n' > /tmp/t.c
-          aarch64-linux-gnu-gcc /tmp/t.c -o /tmp/t
-          test -f /usr/aarch64-linux-gnu/include/limits.h
-          echo "кросс-тулчейн и заголовки glibc на месте"
+          gcc /tmp/t.c -o /tmp/t
+          /tmp/t
+          echo "нативный aarch64-тулчейн на месте"
 
       - name: Ядро + rescue-образ (клон v7.1.5, kernel.patch, прошивки)
         run: ./build.sh
@@ -53,9 +57,9 @@ jobs:
       - name: 'Модули ядра (нужны rootfs-джобе: ADSP, звук, сенсоры)'
         run: |
           make -C out/src/linux O="$PWD/out/build/linux-7.1.5" ARCH=arm64 \
-            CROSS_COMPILE=aarch64-linux-gnu- modules -j"$(nproc)"
+            CROSS_COMPILE= modules -j"$(nproc)"
           make -C out/src/linux O="$PWD/out/build/linux-7.1.5" ARCH=arm64 \
-            CROSS_COMPILE=aarch64-linux-gnu- modules_install \
+            CROSS_COMPILE= modules_install \
             INSTALL_MOD_PATH="$PWD/out/build/linux-7.1.5"
 
       - name: boot-linux.img (ядро + pivot-initramfs)

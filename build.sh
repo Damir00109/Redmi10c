@@ -6,7 +6,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 JOBS="${JOBS:-$(nproc)}"
 ARCH=arm64
-CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}"
+# Пусто = нативная сборка (например, на aarch64-хосте): `${VAR-...}`, а не
+# `${VAR:-...}`, чтобы явный CROSS_COMPILE= не подменялся кросс-префиксом.
+CROSS_COMPILE="${CROSS_COMPILE-aarch64-linux-gnu-}"
 KERNEL_TAG="${KERNEL_TAG:-v7.1.5}"
 BUSYBOX_TAG="${BUSYBOX_TAG:-1_36_1}"
 TINYALSA_TAG="${TINYALSA_TAG:-1.1.1}"
