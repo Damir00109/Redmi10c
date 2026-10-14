@@ -8,5 +8,7 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/local/sbin/rain-gps-start.sh
 
+# Запускается таймером rain-gps.timer уже ПОСЛЕ загрузки: скрипт ждёт модем
+# (до 2 мин), тянет XTRA и делает sleep 45 — на критической цепочке он
+# держал multi-user.target несколько минут.
 [Install]
-WantedBy=multi-user.target

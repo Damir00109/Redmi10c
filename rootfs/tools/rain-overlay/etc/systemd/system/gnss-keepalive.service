@@ -1,7 +1,7 @@
 [Unit]
 Description=GNSS keep-alive (hold gnss-share open so the engine can fix)
 Documentation=man:mmcli(1)
-After=gnss-share.service rain-gps.service
+After=gnss-share.service
 Wants=gnss-share.service
 
 [Service]
@@ -10,5 +10,6 @@ ExecStart=/usr/local/sbin/gnss-keepalive
 Restart=always
 RestartSec=5
 
+# Не включается в загрузку: его поднимает rain-gps-start.sh в конце
+# провижининга (после того как применён A-GPS конфиг и перезапущен MM).
 [Install]
-WantedBy=multi-user.target

@@ -87,4 +87,9 @@ wait_modem || { log "modem did not come back"; exit 0; }
 
 enable_location
 mmcli -m 0 --location-status 2>/dev/null | grep -E "capabilities|enabled" | sed 's/^/  /' >&2
+
+# Держим сессию открытой (иначе движок глохнет без клиента). Поднимается
+# здесь, а не из загрузки: он ждёт этот провижининг, и в multi-user.target
+# держал boot несколько минут.
+systemctl --no-block start gnss-keepalive.service 2>/dev/null
 exit 0

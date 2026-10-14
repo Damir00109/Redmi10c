@@ -1,0 +1,11 @@
+[Unit]
+Description=Apply the GNSS/A-GPS config shortly after boot (rain-gps.service)
+
+[Timer]
+# Модем в ModemManager появляется не мгновенно (qcom-* цепочка), поэтому не
+# 0с, а с небольшим запасом; провижининг best-effort и не гейтит загрузку.
+OnBootSec=45s
+Unit=rain-gps.service
+
+[Install]
+WantedBy=timers.target
