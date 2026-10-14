@@ -85,6 +85,7 @@ apt-get install -y --no-install-recommends \
   alsa-utils dbus-x11 python3-dbus adbd \
   gnss-share \
   gcc libqmi-glib-dev pkg-config \
+  v4l-utils \
   fastboot upower fake-hwclock
 locale-gen en_US.UTF-8 || true
 apt-get clean
@@ -237,7 +238,6 @@ echo "=== [5/6] mask boot-time hazards, enable rain units ==="
 # only delays boot. The QRTR/modem helpers are NOT masked — the qcom-*
 # chain (modem firmware + ath10k_snoc load) still needs them.
 for u in NetworkManager-wait-online.service \
-         wpa_supplicant.service \
          cloud-init-local.service cloud-init-main.service cloud-init-network.service \
          cloud-config.service cloud-final.service cloud-init-hotplugd.socket \
          snapd.service snapd.seeded.service snapd.autoimport.service \
@@ -263,7 +263,10 @@ sudo tee "$RF/etc/cloud/cloud.cfg.d/99-disable-cloud-init.cfg" >/dev/null <<'EOF
 datasource_list: [ None ]
 EOF
 sudo touch "$RF/etc/cloud/cloud-init.disabled"
-sudo rm -f "$RF/etc/systemd/system/multi-user.target.wants/"{wpa_supplicant,rain-wifi-nm}.service 2>/dev/null || true
+# wpa_supplicant НЕ убираем: NetworkManager поднимает его только по D-Bus,
+# а эта активация в образе не срабатывает — без запущенного саппликанта
+# wlan0 остаётся unavailable (проверено на alpha-20261014-05).
+sudo rm -f "$RF/etc/systemd/system/multi-user.target.wants/rain-wifi-nm.service" 2>/dev/null || true
 
 sudo chroot "$RF" bash -c '
 systemctl enable rain-stable-boot.service usb-adb-gadget.service adbd.service getty@tty1.service 2>/dev/null || true
@@ -272,6 +275,7 @@ systemctl enable qcom-firmware-stage.service qrtr-ns.service rmtfs.service pd-ma
 systemctl enable qcom-modem-start.service ath10k-snoc-load.service uim-provision.service uim-hotplug.service 2>/dev/null || true
 systemctl enable ModemManager.service NetworkManager.service NetworkManager-dispatcher.service 2>/dev/null || true
 systemctl enable ssh 2>/dev/null || true
+systemctl enable wpa_supplicant.service 2>/dev/null || true
 # Snapdragon Sensor Core (hexagonrpcd -> ADSP fastrpc)
 systemctl enable sensors-setup.service hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service 2>/dev/null || true
 # ASoC/WCD9375 stack (speaker + headset).  Needs the ADSP to stay up: the
