@@ -278,7 +278,7 @@ systemctl enable sensors-setup.service hexagonrpcd-adsp-rootpd.service hexagonrp
 # ADSP is what provides the LPASS clocks, so rain-stable-boot must not stop
 # remoteproc1 (see usr/local/sbin/rain-stable-boot.sh).
 systemctl enable rain-audio.service 2>/dev/null || true
-# GNSS: the modem exposes QMI LOC/PDS (QRTR service 16); ModemManager's
+# GNSS: the modem exposes QMI LOC/PDS (QRTR service 16); the ModemManager
 # Location interface drives it and gnss-share republishes the NMEA on
 # /var/run/gnss-share.sock for geoclue/apps (device_driver="mm").
 systemctl enable gnss-share.service 2>/dev/null || true
