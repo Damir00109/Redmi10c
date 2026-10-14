@@ -22,12 +22,60 @@ permissions:
   contents: write
 
 jobs:
+  lint:
+    name: shell lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n по всем скриптам
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            if ! bash -n "$f" 2>/tmp/err; then
+              echo "::error file=$f::$(cat /tmp/err)"
+              fail=1
+            fi
+          done < <(git ls-files '*.sh')
+          [ "$fail" = 0 ] && echo "синтаксис всех скриптов ок"
+
+      - name: нет апострофов внутри bash -c '...'
+        run: |
+          python3 - <<'PY'
+          import pathlib, subprocess, sys
+
+          # Апостроф в комментарии внутри `bash -c '...'` закрывает блок
+          # раньше времени, кавычки «спариваются» с чем-то дальше в файле и
+          # хвост скрипта становится текстом (bash -n такое не ловит).
+          bad = 0
+          files = subprocess.run(['git', 'ls-files', '*.sh'],
+                                 capture_output=True, text=True).stdout.split()
+          for name in files:
+              lines = pathlib.Path(name).read_text().splitlines()
+              i = 0
+              while i < len(lines):
+                  if lines[i].rstrip().endswith("bash -c '"):
+                      start, j = i + 1, i + 1
+                      while j < len(lines) and not lines[j].lstrip().startswith("'"):
+                          j += 1
+                      for k in range(start, j):
+                          if "'" in lines[k]:
+                              print(f"::error file={name},line={k+1}::"
+                                    f"апостроф внутри bash -c '...': {lines[k].strip()[:60]}")
+                              bad = 1
+                      i = j + 1
+                  else:
+                      i += 1
+          sys.exit(bad)
+          PY
+
   boot:
     name: kernel + boot.img
     # Нативный aarch64-раннер: build.sh не только собирает busybox для arm64,
     # но и запускает его (`./busybox --list`) для создания симлинков — на
     # x86_64-раннере это «Exec format error» (локально спасает binfmt/qemu).
     runs-on: ubuntu-24.04-arm
+    needs: lint
     timeout-minutes: 150
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -82,7 +130,7 @@ jobs:
 
   rootfs:
     name: rootfs.img (Ubuntu 26.04)
-    needs: boot
+    needs: [lint, boot]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
     env:
@@ -170,6 +218,12 @@ jobs:
           fi
           echo "TAG=$TAG"
 
+          # Имена ассетов в релизе обязаны быть уникальными: два файла
+          # sha256sums.txt (из boot- и rootfs-артефактов) GitHub отклоняет
+          # (HTTP 404 на второй upload). Склеиваем в один.
+          cat dist/boot/sha256sums.txt dist/rootfs/sha256sums.txt > sha256sums.txt
+          cat sha256sums.txt
+
           cat > notes.md <<'EOF'
           Сборка из исходников (ядро Linux v7.1.5 + `kernel.patch`, rootfs Ubuntu 26.04).
 
@@ -200,14 +254,19 @@ jobs:
           прошивается в слот A автоматически.
           EOF
 
-          gh release create "$TAG" \
-            --prerelease \
-            --title "alpha $TAG" \
-            --notes-file notes.md \
+          # Идемпотентно: повторный прогон на том же теге обновляет ассеты.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "релиз $TAG уже существует — обновляю ассеты"
+          else
+            gh release create "$TAG" --prerelease --title "alpha $TAG" --notes-file notes.md
+          fi
+
+          gh release upload "$TAG" --clobber \
             dist/boot/boot-linux.img \
             dist/boot/boot-display-console-rescue.img \
-            dist/boot/sha256sums.txt \
             dist/rootfs/linux_rootfs.sparse.img \
-            dist/rootfs/sha256sums.txt
+            sha256sums.txt
 
+          echo "=== ассеты релиза ==="
+          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name)  \(.size) байт"'
           echo "release: https://github.com/${{ github.repository }}/releases/tag/$TAG"
