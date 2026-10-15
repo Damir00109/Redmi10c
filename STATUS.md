@@ -13,7 +13,7 @@
 | Загрузка Linux со слота B | `systemd` `running`, 0 failed, ~39 с (kernel 10.7 + userspace 28.1) |
 | Android на слоте A | не тронут, переключение слотов работает |
 | Экран | DSI-панель Xinli FT8006S (`card0-DSI-1`, 720×1650@60, `connected`), апстрим `msm_dpu`/`msm_dsi`/`msm_dsi_phy` + наш `panel-xinli-ft8006s` |
-| USB | gadget ADB + ACM (консоль `/dev/ttyACM0`), UDC `4e00000.usb`; **3/64 и 4/64** (`snps,dis-64bit-dma` капает маску до 32 бит — см. AGENTS.md) |
+| USB | gadget ADB + ACM (консоль `/dev/ttyACM0`), UDC `4e00000.usb`; **проверено на 3/64 и 4/64** (`snps,dis-64bit-dma` капает маску до 32 бит — см. AGENTS.md) |
 | Хранилище | UFS (`sda`, корень `sda8`); **SD-карта**: ro/rw, запись 8.6–10 МБ/с, чтение 77 МБ/с |
 | Wi-Fi | WCN3990 / ath10k, `wlan0`, ping 0%; board-2 собран из стокового `bd3qvdfu.bin` («invalid board magic» убран) |
 | Bluetooth | hci0 (QCA UART, `cmbtfw13.tlv`/`cmnv13t.bin`), контроллер powered |
