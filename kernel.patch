@@ -1412,10 +1412,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..20a877efa
+index 000000000..d34a72b11
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2446 @@
+@@ -0,0 +1,2455 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -3409,6 +3409,15 @@ index 000000000..20a877efa
 +			snps,dis_u2_susphy_quirk;
 +			snps,dis_enblslpm_quirk;
 +			snps,dis_del_phy_power_chg_quirk;
++			/*
++			 * The core advertises 64-bit AWIDTH, but only 32 bits
++			 * reach DRAM on Khaje and the block is not behind an
++			 * IOMMU (stock DT puts it behind apps_smmu SID 0x120
++			 * with a <4GB IOVA pool).  Cap the DMA mask or coherent
++			 * buffers land above 4 GB on 4 GB-RAM boards
++			 * ("unknown endpoint event 0").
++			 */
++			snps,dis-64bit-dma;
 +			status = "okay";
 +		};
 +
@@ -19159,6 +19168,35 @@ index 5d083331a..6efe2e8ef 100644
  
  	struct ufs_host_params host_params;
  	u32 phy_gear;
+diff --git a/drivers/usb/dwc3/core.c b/drivers/usb/dwc3/core.c
+index 6f3c00b08..efc01eaf3 100644
+--- a/drivers/usb/dwc3/core.c
++++ b/drivers/usb/dwc3/core.c
+@@ -2290,7 +2290,23 @@ int dwc3_core_probe(const struct dwc3_probe_data *data)
+ 
+ 	if (!dev_is_pci(dwc->sysdev) &&
+ 	    DWC3_GHWPARAMS0_AWIDTH(dwc->hwparams.hwparams0) == 64) {
+-		ret = dma_set_mask_and_coherent(dwc->sysdev, DMA_BIT_MASK(64));
++		u64 mask = DMA_BIT_MASK(64);
++
++		/*
++		 * The core may report 64-bit AWIDTH while the SoC does not
++		 * wire all of it to the memory bus and does not put the
++		 * controller behind an IOMMU (e.g. Qualcomm Khaje/SM6225 USB
++		 * runs without SMMU).  With the full 64-bit mask,
++		 * dma_alloc_coherent() for event buffers and TRB rings lands
++		 * above 4 GB on boards whose RAM extends past 4 GB — the
++		 * controller then writes nowhere: "unknown endpoint event 0"
++		 * and the UDC never attaches.  Boards declare the
++		 * snps,dis-64bit-dma quirk to cap the mask.
++		 */
++		if (device_property_read_bool(dwc->dev, "snps,dis-64bit-dma"))
++			mask = DMA_BIT_MASK(32);
++
++		ret = dma_set_mask_and_coherent(dwc->sysdev, mask);
+ 		if (ret)
+ 			goto err_disable_clks;
+ 	}
 diff --git a/drivers/usb/dwc3/dwc3-qcom-legacy.c b/drivers/usb/dwc3/dwc3-qcom-legacy.c
 index d3fad0fcf..40ec5912e 100644
 --- a/drivers/usb/dwc3/dwc3-qcom-legacy.c

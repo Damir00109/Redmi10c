@@ -323,7 +323,16 @@ sudo mkdir -p "$MNT/dev" "$MNT/proc" "$MNT/sys" "$MNT/run" "$MNT/tmp"
 # "unsafe path transition", dbus /dev/null EACCES). Host-uid leaks from
 # overlay/firmware copies get the same fix; only /home/rain stays uid 1000.
 sudo chown 0:0 "$MNT" && sudo chmod 755 "$MNT"
-sudo find "$MNT" -xdev -uid "$(id -u)" ! -path "$MNT/home/rain*" -exec chown 0:0 {} + 2>/dev/null || true
+# The uid sweep must only touch files owned by whoever owned the source
+# tree, never every root-owned file: chown clears setuid/setgid bits.
+# In CI the whole script runs under sudo so id -u = 0 and find -uid 0
+# would chown (and de-setuid) the entire rootfs. The leaked files all come
+# from the overlay/firmware copies, so match the overlay dir's owner —
+# root means nothing leaked and the sweep is skipped.
+RSYNC_SRC_UID="$(stat -c %u "$OVER" 2>/dev/null || stat -c %u "$ROOT")"
+if [ "$RSYNC_SRC_UID" != "0" ]; then
+  sudo find "$MNT" -xdev -uid "$RSYNC_SRC_UID" ! -path "$MNT/home/rain*" -exec chown 0:0 {} + 2>/dev/null || true
+fi
 sudo chgrp 101 "$MNT/var/log" 2>/dev/null || true   # syslog:x:101 in image
 sudo umount "$MNT"
 img2simg "$ROOTIMG" "$OUT/linux_rootfs.sparse.img"

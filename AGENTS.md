@@ -142,3 +142,17 @@
   Стоковый ROM: `/mnt/931/fog_global_images_V14.0.9.0.TGEMIXM_13.0/`.
   Сборка/тест: `REDMI=/mnt/128/Redmi10c bash rootfs/tools/pack-boot-linux.sh` →
   `fastboot boot rootfs/out/boot-linux.img` (неразрушающе).
+- **USB на 4/64 (`snps,dis-64bit-dma` — НЕ удалять)**: DWC3 на Khaje декларирует
+  `GHWPARAMS0.AWIDTH=64` и `dwc3_probe` ставит 64-битную DMA-маску, но реально к DRAM
+  проведены только 32 бита и контроллер НЕ за SMMU (в стоке он за `apps_smmu`
+  SID 0x120 с пулом <4 ГБ). На платах с RAM >4 ГБ (rain 4/64) coherent-буферы
+  (event/TRB) попадают в ZONE_NORMAL выше 4 ГБ → контроллер пишет «в никуда»:
+  `unknown endpoint event 0`, UDC не аттачится, на хосте `-71`/«сбой дескриптора».
+  На 3/64 баг замаскирован (вся память <4 ГБ). Свойство `snps,dis-64bit-dma` в
+  `usb@4e00000` (dtsi) + клэмп маски в `drivers/usb/dwc3/core.c` после блока
+  `AWIDTH==64` — патч обязателен. Проверено: 3/64 работает и после фикса.
+- **rootfs: `find -uid $(id -u)` ломает setuid в CI**: в `build-rootfs.sh` sweep
+  владельца должен бить ТОЛЬКО по uid владельца оверлея (`stat -c %u`), не по
+  `id -u` — под `sudo bash` `id -u`=0 и `chown` всего дерева срезает ВСЕ
+  setuid/setgid биты (sudo/su/pkexec/dbus-helper/...). Проверка образа:
+  `find / -xdev \( -perm -4000 -o -perm -2000 \) -type f` — должно быть ~23 файла.
