@@ -917,3 +917,33 @@ BT UP RUNNING, Wi-Fi online. dmesg-дифф: новое — 3 строки
   `e97069b` (gitignore sensors/).
 - Итог патча: −1900+ строк от начала сессии; proc-0777 канал удалён,
   MMIO-хаки ufs/pinctrl закрыты или задокументированы как quirks.
+
+---
+
+## Сессия 2026-10-17 (вечер): UFS devfreq — ROOT CAUSE найден
+
+Кросс-проверка с веткой `main` (`fix/sm6225-ufs-memory-stability`,
+патч `redmi10c-mainline-20260831`): старая доказанно-стабильная
+конфигурация имела `qcom,disable-devfreq` **+ `qcom,disable-runtime-pm`**
+(ufshcd: `pm_runtime_forbid` + `ahit=0`). При переносе в новое дерево
+`disable-runtime-pm` и его обработка в `ufshcd.c` потерялись; вместо
+этого в DT осталось `qcom,auto-hibern8-us = <5000>` — **мёртвое
+свойство**, его никто не парсит (ahit брался дефолтом 150мс).
+
+Вывод: клин был НЕ от clk scaling сам по себе, а от гонки
+«выход из hibern8 (150мс) ↔ devfreq scale transition».
+
+**Эксперимент (ядро #6):** devfreq ON + `qcom,disable-runtime-pm`
+(вернул обработку ahit=0/pm_runtime_forbid в ufshcd.c) + убран
+мёртвый `auto-hibern8-us`.
+
+**Стресс-результаты:** 800 МБ dd+fsync — 1.65с @507МБ/с (раньше этот
+же тест вешал систему навсегда); 89 принудительных переходов
+50↔200МГц (userspace governor) под ~3ГБ смешанного read/write —
+**0 UIC-таймаутов**, `running`, 0 failed. `trans_stat` подтверждает
+реальные транзишны; `auto_hibern8 = 0`, `runtime_status: active`.
+
+**Итоговая конфигурация UFS:** devfreq включён (масштабирование
+core clk 50↔200МГц), auto-hibern8/runtime-pm выключены — как в
+доказанно-стабильной старой сборке. `disable-devfreq` больше не нужен
+и удалён из DT.

@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..c99a5c6a6
+index 000000000..c3ee7b808
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1172 @@
+@@ -0,0 +1,1173 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -505,12 +505,13 @@ index 000000000..c99a5c6a6
 +	qcom,vddp-ref-clk-max-uV = <1232000>;
 +	qcom,vddp-ref-clk-max-microamp = <100>;
 +	qcom,force-legacy-dme-quirks;
-+	/* CONFIRMED broken on khaje (2026-10-17): enabling clk scaling lets
-+	 * the link drop to UNIPRO 10 MHz and a subsequent scale transition
-+	 * under I/O load wedges the UFS queue (dd stalls, system unrecoverable
-+	 * without sysrq-reboot). Keep the controller at the negotiated gear. */
-+	qcom,disable-devfreq;
-+	qcom,auto-hibern8-us = <5000>;
++	/* Root cause found (2026-10-17): the UFS wedge was NOT clk scaling —
++	 * it is the hibern8-exit vs scale transition race on khaje. With
++	 * runtime-pm/auto-hibern8 disabled (ahit=0, as in the proven-stable
++	 * config from the main branch), devfreq scaling is stable:
++	 * 89 forced 50↔200 MHz transitions under ~3 GB mixed I/O, zero
++	 * UIC timeouts. Keep devfreq enabled; keep RPM/hibern8 off. */
++	qcom,disable-runtime-pm;
 +
 +	pinctrl-names = "default";
 +	pinctrl-0 = <&ufs_reset_default>;
@@ -17112,6 +17113,35 @@ index 3b0f836a9..deba35fa5 100644
  	.resources_init = geni_serial_resource_init,
  	.set_rate = geni_serial_set_rate,
  	.power_state = geni_serial_resource_state,
+diff --git a/drivers/ufs/core/ufshcd.c b/drivers/ufs/core/ufshcd.c
+index 84e32957c..ae5b3ce11 100644
+--- a/drivers/ufs/core/ufshcd.c
++++ b/drivers/ufs/core/ufshcd.c
+@@ -9456,7 +9456,12 @@ static void ufshcd_async_scan(void *data, async_cookie_t cookie)
+ 	ret = ufshcd_add_lus(hba);
+ 
+ out:
+-	pm_runtime_put_sync(hba->dev);
++	if (device_property_read_bool(hba->dev, "qcom,disable-runtime-pm")) {
++		pm_runtime_forbid(hba->dev);
++		pm_runtime_put_noidle(hba->dev);
++	} else {
++		pm_runtime_put_sync(hba->dev);
++	}
+ 
+ 	if (ret)
+ 		dev_err(hba->dev, "%s failed: %d\n", __func__, ret);
+@@ -11229,7 +11234,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
+ 	INIT_DELAYED_WORK(&hba->ufs_rtc_update_work, ufshcd_rtc_work);
+ 
+ 	/* Set the default auto-hiberate idle timer value to 150 ms */
+-	if (ufshcd_is_auto_hibern8_supported(hba) && !hba->ahit) {
++	if (device_property_read_bool(hba->dev, "qcom,disable-runtime-pm")) {
++		hba->ahit = 0;
++	} else if (ufshcd_is_auto_hibern8_supported(hba) && !hba->ahit) {
+ 		hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 150) |
+ 			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
+ 	}
 diff --git a/drivers/ufs/host/ufs-qcom.c b/drivers/ufs/host/ufs-qcom.c
 index 9c0973a7f..28b370f5b 100644
 --- a/drivers/ufs/host/ufs-qcom.c
