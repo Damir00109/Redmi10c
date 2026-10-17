@@ -8,7 +8,6 @@ git add -N \
 	arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts \
 	arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts \
 	arch/arm64/boot/dts/qcom/sm6225.dtsi \
-	arch/arm64/configs/rain_defconfig \
 	drivers/input/touchscreen/fts_spi \
 	drivers/media/i2c/ov02b1b.c \
 	drivers/gpu/drm/panel/Kconfig \

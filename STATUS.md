@@ -843,3 +843,66 @@ fastboot, НЕ прошит). boot_b = старое ядро #1 — безопа
 
 **Следующее:** Фаза 2 — ufs device-reset → `device-reset-gpios` через
 pinctrl (убрать ioremap-хак), pinctrl-msm bisect-костыли, ipa ret.
+
+---
+
+## Сессия 2026-10-17 (ночь): Фазы 2+3 — PASS с находкой
+
+**Фаза 2 — структурные правки:**
+- `ufs-qcom.c/h`: удалён весь `qcom,device-reset-mmio` fallback —
+  оказался **мёртвым кодом**: DT уже нёс `reset-gpios = <&tlmm 120>` +
+  pinctrl-state, и baseline показывал «reset toggled (gpio)». ioremap
+  TLMM больше не существует в драйвере. Комментарий «TLMM stub crashed»
+  устарел — pinctrl-путь работает.
+- `pinctrl-msm.c`: bisect-костыли закрыты — `platform_get_irq_optional`
+  → обратно на обязательный `platform_get_irq` (summary IRQ + touch IRQ
+  gpio80 работают), `if (soc_data->ngpios)`-гард убран, `dev_info` в
+  probe → `dev_dbg` (upstream-форма). Остались только легитимные quirks:
+  `reserved_gpios` (разреженная карта TLMM khaje — MMIO к EAST/SOUTH
+  виснет), `msm_gpio_irq_quiesce` (маска+ack до регистрации summary IRQ).
+- `ipa_main.c`: `qcom_scm_pas_shutdown` перестал затирать `ret` —
+  явный `(void)`-стиль вызов с комментарием (expected-fail на холодную).
+
+**Фаза 3 — оптимизация:**
+- `icc-rpm` keep-alive: **root-cause задокументирован как quirk** —
+  downstream держит NoC intf clocks включёнными; их снятие вешает
+  MMIO-доступ (USB3 PHY pokes → hard hang). Отключать отдельные клоки —
+  рискованно (каждый эксперимент = hard hang). Оставлено с комментарием.
+- **UFS clk scaling — ПОДТВЕРЖДЕНО СЛОМАНО**: снял
+  `qcom,disable-devfreq`, загрузился чисто (HS_GEAR1 в idle), но под
+  dd-нагрузкой очередь UFS встала колом (dd не завершился, shell в D-
+  state, лечится только sysrq-reboot). Флаг возвращён с уточнённым
+  комментарием. Вывод: квирк нужен и задокументирован.
+- `fts_spi`: `FTS_REPORT_PRESSURE_EN=0` (ABS_MT_PRESSURE убран —
+  libinput он не нужен); `arch/arm64/configs/rain_defconfig` удалён
+  из патча (мёртвый — источник правды `kernel.config`).
+- Шум: `q6core` «LPASS npa/island OK» dev_err→dev_dbg (success-path
+  на error-уровне), `phy-snps-femto` `rain: usb gdsc` dev_info→dev_dbg.
+
+**Проверка (kernel #4, fastboot boot):** `running`, 0 failed,
+HS_GEAR3, remoteproc0/1 up, fts_ts event4, camss 33 entities,
+BT UP RUNNING, Wi-Fi online. dmesg-дифф: новое — 3 строки
+`q6afe AFE failed to vote`/`Unknown cmd 0x100f4` (гонка APR при
+подъёме ASoC, карта probed нормально — флэки); убрано — весь
+целевой шум. `hci0 tx timeout` на этом буте не повторился — флэки.
+
+**Отложено сознательно:** аудит всех status="okay" DT-нод по железу
+(37 нод — нужен отдельный прогон), `qcom,force-legacy-dme-quirks`,
+`qcom,auto-hibern8-us` — живые квирки.
+
+## Фаза 4 — upstream-кандидаты (список для оформления)
+
+Из `kernel.patch` можно отправлять как самостоятельные серии:
+1. `ath10k/wmi.c` — freq=0 guard (чистый fix, безвредный).
+2. `qcom_scm.c` — `xiaomi,fog` в qseecom allowlist.
+3. `clk.c` — orphan reparent fix (со ссылкой на upstream-дискуссию).
+4. `gpucc-sm6375` — Lucid→Zonda (правильный silicon fix).
+5. `camss` sm6225 csiphy-3ph-1-0 таблицы + camss.c wiring.
+6. `pinctrl-khaje` + `reserved_gpios`/`irq_quiesce` в pinctrl-msm
+   (новый SoC-драйвер + quirk-механизм — отдельная серия).
+7. `ufs-qcom` khaje-квирки: ref_clk force-on, vddp-ref-clk —
+   как DT-quirk серия (с disable-devfreq как документированный
+   fallback).
+8. `ipa_main` full-region PAS_MEM_SETUP + pre-init PIL-последовательность
+   — обоснование PT_NULL scratch уже в коде.
+9. `dts`: sm6225.dtsi + xiaomi-fog/rain — после чистки выше.
