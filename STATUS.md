@@ -892,7 +892,8 @@ BT UP RUNNING, Wi-Fi online. dmesg-дифф: новое — 3 строки
 
 ## Фаза 4 — upstream-кандидаты (список для оформления)
 
-Из `kernel.patch` можно отправлять как самостоятельные серии:
+Развёрнутое разбиение на серии с зависимостями и статусом —
+`docs/UPSTREAM-SERIES.md`. Краткий список:
 1. `ath10k/wmi.c` — freq=0 guard (чистый fix, безвредный).
 2. `qcom_scm.c` — `xiaomi,fog` в qseecom allowlist.
 3. `clk.c` — orphan reparent fix (со ссылкой на upstream-дискуссию).
@@ -1034,3 +1035,32 @@ upstream меньше.
 **Оставшийся дебт:** надёжной посадки off-pulse нет; глубокий wedge
 требует unbind/bind (не ребут). Полевое воздействие низкое —
 `power off` в проде почти не дёргают.
+
+## Блоки B2 / B4 / C2 — закрыты (2026-10-17)
+
+**B2 — Q6AFE `AFE failed to vote`/`Unknown cmd 0x100f4`:** это
+APR-команда `AFE_CMD_REMOTE_LPASS_CORE_HW_VOTE_REQUEST` (0x100f4) в
+upstream `q6afe.c` — кодек голосует за LPASS HW-блок до готовности
+AFE-сервиса на ADSP, ответ приходит поздно/не по порядку → `dev_err`.
+На проверочном буте (kernel #9, boot_b) **не воспроизвелось** — карта
+probed чисто, `aplay -l` видит XiaomiRedmi10C/MultiMedia1. Вывод:
+периодический стартовый шум гонки APR↔ADSP, upstream-лог,
+функционального эффекта нет (карта всегда поднимается). Код не тронут —
+«фикс» = маскировка upstream-дiagnostics, не нужна.
+
+**B4 — FTS ESD check:** `FTS_ESDCHECK_EN=0` оставлен **сознательно** —
+реализация esdcheck уже удалена в вендорной чистке (`focaltech_stubs.c`
+содержит заглушку `fts_esdcheck_init()→0`). Включение потребовало бы
+возврата polling-workqueue с чтением магических регистров панели —
+vendor-код без подтверждённой проблемы: тач стабилен в стресс-тестах,
+ошибки SPI-шины самодиагностируются. Зафиксировано.
+
+**C2 — upstream-серии:** список кандидатов (раздел «Фаза 4» выше)
+развёрнут в `docs/UPSTREAM-SERIES.md` — 6 логических серий в порядке
+отправки + явный список сознательно-не-upstreamable quirks
+(hci_qca-тайминги, icc-rpm usb_axi keep-alive, FTS-драйвер,
+UFS disable-runtime-pm, DWC3 DMA-клэмп, `*_ignore_unused` cmdline).
+Поведение не менялось — только организация.
+
+**Сессия закрыта:** блоки A1+A2, B1–B4, C1–C2 выполнены; блок D
+(PulseAudio auto_null, SIM/LTE, GPS/камеры/voice) отложен.
