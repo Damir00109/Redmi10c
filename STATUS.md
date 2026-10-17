@@ -956,3 +956,11 @@ adb push/pull 1ГБ через USB-гаджет + ping -i0.2 параллель�
 remoteproc0/1 running, fts_ts на месте, `/proc/ftxxxx-debug` отсутствует,
 Wi-Fi 6GHz 1170Mbit, BT UP RUNNING, температуры 32-36°C, md5 через
 гаджет совпадает — коррупции нет.
+
+**Продолжение чистки (ядро #9):** Focaltech warnings устранены
+(пустые FTS_*-макросы → do-while, `__maybe_unused`, whitespace);
+`qcom,force-legacy-dme-quirks` снят — **3 холодных бута подряд UFS
+линкуется чисто без DME-квирков** (quirk был нужен только на раннем
+bring-up с битыми PHY-таблицами). Прошито в `boot_b`
+(sha256 d12fc7f4…): `#9`, `running`/`0 failed`, remoteproc0/1 running,
+devfreq активен (13 транзишнов за первую минуту).
