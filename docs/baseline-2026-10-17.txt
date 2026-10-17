@@ -1,0 +1,453 @@
+
+##### DATE #####
+Sat Oct 17 12:38:59 UTC 2026
+ 12:38:59 up 32 min,  0 users,  load average: 0.22, 0.23, 0.32
+Linux rain-ubuntu 7.1.5-dirty #1 SMP PREEMPT Sat Oct 17 14:17:10 MSK 2026 aarch64 GNU/Linux
+
+##### CMDLINE #####
+console=tty0 console=ttyGS0,115200 console=ttyMSM0,115200n8 earlycon consoleblank=0 log_buf_len=2M pd_ignore_unused clk_ignore_unused fw_devlink=off deferred_probe_timeout=120 rcupdate.rcu_cpu_stall_timeout=20 rcupdate.rcu_cpu_stall_suppress=1
+
+##### SLOT #####
+Current slot: _b
+
+##### SYSTEMD #####
+running
+
+##### SERVICES_RUNNING #####
+adbd.service
+bluetooth.service
+chrony.service
+dbus.service
+getty@tty1.service
+gnss-keepalive.service
+gnss-share.service
+hexagonrpcd-adsp-rootpd.service
+hexagonrpcd-adsp-sensorspd.service
+ModemManager.service
+networkd-dispatcher.service
+NetworkManager-dispatcher.service
+NetworkManager.service
+pd-mapper.service
+polkit.service
+pulseaudio.service
+qrtr-ns.service
+rmtfs.service
+rsyslog.service
+ssh.service
+systemd-journald.service
+systemd-logind.service
+systemd-resolved.service
+systemd-udevd.service
+tqftpserv.service
+udisks2.service
+uim-hotplug.service
+unattended-upgrades.service
+upower.service
+user@1000.service
+wpa_supplicant.service
+
+##### SERVICES_FAILED_ALL #####
+
+##### CPUFREQ #####
+policy0: gov=schedutil cur=1804800 avail=297600 691200 940800 1190400 1516800 1804800 1900800  
+policy4: gov=schedutil cur=2400000 avail=297600 806400 1056000 1344000 1766400 2208000 2400000  
+
+##### ONLINE_CPUS #####
+0-7
+
+##### THERMAL #####
+battery: 32100
+bms: 32100
+cpu-thermal: 35600
+cpuss-thermal: 36400
+modem-thermal: 34500
+gpu-thermal: 34100
+
+##### GPU #####
+by-path
+card0
+renderD128
+5900000.gpu: 5900000.gpu gov=simple_ondemand cur=320000097 avail=320000000 465000000 600000000 785000000 1025000000 1114800000 
+
+##### GPU_DRM #####
+/sys/class/drm/card0-DSI-1/status: connected
+
+##### BACKLIGHT #####
+5e94000.dsi.0: 614/2047
+
+##### MEMORY #####
+               total        used        free      shared  buff/cache   available
+Mem:           2.6Gi       457Mi       1.9Gi       6.5Mi       323Mi       2.1Gi
+Swap:             0B          0B          0B
+
+##### STORAGE #####
+NAME         SIZE TYPE MOUNTPOINT
+sda         53.5G disk 
+├─sda1         8K part 
+├─sda2        32M part /mnt/persist
+├─sda3         1M part 
+├─sda4         2M part 
+├─sda5       512K part 
+├─sda6       512K part 
+├─sda7       128M part 
+├─sda8      19.1G part /
+├─sda9       8.5G part 
+├─sda10       64K part 
+├─sda11       64K part 
+├─sda12       16M part 
+├─sda13      128M part 
+├─sda14       16M part 
+├─sda15        8M part 
+└─sda16     23.6G part 
+sdb            8M disk 
+├─sdb1         7M part 
+└─sdb2       128K part 
+sdc            8M disk 
+├─sdc1         7M part 
+└─sdc2       128K part 
+sdd           32M disk 
+├─sdd1       104K part 
+├─sdd2       128K part 
+└─sdd3         1M part 
+sde            6G disk 
+├─sde1       512K part 
+├─sde2         4M part 
+├─sde3       512K part 
+├─sde4       180M part /run/modem_partition
+├─sde5         1M part 
+├─sde6         4M part 
+├─sde7        32M part 
+├─sde8         1M part 
+├─sde9        32M part 
+├─sde10      512K part 
+├─sde11      128M part 
+├─sde12      512K part 
+├─sde13      512K part 
+├─sde14      128K part 
+├─sde15       64K part 
+├─sde16       64K part 
+├─sde17       24M part 
+├─sde18       48M part 
+├─sde19        2M part 
+├─sde20       96M part 
+├─sde21      128K part 
+├─sde22       32K part 
+├─sde23      512K part 
+├─sde24        4M part 
+├─sde25      512K part 
+├─sde26      180M part 
+├─sde27        1M part 
+├─sde28        4M part 
+├─sde29       32M part 
+├─sde30        1M part 
+├─sde31       32M part 
+├─sde32      512K part 
+├─sde33      128M part 
+├─sde34      512K part 
+├─sde35      512K part 
+├─sde36      128K part 
+├─sde37       64K part 
+├─sde38       64K part 
+├─sde39       24M part 
+├─sde40      128K part 
+├─sde41       48M part 
+├─sde42        2M part 
+├─sde43       96M part 
+├─sde44       32K part 
+├─sde45        4K part 
+├─sde46        1M part 
+├─sde47      256K part 
+├─sde48        8M part 
+├─sde49     32.6M part 
+├─sde50        4K part 
+├─sde51        1M part 
+├─sde52        8M part 
+├─sde53        2M part 
+├─sde54      200M part 
+├─sde55       64M part 
+├─sde56      128K part 
+├─sde57       32K part 
+├─sde58      512K part 
+├─sde59       28K part 
+├─sde60      512K part 
+└─sde61      4.6G part 
+sdf           32M disk 
+├─sdf1       104K part 
+├─sdf2         3M part 
+├─sdf3         3M part 
+├─sdf4         3M part 
+└─sdf5       128K part 
+mmcblk0     14.5G disk 
+└─mmcblk0p1 14.5G part 
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda8        19G  1.7G   17G  10% /
+/dev/sda2        27M  2.3M   24M   9% /mnt/persist
+
+##### UFS #####
+/sys/devices/platform/soc/4804000.ufshc/power_info/gear: HS_GEAR3
+/sys/class/scsi_device/0:0:0:0/device: vendor=WDC      model=SDINDDK4-64G    
+/sys/class/scsi_device/0:0:0:1/device: vendor=WDC      model=SDINDDK4-64G    
+/sys/class/scsi_device/0:0:0:2/device: vendor=WDC      model=SDINDDK4-64G    
+/sys/class/scsi_device/0:0:0:3/device: vendor=WDC      model=SDINDDK4-64G    
+/sys/class/scsi_device/0:0:0:4/device: vendor=WDC      model=SDINDDK4-64G    
+/sys/class/scsi_device/0:0:0:49456/device: vendor=WDC      model=SDINDDK4-64G    
+/sys/class/scsi_device/0:0:0:49476/device: vendor=WDC      model=SDINDDK4-64G    
+/sys/class/scsi_device/0:0:0:49488/device: vendor=WDC      model=SDINDDK4-64G    
+/sys/class/scsi_device/0:0:0:5/device: vendor=WDC      model=SDINDDK4-64G    
+
+##### INPUT #####
+N: Name="gpio-vibrator"
+N: Name="pm8941_pwrkey"
+N: Name="pm8941_resin"
+N: Name="gpio-keys"
+N: Name="fts_ts"
+N: Name="Xiaomi-Redmi10C Headset Jack"
+
+##### TOUCH_SYMLINK #####
+total 0
+lrwxrwxrwx 1 root root 9 Oct 17 11:30 platform-1c40000.spmi-platform-1c40000.spmi:pmic@0:pon@800:pwrkey-event -> ../event1
+lrwxrwxrwx 1 root root 9 Oct 17 11:30 platform-1c40000.spmi-platform-1c40000.spmi:pmic@0:pon@800:resin-event -> ../event2
+lrwxrwxrwx 1 root root 9 Oct 17 11:30 platform-gpio-keys-event -> ../event3
+lrwxrwxrwx 1 root root 9 Oct 17 11:30 platform-sound-event -> ../event5
+lrwxrwxrwx 1 root root 9 Oct 17 11:30 platform-spi-cs-0-event -> ../event4
+lrwxrwxrwx 1 root root 9 Oct 17 11:30 platform-vibrator-event -> ../event0
+
+##### WIFI_LINK #####
+Connected to 50:fe:39:e3:93:13 (on wlan0)
+	SSID: Xiaomi_E4C4
+	freq: 5220.0
+	RX: 9476269 bytes (38719 packets)
+	TX: 62033 bytes (371 packets)
+	signal: -51 dBm
+	rx bitrate: 6.0 MBit/s
+	bss flags: short-slot-time
+	dtim period: 1
+	beacon int: 100
+
+##### WIFI_IP #####
+3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    altname wlxf06c5d0236a2
+    inet 192.168.0.146/24 brd 192.168.0.255 scope global dynamic noprefixroute wlan0
+       valid_lft 41274sec preferred_lft 41274sec
+
+##### WIFI_IFACES #####
+		type P2P-device
+	Interface wlan0
+		type managed
+
+##### WIFI_FW #####
+[   43.241798] ath10k_snoc c800000.wifi: qmi chip_id 0x4130 chip_family 0x4007 board_id 0xff soc_id 0x40690000
+[   43.241863] ath10k_snoc c800000.wifi: qmi fw_version 0x324a83fe fw_build_timestamp 2022-02-21 20:19 fw_build_id QC_IMAGE_VERSION_STRING=WLAN.HL.3.2.4-01022-QCAHLSWMTPLZ-1
+[   46.153880] ath10k_snoc c800000.wifi: wcn3990 hw1.0 target 0x00000008 chip_id 0x00000000 sub 0000:0000
+[   46.153906] ath10k_snoc c800000.wifi: kconfig debug 0 debugfs 0 tracing 0 dfs 0 testmode 0
+[   46.153915] ath10k_snoc c800000.wifi: firmware ver  api 5 features wowlan,mgmt-tx-by-reference,non-bmi,single-chan-info-per-channel crc32 a79c5b24
+[   46.184388] ath10k_snoc c800000.wifi: htt-ver 3.96 wmi-op 4 htt-op 3 cal file max-sta 32 raw 0 hwcrypto 1
+
+##### BT #####
+	Name: rain-ubuntu
+	Powered: yes
+	Discoverable: no
+	DiscoverableTimeout: 0x000000b4 (180)
+	Pairable: no
+hci0:	Type: Primary  Bus: UART
+	BD Address: F0:6C:5D:02:36:9F  ACL MTU: 1024:8  SCO MTU: 60:8
+	UP RUNNING 
+	RX bytes:3489 acl:0 sco:0 events:158 errors:0
+
+##### MODEM #####
+           |         device id: 905294b311894ed9f764aad995fb22f449189453
+  Hardware |      manufacturer: QUALCOMM INCORPORATED
+           |             model: 0
+           | firmware revision: MPSS.HA.1.1.c1-00027-KD_ALL_PACK-3.21298.20  1  [Aug 16 2024 04:00:00]
+           |      h/w revision: 10000
+           |      equipment id: 867098064696947
+  Status   |             state: [31mfailed[0m
+           |     failed reason: [31msim-missing[0m
+  SIM      |    sim slot paths: slot 1: none
+
+##### MODEM_BEARER #####
+
+##### MODEM_DATA_IFACE #####
+
+##### SIM #####
+
+##### AUDIO_SINKS #####
+0	auto_null	module-null-sink.c	s16le 2ch 44100Hz	SUSPENDED
+0	auto_null.monitor	module-null-sink.c	s16le 2ch 44100Hz	SUSPENDED
+
+##### AUDIO_CARDS #####
+**** List of PLAYBACK Hardware Devices ****
+card 0: XiaomiRedmi10C [Xiaomi-Redmi10C], device 0: MultiMedia1 (*) []
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+ 0 [XiaomiRedmi10C ]: qcm6490 - Xiaomi-Redmi10C
+                      Xiaomi-Redmi10C
+
+##### ALSA_MIXER_CARD #####
+Simple mixer control 'ADC1',0
+Simple mixer control 'ADC1_MIXER',0
+Simple mixer control 'ADC2',0
+Simple mixer control 'ADC2 MUX',0
+Simple mixer control 'ADC2_MIXER',0
+Simple mixer control 'ADC3',0
+Simple mixer control 'AUX PATH Mode',0
+Simple mixer control 'AUX_HPF',0
+Simple mixer control 'AUX_RDAC',0
+Simple mixer control 'CLSH PA',0
+
+##### SENSORS #####
+/sys/bus/iio/devices/iio:device0: 1c40000.spmi:pmic@0:adc@3100
+
+##### HEXAGON #####
+active
+active
+active
+
+##### CAMERA #####
+crw-rw---- 1 root video 249,  0 Oct 17 11:30 /dev/media0
+crw-rw---- 1 root video  81,  0 Oct 17 11:30 /dev/video0
+crw-rw---- 1 root video  81,  1 Oct 17 11:30 /dev/video1
+crw-rw---- 1 root video  81, 10 Oct 17 11:30 /dev/video10
+crw-rw---- 1 root video  81, 11 Oct 17 11:30 /dev/video11
+crw-rw---- 1 root video  81,  2 Oct 17 11:30 /dev/video2
+crw-rw---- 1 root video  81,  3 Oct 17 11:30 /dev/video3
+crw-rw---- 1 root video  81,  4 Oct 17 11:30 /dev/video4
+crw-rw---- 1 root video  81,  5 Oct 17 11:30 /dev/video5
+crw-rw---- 1 root video  81,  6 Oct 17 11:30 /dev/video6
+/sys/bus/i2c/drivers/dw9768/:
+/sys/bus/i2c/drivers/hi556/:
+/sys/bus/i2c/drivers/ov02b1b/:
+/sys/bus/i2c/drivers/s5kjn1/:
+
+##### CAMSS_BIND #####
+/sys/devices/platform/soc/5c11000.camss -> qcom-camss
+
+##### GPS #####
+active
+active
+success
+
+##### POWER #####
+== battery (Battery)
+  status=Charging
+  capacity=100
+  voltage_now=4441000
+  current_now=174000
+  charge_full=4779000
+  charge_now=4772000
+  temp=319
+  technology=Li-ion
+== bms (Battery)
+  capacity=100
+  voltage_now=4441000
+  current_now=174000
+  charge_full=4779000
+  charge_now=4772000
+  temp=319
+  technology=Li-ion
+== usb (USB)
+  online=1
+
+##### USB_GADGET #####
+4e00000.usb
+configured
+
+##### REMOTEPROC #####
+/sys/class/remoteproc/remoteproc0/state: running
+/sys/class/remoteproc/remoteproc1/state: running
+
+##### RPM_STATS #####
+
+##### MODULES #####
+Module at24 fastrpc fuse ipa qcom_q6v5_adsp rpmsg_ctrl 
+##### DMESG_ERR_WARN #####
+
+##### DMESG_WARN_COUNT #####
+0
+
+##### DMESG_KEY #####
+[    0.000000] Malformed early option 'earlycon'
+[    2.643069] platform 5c11000.camss: Adding to iommu group 1
+[    2.643953] platform 4804000.ufshc: Adding to iommu group 3
+[    2.651516] platform 5900000.gpu: Adding to iommu group 6
+[    2.883331] smb1351-charger-bringup 3-0055: smb1351 bringup init ok (status4=0x21 float=4460mV)
+[    2.885609] smb1351-charger-bringup 3-0055: smb1351 bringup probed @0x55
+[    2.893262] sh366101-fg-bringup 2-0055: sh366101 FG bringup probed @0x55 (soc=100%)
+[    2.901298] Bluetooth: hci0: setting up wcn399x
+[    2.905255] ufshcd-qcom 4804000.ufshc: enabled qcom,vddp-ref-clk (1232000-1232000 uV)
+[    2.905403] ufshcd-qcom 4804000.ufshc: UFS clk scaling disabled (qcom,disable-devfreq)
+[    2.905730] ufshcd-qcom 4804000.ufshc: Found QC Inline Crypto Engine (ICE) v3.1.0
+[    2.905786] ufshcd-qcom 4804000.ufshc: A supported HWKM is not present. Supporting raw keys only.
+[    2.907814] ufshcd-qcom 4804000.ufshc: device reset toggled (gpio)
+[    2.922726] scsi host0: ufshcd
+[    2.928055] ufshcd-qcom 4804000.ufshc: forced device ref_clk before link startup
+[    3.092844] remoteproc remoteproc0: releasing modem
+[    3.096144] remoteproc remoteproc0: releasing adsp
+[    3.232994] msm_dpu 5e01000.display-controller: bound 5e94000.dsi (ops dsi_ops)
+[    3.235010] msm_dpu 5e01000.display-controller: bound 5900000.gpu (ops a3xx_ops)
+[    3.237489] [drm:dpu_kms_hw_init:1168] dpu hardware revision:0x600a0000
+[    3.239251] [drm] Initialized msm 1.13.0 for 5e01000.display-controller on minor 0
+[    3.239329] msm_dpu 5e01000.display-controller: [drm:adreno_request_fw] loaded qcom/a630_sqe.fw from new location
+[    3.256303] adreno 5900000.gpu: mdt qcom/sm6225/a610_zap.mdt: relocate=1 mem_phys=0x0x0000000056615000 min=0x0x0000000000005000 max=0x0x0000000000006000
+[    3.650969] msm_dpu 5e01000.display-controller: [drm] fb0: msmdrmfb frame buffer device
+[    3.685971] remoteproc remoteproc0: modem is available
+[    3.686567] remoteproc remoteproc1: adsp is available
+[    3.687115] remoteproc remoteproc1: powering up adsp
+[    3.687477] remoteproc remoteproc1: Booting fw image qcom/sm6225/adsp.mdt, size 9420
+[    3.716140] qcom_q6v5_pas ab00000.remoteproc: mdt qcom/sm6225/adsp.mdt: relocate=1 mem_phys=0x0x0000000053800000 min=0x0x0000000053800000 max=0x0x0000000056600000
+[    3.884891] remoteproc remoteproc1: remote processor adsp is now up
+[    3.910120] qcom,apr ab00000.remoteproc:glink-edge.apr_audio_svc.-1.-1: Adding APR/GPR dev: aprsvc:service:4:3
+[    3.910409] qcom,apr ab00000.remoteproc:glink-edge.apr_audio_svc.-1.-1: Adding APR/GPR dev: aprsvc:service:4:4
+[    3.925971] qcom,apr ab00000.remoteproc:glink-edge.apr_audio_svc.-1.-1: Adding APR/GPR dev: aprsvc:service:4:7
+[    3.927650] platform ab00000.remoteproc:glink-edge:apr:service@7:dais: Adding to iommu group 7
+[    3.930455] qcom,apr ab00000.remoteproc:glink-edge.apr_audio_svc.-1.-1: Adding APR/GPR dev: aprsvc:service:4:8
+[   12.665733] systemd[1]: /usr/lib/systemd/system/system-xfs_scrub.slice:15: Support for option CPUAccounting= has been removed and it is ignored
+[   13.533912] systemd[1]: modprobe@drm.service - Load Kernel Module drm skipped, unmet condition check ConditionKernelModuleLoaded=!drm
+[   25.959566] ipa 5840000.ipa: IPA driver initialized
+[   25.964250] ipa 5840000.ipa: IPA driver setup completed successfully
+[   26.279231] qcom,fastrpc ab00000.remoteproc:glink-edge.fastrpcglink-apps-dsp.-1.-1: no reserved DMA memory for FASTRPC
+[   26.282213] platform ab00000.remoteproc:glink-edge:fastrpc:compute-cb@3: Adding to iommu group 8
+[   26.286370] platform ab00000.remoteproc:glink-edge:fastrpc:compute-cb@4: Adding to iommu group 9
+[   26.290853] platform ab00000.remoteproc:glink-edge:fastrpc:compute-cb@5: Adding to iommu group 10
+[   26.357087] platform ab00000.remoteproc:glink-edge:fastrpc:compute-cb@6: Adding to iommu group 11
+[   26.376459] platform ab00000.remoteproc:glink-edge:fastrpc:compute-cb@7: Adding to iommu group 12
+[   30.953989] Bluetooth: hci0: setting up wcn399x
+[   32.227374] ufshcd-qcom 4804000.ufshc: ufshcd_update_rtc: Current time precedes previous setting!
+[   40.125855] remoteproc remoteproc0: powering up modem
+[   40.127480] remoteproc remoteproc0: Booting fw image qcom/sm6225/modem.mdt, size 9100
+[   40.135204] ipa 5840000.ipa: received modem starting event
+[   40.230417] qcom_q6v5_pas 6080000.remoteproc: mdt qcom/sm6225/modem.mdt: relocate=1 mem_phys=0x0x000000004ab00000 min=0x0x000000004ab00000 max=0x0x0000000051400000
+[   41.404145] ipa 5840000.ipa: received modem running event
+[   41.404315] remoteproc remoteproc0: remote processor modem is now up
+[   43.241798] ath10k_snoc c800000.wifi: qmi chip_id 0x4130 chip_family 0x4007 board_id 0xff soc_id 0x40690000
+[   43.241863] ath10k_snoc c800000.wifi: qmi fw_version 0x324a83fe fw_build_timestamp 2022-02-21 20:19 fw_build_id QC_IMAGE_VERSION_STRING=WLAN.HL.3.2.4-01022-QCAHLSWMTPLZ-1
+[   46.153880] ath10k_snoc c800000.wifi: wcn3990 hw1.0 target 0x00000008 chip_id 0x00000000 sub 0000:0000
+[   46.153906] ath10k_snoc c800000.wifi: kconfig debug 0 debugfs 0 tracing 0 dfs 0 testmode 0
+[   46.153915] ath10k_snoc c800000.wifi: firmware ver  api 5 features wowlan,mgmt-tx-by-reference,non-bmi,single-chan-info-per-channel crc32 a79c5b24
+[   46.184388] ath10k_snoc c800000.wifi: htt-ver 3.96 wmi-op 4 htt-op 3 cal file max-sta 32 raw 0 hwcrypto 1
+
+##### NET_TEST #####
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 2.747/2.898/3.050/0.151 ms
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 7.122/7.343/7.565/0.221 ms
+2620:2d:4000:1::26 ubuntu.com
+2620:2d:4000:1::20 ubuntu.com
+
+##### DONE #####
+
+##### CAMERA_TOPOLOGY #####
+media-ctl entities: 33 (csiphy0/1/2, csid0/1/2, vfe* linked)
+qcom-camss bound: /sys/devices/platform/soc/5c11000.camss
+
+##### MODEM_DETAIL #####
+remoteproc0 (modem): running, fw MPSS.HA.1.1.c1-00027 (Aug 16 2024)
+uim-provision.service: SUCCESS at boot (11:30:30), MM restarted
+mmcli state: failed / failed reason: sim-missing
+  -> SIM физически не обнаружен в слоте 1 на момент среза
+     (uim-provision отработал штатно; LTE-цепочка не проверялась)
+
+##### AUDIO_DETAIL #####
+ALSA: card0 XiaomiRedmi10C (qcm6490), mixer controls присутствуют
+pulseaudio: виден ТОЛЬКО auto_null sink — ASoC-sink не поднят в pulse
+  (для проверки: speaker/headset через aplay/pactl на живом устройстве)

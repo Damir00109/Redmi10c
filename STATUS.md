@@ -1,6 +1,6 @@
 # Статус bring-up
 
-Последнее обновление: **2026-10-11**  
+Последнее обновление: **2026-10-17**  
 Устройство: **Xiaomi Redmi 10C `fog`/`rain`**, Qualcomm **SM6225/Khaje**.  
 Загрузка: постоянно со **слота B**; Android сохранён на слоте A; rootfs — Ubuntu 26.04 на разделе `cust` (сборка — `rootfs/`).
 
@@ -733,3 +733,77 @@ gpio102 = high):
 
 Экспериментальные правки (`scl_stretch_en`, `clock-frequency=100000`)
 откачены, дерево вернулось к upstream-состоянию CCI.
+
+## Сессия 2026-10-17: среда восстановлена, baseline-срез, план стабилизации
+
+### Среда поднята с чистого клона
+
+Полный цикл от `git clone` до устройства: `fetch-firmware` (блобы с
+релиза `firmware-2026.09.25`, через curl — `gh release download` виснет
+на финализации) → `build.sh` (linux v7.1.5 + kernel.patch, Image.gz,
+busybox, tinyalsa, initramfs, `out/boot-display-console-rescue.img`
+52.78 МиБ) → модули `7.1.5-dirty` (528 шт) → `rootfs/build-rootfs.sh`
+(Ubuntu 26.04.1, `linux_rootfs.sparse.img` 1.6G) →
+`rootfs/tools/pack-boot-linux.sh` (`boot-linux.img` 51.65 МиБ).
+
+### Прошивка — как прошло
+
+`fastboot flash cust` **сломан на хосте** (fastboot 34.0.5-debian,
+детерминированный `Error reading sparse file` на чанке 2/3; файл валиден).
+Обошли через Android слот A + Magisk: `adb push` + `su -c 'dd …of=/dev/block/by-name/…'`.
+`boot_b`←sde33, `cust`←sda8; проверено magic'ами (`ANDROID!`, ext4 `53 ef`).
+После прошивки rootfs был забит 100% — `IMG_SIZE_MB=1800` < реальных 19.1G
+на sda8, расширено `resize2fs` онлайн.
+
+### Матрица переходов — вся проверена
+
+`reboot bootloader` из Ubuntu работает нативно (`qcom-pon` + `mode-*` в
+`pm6125.dtsi`, ~6с до fastboot — раньше считалось отсутствующим).
+Android→fastboot `sys.powerctl`, Ubuntu↔Android `qbootctl -s`,
+rescue `fastboot boot`, USB ACM `/dev/ttyACM0`, ADB+Magisk в Android.
+Кнопки не нужны — цикл тестирования полностью софтовый.
+
+### Baseline-срез (эталон для регрессий)
+
+`docs/baseline-2026-10-17.txt` + `docs/baseline-2026-10-17-dmesg.txt`,
+скрипт `/tmp/collect-baseline.sh` — повторять после правок и `diff`.
+Эталон: systemd `running`, 0 failed, **0 warn/err в dmesg**, 8 ядер
+schedutil, GPU devfreq, DSI+backlight, fts_ts, Wi-Fi 5GHz −51dBm,
+BT UP, hexagonrpcd×3, camss 33 entities, remoteproc×2 running,
+UFS HS_GEAR3. Аномалии эталона (не регрессии): SIM физически
+отсутствует (`sim-missing` — норма), pulseaudio только `auto_null`
+(звук осознанно не трогаем), `earlycon` malformed option.
+
+### Аудит kernel.patch (93 файла, +17.5k): к чему стремимся
+
+Патч в целом цивильный — хаки прокомментированы причиной. Главный долг:
+
+- **fts_spi** (~5800 строк вендор-кода): `/proc` файл **0777**,
+  sysfs-группы без ABI-доки, ~3k строк мёртвого кода (ESD/gesture/test
+  выключены, Longcheer-хуки, `#if LINUX_VERSION_CODE` гварды), свои
+  printk-макросы вместо dev_*.
+- **ufs-qcom**: `qcom,device-reset-mmio` — прямой ioremap TLMM мимо
+  pinctrl; DT-кнобы `qcom,disable-devfreq|disable-runtime-pm|
+  force-legacy-dme-quirks`; dev_info в probe.
+- **шум**: `mdt_loader` dev_err-диагностика на каждый remoteproc-старт
+  (видно в baseline dmesg), ufs dev_info.
+- **bisect-костыли**: pinctrl-msm `reserved_gpios`/optional-IRQ,
+  hci_qca `msleep(200)`×3, ipa_main ручная PIL-последовательность.
+- **апстримабельно как есть**: ath10k freq-guard, qcom_scm allowlist,
+  clk.c orphan reparent, gpucc Zonda, camss sm6225-таблицы.
+
+### План стабилизации (цель)
+
+**Цель:** kernel.patch без вендор-мусора и небезопасных костылей —
+либо чистые upstream-style правки, либо задокументированные quirks;
+каждая итерация проверяется диффом против baseline (0 регрессий).
+
+- Фаза 1 (без риска): mdt dev_err, fts_spi proc-0777 + мёртвый код,
+  ufs dev_info → dev_dbg.
+- Фаза 2 (структура): ufs device-reset → `device-reset-gpios` через
+  pinctrl; закрыть pinctrl-msm bisect-костыли; ipa ret-обработка.
+- Фаза 3 (оптимизация): root-cause icc-rpm NoC keep-alive; вернуть
+  UFS clk scaling если стабильно; ревизия FTS_*_EN и DT-нод.
+- Фаза 4: оформить upstream-кандидаты отдельными патчами.
+
+Не трогаем: звук (pulse/ASoC), SIM/LTE (нет карты), soundwire-таблицы.
