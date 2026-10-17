@@ -964,3 +964,46 @@ Wi-Fi 6GHz 1170Mbit, BT UP RUNNING, температуры 32-36°C, md5 чер�
 bring-up с битыми PHY-таблицами). Прошито в `boot_b`
 (sha256 d12fc7f4…): `#9`, `running`/`0 failed`, remoteproc0/1 running,
 devfreq активен (13 транзишнов за первую минуту).
+
+## Сессия 2026-10-17 (ночь): icc-rpm keep-alive — root cause + минимум
+
+**Блок A (NoC interface clocks):** в `sm6115.c` intf-списки держали
+постоянные SMD-голоса `cpu_axi`+`ufs_axi`+`usb_axi` (snoc) и `usb_axi`
+(cnoc). Бисект на устройстве — каждый тест отдельный образ через
+`fastboot boot`:
+
+| Тест | Конфиг | Итог |
+|---|---|---|
+| T1–T4 | по одному клоку снят, `clk_ignore_unused` в cmdline | «PASS» — **ложный**: флаг физически держал клоки, голоса ни на что не влияли |
+| T5a | все голоса, БЕЗ `clk/pd_ignore_unused` | PASS — платформа живёт без blanket-флагов, драйверы клеймят свои клоки честно |
+| T5b | 0 голосов, без флагов | hang ~2 мин → `hardlockup_panic` → ребут в fastboot |
+| T6 | `usb_axi` snoc+cnoc | PASS 5+ мин |
+| T7 | `usb_axi` только cnoc | hard hang до энумерации гаджета |
+| T8 | `usb_axi` только snoc | крах → ребут |
+
+**Вывод:** `usb_axi` обязателен на ОБОИХ NoC (snoc — путь к DWC3 MMIO,
+cnoc — `qhs_ahb2phy_usb` к PHY-регистрам); поодиночке вис в обоих
+случаях — ровно «USB3 PHY pokes hard-hang» из исходного комментария.
+`cpu_axi`/`ufs_axi` доказанно не нужны (их пути держат собственные
+клоки CPU/UFS-драйверов) и удалены.
+
+**Побочная находка:** без `clk_ignore_unused`/`pd_ignore_unused`
+платформа грузится чисто — реальное гейтинг-выключение незавоёванных
+клоков технически работает (потенциальный выигрыш по idle-потреблению;
+отдельный эксперимент — флаги пока оставлены из-за Ubuntu-пути с
+дисплеем/модулями).
+
+**B3:** `dsi_phy_7nm.c` — вернул PLL lock failure в `pr_err`/
+`DRM_DEV_ERROR` (было опущено до debug — при реальном фейле был бы
+чёрный экран без диагностики).
+
+**C1:** аудит `status="okay"` — все 37 нод fog.dts + 6 в dtsi
+маппятся на реальное пробившееся железо (i2c: камеры/VCM/EEPROM/
+NFC/фонарик/топливомер/PA/зарядка/Type-C; soundwire wcd937x×2;
+CCI; IPA; GPU/SMMU; UFS; DSI). Фантомов нет, в dmesg 0 probe-фейлов.
+Отключать нечего.
+
+**Инструмент:** `rebuild-rescue.sh` паковал initramfs через `xz -9e`
+(заметно медленнее распаковка ядром при буте) — переведён на
+`zstd -19` как в `build.sh` (`CONFIG_RD_ZSTD=y`). Образ 52.8МиБ —
+в лимит `fastboot boot` проходит.

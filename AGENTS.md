@@ -21,7 +21,7 @@
 
 - `./build.sh` — полный цикл: clone linux v7.1.5 → kernel.patch → Image.gz + dtbs → busybox initramfs (zstd) → `out/boot-display-console-rescue.img`.
 - `tools/fetch-firmware.sh` — скачивает проприетарные блобы из релиза `firmware-2026.09.25` (firmware/ + vendor-qcom/ для hexagonrpcd).
-- `tools/rebuild-rescue.sh` — быстрая пересборка в уже настроенном дереве (вНИМАНИЕ: пакует initramfs через `xz -9e`, а не zstd — возможно устарело).
+- `tools/rebuild-rescue.sh` — быстрая пересборка в уже настроенном дереве (initramfs через `zstd -19`, как build.sh — 2026-10-17).
 - `tools/boot-and-check.sh` — загрузка + проверка.
 - `regen-patch.sh` — перегенерация `kernel.patch` из дерева `out/src/linux`.
 - Загрузка на устройство: `fastboot set_active b && fastboot reboot bootloader`, затем `fastboot boot out/boot-display-console-rescue.img` (слот B, ничего не прошивается; Android цел на слоте A; rootfs — Ubuntu на разделе `cust`). Лимит `fastboot boot` ~57.5 МиБ.
@@ -167,3 +167,11 @@
   `id -u` — под `sudo bash` `id -u`=0 и `chown` всего дерева срезает ВСЕ
   setuid/setgid биты (sudo/su/pkexec/dbus-helper/...). Проверка образа:
   `find / -xdev \( -perm -4000 -o -perm -2000 \) -type f` — должно быть ~23 файла.
+- **icc-rpm `usb_axi` keep-alive (2026-10-17): обязателен на ОБОИХ NoC** (snoc+cnoc).
+  Бисект на железе без `clk/pd_ignore_unused`: пустые intf-списки или только
+  один из двух голосов → hard-hang на USB MMIO/PHY доступе (lockup→panic→ребут).
+  `cpu_axi`/`ufs_axi` доказанно не нужны и сняты. ВНИМАНИЕ: тесты голосов
+  под `clk_ignore_unused` бессмысленны — флаг физически держит клоки; для
+  честной проверки флаги надо снимать из `kernel.config` (`CONFIG_CMDLINE_FORCE`).
+- `rebuild-rescue.sh` — `zstd -19` (как build.sh); xz -9e давал заметно более
+  медленный бут (kernel-side распаковка initramfs).

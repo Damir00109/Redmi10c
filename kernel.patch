@@ -4862,29 +4862,10 @@ index c59375aaa..55980cfee 100644
  	  .data = &dsi_phy_5nm_8350_cfgs },
  	{ .compatible = "qcom,sm8450-dsi-phy-5nm",
 diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
-index 8f4b03713..e9fbe06a3 100644
+index 8f4b03713..b2adabc58 100644
 --- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
 +++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
-@@ -389,7 +389,7 @@ static int dsi_pll_7nm_lock_status(struct dsi_pll_7nm *pll)
- 				       delay_us,
- 				       timeout_us);
- 	if (rc)
--		pr_err("DSI PLL(%d) lock failed, status=0x%08x\n",
-+		pr_debug("DSI PLL(%d) lock failed, status=0x%08x\n",
- 		       pll->phy->id, status);
- 
- 	return rc;
-@@ -509,7 +509,8 @@ static int dsi_pll_7nm_vco_prepare(struct clk_hw *hw)
- 	/* Check for PLL lock */
- 	rc = dsi_pll_7nm_lock_status(pll_7nm);
- 	if (rc) {
--		pr_err("PLL(%d) lock failed\n", pll_7nm->phy->id);
-+		DRM_DEV_DEBUG(&pll_7nm->phy->pdev->dev,
-+			       "PLL(%d) lock failed\n", pll_7nm->phy->id);
- 		goto error;
- 	}
- 
-@@ -766,7 +767,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
+@@ -766,7 +766,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
  	pll_bit = devm_clk_hw_register_divider_parent_hw(dev, clk_name,
  			pll_out_div, CLK_SET_RATE_PARENT,
  			pll_7nm->phy->base + REG_DSI_7nm_PHY_CMN_CLK_CFG0,
@@ -4894,7 +4875,7 @@ index 8f4b03713..e9fbe06a3 100644
  	if (IS_ERR(pll_bit)) {
  		ret = PTR_ERR(pll_bit);
  		goto fail;
-@@ -839,7 +841,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
+@@ -839,7 +840,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
  	hw = devm_clk_hw_register_divider_parent_hw(dev, clk_name,
  			phy_pll_out_dsi_parent, 0,
  			pll_7nm->phy->base + REG_DSI_7nm_PHY_CMN_CLK_CFG0,
@@ -11459,12 +11440,20 @@ index 23a1d116e..115dcdda9 100644
  	ret = icc_provider_register(provider);
  	if (ret)
 diff --git a/drivers/interconnect/qcom/sm6115.c b/drivers/interconnect/qcom/sm6115.c
-index 3ee12c8a4..36363ff0d 100644
+index 3ee12c8a4..30a6bdf22 100644
 --- a/drivers/interconnect/qcom/sm6115.c
 +++ b/drivers/interconnect/qcom/sm6115.c
-@@ -19,7 +19,8 @@ static const char * const snoc_intf_clocks[] = {
- 	"cpu_axi",
- 	"ufs_axi",
+@@ -16,10 +16,14 @@
+ #include "icc-rpm.h"
+ 
+ static const char * const snoc_intf_clocks[] = {
+-	"cpu_axi",
+-	"ufs_axi",
++	/* usb_axi on both NoCs is the minimal keep-alive set on khaje:
++	 * boot-bisected with clk/pd_ignore_unused removed — snoc alone or
++	 * cnoc alone hard-hangs the platform on USB MMIO/PHY access.
++	 * cpu_axi and ufs_axi were verified unnecessary (their paths are
++	 * held by the CPU/UFS drivers' own clocks). */
  	"usb_axi",
 -	"ipa", /* Required by qxm_ipa */
 +	/* "ipa" is deliberately absent: RPM_SMD_IPA_CLK is enabled by the IPA

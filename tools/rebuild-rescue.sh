@@ -8,11 +8,11 @@ make -C "$OUT/src/linux" O="$OUT/build/linux-7.1.5" ARCH=arm64 \
   CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs -j"$(nproc)" 2>&1 | tail -3
 aarch64-linux-gnu-gcc -static -O2 -I"$OUT/src/tinyalsa/include" \
   "$ROOT/tools/pcm-hold.c" "$OUT/src/tinyalsa/src/libtinyalsa.a" -o "$IR/bin/pcm-hold"
-( cd "$IR" && find . | cpio -o -H newc 2>/dev/null | xz -9e --check=crc32 > "$OUT/build/rescue.cpio.xz" )
+( cd "$IR" && find . | cpio -o -H newc 2>/dev/null | zstd -19 -T0 -q -f -o "$OUT/build/rescue.cpio.zst" )
 python3 "$OUT/src/mkbootimg/mkbootimg.py" \
   --header_version 2 \
   --kernel "$OUT/build/linux-7.1.5/arch/arm64/boot/Image.gz" \
-  --ramdisk "$OUT/build/rescue.cpio.xz" \
+  --ramdisk "$OUT/build/rescue.cpio.zst" \
   --dtb "$OUT/build/linux-7.1.5/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb" \
   --pagesize 2048 --base 0x0 \
   --kernel_offset 0x8000 --ramdisk_offset 0x1000000 \
