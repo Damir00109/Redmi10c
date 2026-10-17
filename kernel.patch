@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..ad4d88cc6
+index 000000000..ad1ccd2c8
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1172 @@
+@@ -0,0 +1,1174 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -504,7 +504,9 @@ index 000000000..ad4d88cc6
 +	qcom,vddp-ref-clk-min-uV = <1232000>;
 +	qcom,vddp-ref-clk-max-uV = <1232000>;
 +	qcom,vddp-ref-clk-max-microamp = <100>;
-+	qcom,force-legacy-dme-quirks;
++	/* qcom,force-legacy-dme-quirks removed 2026-10-17 — testing whether
++	 * link startup survives without DELAY_BEFORE_DME/PEER_AUTO/
++	 * BROKEN_RXHSUNTERMCAP. Re-add if UIC 0x16/link startup returns. */
 +	/* Root cause found (2026-10-17): the UFS wedge was NOT clk scaling —
 +	 * it is the hibern8-exit vs scale transition race on khaje. With
 +	 * runtime-pm/auto-hibern8 disabled (ahit=0, as in the proven-stable
