@@ -906,3 +906,14 @@ BT UP RUNNING, Wi-Fi online. dmesg-дифф: новое — 3 строки
 8. `ipa_main` full-region PAS_MEM_SETUP + pre-init PIL-последовательность
    — обоснование PT_NULL scratch уже в коде.
 9. `dts`: sm6225.dtsi + xiaomi-fog/rain — после чистки выше.
+
+## Финал сессии 2026-10-17: все фазы закрыты
+
+- `boot_linux` = **ядро #5** прошито в `boot_b` через Android+Magisk dd
+  (sha256 img: 252a0440…). Слот B грузит Ubuntu на чистом ядре:
+  `running`, 0 failed, UFS HS_GEAR3, все подсистемы на месте.
+- Слот A (Android `CP2A.260605.016`, Magisk) — нетронутый fallback.
+- Коммиты сессии: `c3a495b` (Ф1), `7d1cebc` (Ф2+Ф3),
+  `e97069b` (gitignore sensors/).
+- Итог патча: −1900+ строк от начала сессии; proc-0777 канал удалён,
+  MMIO-хаки ufs/pinctrl закрыты или задокументированы как quirks.
