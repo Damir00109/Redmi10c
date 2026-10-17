@@ -947,3 +947,12 @@ BT UP RUNNING, Wi-Fi online. dmesg-дифф: новое — 3 строки
 core clk 50↔200МГц), auto-hibern8/runtime-pm выключены — как в
 доказанно-стабильной старой сборке. `disable-devfreq` больше не нужен
 и удалён из DT.
+
+**Комплексный стресс (ядро #6, ~18 мин аптайма):** 8 CPU-воркеров
+(sha256 по /dev/urandom) + UFS mixed I/O 2ГБ с devfreq-флипами +
+adb push/pull 1ГБ через USB-гаджет + ping -i0.2 параллельно.
+Результат: 129 devfreq-транзишнов, **0 ошибок в dmesg** (новые строки —
+только «scaling suspended, skip» штатных skip'ов), `running`, 0 failed,
+remoteproc0/1 running, fts_ts на месте, `/proc/ftxxxx-debug` отсутствует,
+Wi-Fi 6GHz 1170Mbit, BT UP RUNNING, температуры 32-36°C, md5 через
+гаджет совпадает — коррупции нет.
