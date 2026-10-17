@@ -807,3 +807,39 @@ UFS HS_GEAR3. Аномалии эталона (не регрессии): SIM ф�
 - Фаза 4: оформить upstream-кандидаты отдельными патчами.
 
 Не трогаем: звук (pulse/ASoC), SIM/LTE (нет карты), soundwire-таблицы.
+
+---
+
+## Сессия 2026-10-17 (вечер): Фаза 1 — PASS
+
+**Сделано** (в `out/src/linux`, патч регенерирован):
+- `mdt_loader.c`: убран `dev_err("mdt %s: relocate=...")` — спамил при
+  каждом старте zap/adsp/modem; реальные ошибки остались.
+- `ufs-qcom.c`: 6× `dev_info` → `dev_dbg` (forced ref_clk, clk scaling
+  off, RPM off, RESET MMIO, vddp-ref-clk, reset toggled).
+- `fts_spi`: **proc-канал `/proc/ftxxxx-debug` удалён целиком** (~450
+  строк: fts_debug_write/read в двух API-вариантах, fops, create/
+  release, struct ftxxxx_proc, PROC_* дефайны) — закрыт world-writable
+  0777 proc-файл. Удалён `#if 0`-блок Android/Longcheer (~208 строк),
+  мёртвая ветка `fts_tp_class`/`device_create`, lct-стабы и вызовы
+  (procfs/ts_variant/reset_gpio/gesture_status), decl'ы в core.h.
+  Живое: sysfs-атрибуты, gesture (lct_fts_tp_gesture_callback),
+  rw_op/tprwreg. Итог: ex_fun.c 1393→718 строк, драйвер ~−750 строк.
+
+**Проверка на железе** (fastboot boot boot-linux.img, kernel #2):
+- `is-system-running: running`, **0 failed юнитов**
+- dmesg-дифф против baseline: удалены 3× `mdt relocate` и 4× ufs
+  dev_info — как задумано; новых warnings/errors нет. rodata −4 KiB.
+- fts_ts на event4, `/proc/ftxxxx-debug` отсутствует, UFS HS_GEAR3,
+  camss 33 entities, remoteproc0/1 running, Wi-Fi/BT/sound на месте.
+- Единственное отличие: `hci0: command tx timeout` на втором init
+  (t=32с) — самовосстановился (firmware докачан, Powered:yes);
+  известная гонка hci_qca, не связана с правками. Помечено для Фазы 2.
+
+**Срез:** /tmp/baseline-new.txt, /tmp/dmesg-new.txt (host).
+
+**Состояние устройства:** работает Ubuntu на новом ядре (boot via
+fastboot, НЕ прошит). boot_b = старое ядро #1 — безопасный fallback.
+
+**Следующее:** Фаза 2 — ufs device-reset → `device-reset-gpios` через
+pinctrl (убрать ioremap-хак), pinctrl-msm bisect-костыли, ipa ret.
