@@ -3919,7 +3919,7 @@ index 478aa3fbf..cff2921cf 100644
  	}
  	device_links_write_unlock();
 diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
-index 244447195..f8437bd8e 100644
+index 244447195..b7c99ceb8 100644
 --- a/drivers/bluetooth/hci_qca.c
 +++ b/drivers/bluetooth/hci_qca.c
 @@ -1760,6 +1760,9 @@ static int qca_port_reopen(struct hci_uart *hu)
@@ -4052,25 +4052,23 @@ index 244447195..f8437bd8e 100644
  		qca_debugfs_init(hdev);
  		hu->hdev->hw_error = qca_hw_error;
  		hu->hdev->reset = qca_reset;
-@@ -2299,9 +2325,20 @@ static int qca_hci_shutdown(struct hci_dev *hdev)
+@@ -2299,9 +2325,18 @@ static int qca_hci_shutdown(struct hci_dev *hdev)
  	timer_delete_sync(&qca->wake_retrans_timer);
  	timer_delete_sync(&qca->tx_idle_timer);
  
 -	/* Stop sending shutdown command if soc crashes. */
 +	/* Disable IBS before shutdown so controller is awake for power off.
-+	 * Skip preshutdown_cmd for WCN399x — power off via regulators/bt_en
-+	 * fully resets the controller, and the HCI command times out when
-+	 * IBS has put the chip to sleep.
++	 * WCN399x needs the preshutdown cmd to park its FW cleanly: the
++	 * power pulse / rail drop otherwise kills the chip mid-flight and it
++	 * occasionally comes up spewing a crash dump instead of HCI —
++	 * init then times out on every retry until the dump drains (~60s).
++	 * Safe because IBS is disabled on khaje (post_init is a no-op), so
++	 * the chip is always awake and the command cannot time out.
 +	 */
 +	set_bit(QCA_IBS_DISABLED, &qca->flags);
 +
  	if (soc_type != QCA_ROME
 -		&& qca->memdump_state == QCA_MEMDUMP_IDLE) {
-+	    && soc_type != QCA_WCN3950
-+	    && soc_type != QCA_WCN3988
-+	    && soc_type != QCA_WCN3990
-+	    && soc_type != QCA_WCN3991
-+	    && soc_type != QCA_WCN3998
 +	    && qca->memdump_state == QCA_MEMDUMP_IDLE) {
  		qca_send_pre_shutdown_cmd(hdev);
  		usleep_range(8000, 10000);

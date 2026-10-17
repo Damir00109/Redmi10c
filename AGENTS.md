@@ -175,3 +175,9 @@
   честной проверки флаги надо снимать из `kernel.config` (`CONFIG_CMDLINE_FORCE`).
 - `rebuild-rescue.sh` — `zstd -19` (как build.sh); xz -9e давал заметно более
   медленный бут (kernel-side распаковка initramfs).
+- **BT wedge (hci_qca, 2026-10-17):** `Frame reassembly failed (-84)` — безвредный
+  boot-spew шум, НЕ признак wedge. Реальный wedge: ~1/10 power-cycle, все 4 ретрая
+  с tx timeout → адаптер дерегистрируется. Восстановление БЕЗ ребута: подождать
+  ~60с, потом `echo serial0-0 > /sys/bus/serial/drivers/hci_uart_qca/unbind`
+  + bind. BT-рельсы общие с Wi-Fi и физически не роняются — пульсы 2400/115200
+  единственный реальный power control.
