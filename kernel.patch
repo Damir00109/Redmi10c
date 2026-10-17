@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..c3ee7b808
+index 000000000..ad4d88cc6
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1173 @@
+@@ -0,0 +1,1172 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -1343,7 +1343,6 @@ index 000000000..c3ee7b808
 +		};
 +	};
 +};
-+
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts
 new file mode 100644
 index 000000000..722422ee8
@@ -5377,7 +5376,7 @@ index 000000000..b36555e1b
 +	focaltech_stubs.o
 diff --git a/drivers/input/touchscreen/fts_spi/focaltech_common.h b/drivers/input/touchscreen/fts_spi/focaltech_common.h
 new file mode 100644
-index 000000000..d5fab544a
+index 000000000..d18ca2c7f
 --- /dev/null
 +++ b/drivers/input/touchscreen/fts_spi/focaltech_common.h
 @@ -0,0 +1,174 @@
@@ -5538,9 +5537,9 @@ index 000000000..d5fab544a
 +    printk("[FTS_TS]%s: Exit(%d)\n", __func__, __LINE__); \
 +} while (0)
 +#else /* #if FTS_DEBUG_EN*/
-+#define FTS_DEBUG(fmt, args...)
-+#define FTS_FUNC_ENTER()
-+#define FTS_FUNC_EXIT()
++#define FTS_DEBUG(fmt, args...) do { } while (0)
++#define FTS_FUNC_ENTER() do { } while (0)
++#define FTS_FUNC_EXIT() do { } while (0)
 +#endif
 +
 +#if FTS_DEBUG_EN
@@ -5548,7 +5547,7 @@ index 000000000..d5fab544a
 +    printk(KERN_INFO "[FTS_TS/I]%s:"fmt"\n", __func__, ##args); \
 +} while (0)
 +#else
-+#define FTS_INFO(fmt, args...)
++#define FTS_INFO(fmt, args...) do { } while (0)
 +#endif
 +
 +#define FTS_ERROR(fmt, args...) do { \
@@ -5861,10 +5860,10 @@ index 000000000..9ed0df56f
 +#endif /* _LINUX_FOCLATECH_CONFIG_H_ */
 diff --git a/drivers/input/touchscreen/fts_spi/focaltech_core.c b/drivers/input/touchscreen/fts_spi/focaltech_core.c
 new file mode 100644
-index 000000000..cfddfdfed
+index 000000000..f0bd1f569
 --- /dev/null
 +++ b/drivers/input/touchscreen/fts_spi/focaltech_core.c
-@@ -0,0 +1,1875 @@
+@@ -0,0 +1,1873 @@
 +/*
 + *
 + * FocalTech TouchScreen driver.
@@ -5949,12 +5948,10 @@ index 000000000..cfddfdfed
 +        return -1;
 +    }
 +    if (flag) {
-+        	ts_data->gesture_mode = ENABLE;
-+			
-+	}
-+    else {
-+        	ts_data->gesture_mode = DISABLE;
-+	 }
++        ts_data->gesture_mode = ENABLE;
++    } else {
++        ts_data->gesture_mode = DISABLE;
++    }
 +    return 0;
 +}
 +
@@ -8043,10 +8040,10 @@ index 000000000..905236ae7
 +#endif /* __LINUX_FOCALTECH_CORE_H__ */
 diff --git a/drivers/input/touchscreen/fts_spi/focaltech_ex_fun.c b/drivers/input/touchscreen/fts_spi/focaltech_ex_fun.c
 new file mode 100644
-index 000000000..873c5acab
+index 000000000..95a3ec23f
 --- /dev/null
 +++ b/drivers/input/touchscreen/fts_spi/focaltech_ex_fun.c
-@@ -0,0 +1,718 @@
+@@ -0,0 +1,717 @@
 +/*
 + *
 + * FocalTech TouchScreen driver.
@@ -8755,7 +8752,7 @@ index 000000000..873c5acab
 +    } else {
 +        FTS_INFO("[EX]: sysfs_create_group() succeeded!!");
 +    }
-+  
++
 +    return ret;
 +}
 +
@@ -8764,10 +8761,9 @@ index 000000000..873c5acab
 +    sysfs_remove_group(&ts_data->dev->kobj, &fts_attribute_group);
 +    return 0;
 +}
-+
 diff --git a/drivers/input/touchscreen/fts_spi/focaltech_ex_mode.c b/drivers/input/touchscreen/fts_spi/focaltech_ex_mode.c
 new file mode 100644
-index 000000000..4f5fbe453
+index 000000000..c49eacbc1
 --- /dev/null
 +++ b/drivers/input/touchscreen/fts_spi/focaltech_ex_mode.c
 @@ -0,0 +1,323 @@
@@ -9077,7 +9073,7 @@ index 000000000..4f5fbe453
 +int lct_fts_set_charger_mode(bool en)
 +{
 +	int ret = 0;
-+	struct fts_ts_data *ts_data = fts_data;
++	struct fts_ts_data *ts_data __maybe_unused = fts_data;
 +	if (en) {
 +		FTS_INFO("enter charger mode");
 +		ret = fts_ex_mode_switch(MODE_CHARGER, ENABLE);
@@ -9096,7 +9092,7 @@ index 000000000..4f5fbe453
 +}
 diff --git a/drivers/input/touchscreen/fts_spi/focaltech_flash.c b/drivers/input/touchscreen/fts_spi/focaltech_flash.c
 new file mode 100644
-index 000000000..cd0cb7b8a
+index 000000000..e355d018e
 --- /dev/null
 +++ b/drivers/input/touchscreen/fts_spi/focaltech_flash.c
 @@ -0,0 +1,1247 @@
@@ -10266,7 +10262,7 @@ index 000000000..cd0cb7b8a
 +        fts_tp_state_recovery(upg->ts_data);
 +        fts_start_pmode_poll(upg->ts_data);
 +    }
-+  
++
 +#if LCT_TP_USB_PLUGIN
 +    if (!IS_ERR_OR_NULL(g_touchscreen_usb_pulgin.event_callback))
 +        g_touchscreen_usb_pulgin.valid = true;
@@ -11543,7 +11539,7 @@ index de573cee4..58a7ce80c 100644
  	.probe = hi556_probe,
 diff --git a/drivers/media/i2c/ov02b1b.c b/drivers/media/i2c/ov02b1b.c
 new file mode 100644
-index 000000000..e8fa7c4e1
+index 000000000..0fd3ac6ad
 --- /dev/null
 +++ b/drivers/media/i2c/ov02b1b.c
 @@ -0,0 +1,975 @@
@@ -12262,7 +12258,7 @@ index 000000000..e8fa7c4e1
 +
 +	vblank_def = mode->frame_length - mode->height;
 +	ov02b1b->vblank = v4l2_ctrl_new_std(handler, &ov02b1b_ctrl_ops, V4L2_CID_VBLANK, vblank_def,
-+			  		    OV02B1B_VBLANK_MAX - mode->height, 1, vblank_def);
++					  OV02B1B_VBLANK_MAX - mode->height, 1, vblank_def);
 +
 +	exposure_max = mode->frame_length - OV02B1B_EXPOSURE_MAX_MARGIN;
 +	ov02b1b->exposure = v4l2_ctrl_new_std(handler, &ov02b1b_ctrl_ops,

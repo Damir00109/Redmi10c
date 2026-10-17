@@ -93,6 +93,12 @@
 - devmem-поки по TLMM на этом чипе вешают шину — использовать `vibtest` (EV_FF ioctl).
 - Магнитометра/компаса в железе нет. devinfo slot byte не работает — слоты переключаются через GPT type GUID + UFS boot LUN.
 
+## UFS на khaje (2026-10-17, проверено стрессом)
+
+- **Стабильная конфигурация: `qcom,disable-runtime-pm` (ahit=0 + pm_runtime_forbid в ufshcd.c), devfreq ВКЛЮЧЁН.** Auto-hibern8 + devfreq вместе = клин очереди (гонка hibern8-exit ↔ scale transition), dd виснет насмерть. По отдельности каждый работает; hibern8 выключен — линк всегда в активном gear, скейлится только core clk (50↔200 МГц).
+- `qcom,auto-hibern8-us` — мёртвое свойство, драйвером не парсится.
+- Reserved-memory carveouts в sm6225.dtsi (pil_modem/adsp/ipa/gpu/…) обязательны — без них page cache коллидирует с памятью remoteproc'ов (исторический UFS-corruption баг, ветка fix/sm6225-ufs-memory-stability на main).
+
 ## Камеры (SM6225 CAMSS/TFE) — bring-up 2026-10-11
 
 Железо (из Android-пропов + стокового dtbo `fdt-stock-fog.dts`):
