@@ -37,7 +37,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 22 | Wi-Fi | **WCN3990** (ath10k SNOC) | c800000.wifi | Qualcomm | **FULL** (~1.1 Гбит AP-режим проверен) |
 | 22a | Bluetooth | тот же WCN3990 (hci_qca) | GENI UART 4a8c000 | Qualcomm | **NORMAL** (A2DP работает; редкий wedge при re-init — известный дебт) |
 | 23 | NFC | **pn8x** (`nq-nci`, PN80T/SN100-класс) | i2c1-002a | NXP | **LOW** (чип пробивается chip id 0x64; стека/использования нет) |
-| 24 | Зарядник | **SMB1351** | i2c3-0055 | Summit | **FULL** (2026-10-18: прерывание `gpio84` снято с резерва и сконфигурировано через `smb1351_int_default` — input + pull-up; драйвер пока polling, реальный IRQ заблокирован тем же double-claim, что и у mmc/cd-gpios) |
+| 24 | Зарядник | **SMB1351** | i2c3-0055 | Summit | **FULL** (2026-10-18: `gpio84` снят с резерва, стейт `smb1351_int_default` + **реальный IRQ** через `interrupt-parent=&tlmm`/`interrupts=<84 EDGE_FALLING>` — msmgpio 84 Edge smb1351-int в /proc/interrupts; IRQ будит poll_work, I2C остаётся в freezable-wq) |
 | 25 | Fuel gauge | **SH366101** | i2c2-0055 | Sinowealth | **FULL** (SBS: SOC/V/I/temp/циклы/STATUS/HEALTH + gaugeinfo-блоки: Qmax→SOH, энергия мВт·ч, OCV, внутр. темпа; требует FIFO на i2c — см. quirks) |
 | 26 | USB-C CC №1 | **FUSB303** | i2c1-0021 | onsemi/Fairchild | **NOT SUPPORTED** — сырой probe по всем 4 AP-шинам (0x21/0x22/0x25) даёт NACK (`ENXIO`); в отличие от WUSB3801/smb1351, которые дают `EBUSY` как занятые драйверами. Драйверу не к чему биндиться |
 | 27 | USB-C CC №2 | **WUSB3801** | i2c3-0060 | WillSemi | **NORMAL** (пробивается; роль/PD минимальны) |

@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..f295cbee5
+index 000000000..0d190b04a
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1259 @@
+@@ -0,0 +1,1237 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -616,14 +616,6 @@ index 000000000..f295cbee5
 +		bias-pull-up;
 +	};
 +
-+	qup_uart3_default: qup-uart3-default-state {
-+		/* CTS+RX: gpio8, gpio11 */
-+		pins = "gpio8", "gpio9", "gpio10", "gpio11";
-+		function = "qup3";
-+		drive-strength = <2>;
-+		bias-disable;
-+	};
-+
 +	qup_uart3_ctsrx: qup-uart3-ctsrx-state {
 +		pins = "gpio8", "gpio11";
 +		function = "qup3";
@@ -643,21 +635,6 @@ index 000000000..f295cbee5
 +		function = "qup3";
 +		drive-strength = <2>;
 +		bias-pull-up;
-+	};
-+
-+	qup_uart3_sleep: qup-uart3-sleep-state {
-+		pins = "gpio8", "gpio9", "gpio10", "gpio11";
-+		function = "gpio";
-+		drive-strength = <2>;
-+		bias-pull-down;
-+	};
-+
-+	bt_sw_ctrl_default: bt-sw-ctrl-default-state {
-+		pins = "gpio87";
-+		function = "gpio";
-+		drive-strength = <2>;
-+		bias-disable;
-+		output-high;
 +	};
 +
 +	/* lcmblen — backlight boost HWEN on gpio106 (Android pmx_lcmblen) */
@@ -876,15 +853,16 @@ index 000000000..f295cbee5
 +		/* INT is TLMM gpio84, open-drain active-low, stock DT declares
 +		 * smb1351_int_default (gpio + bias-pull-up + input-enable).
 +		 *
-+		 * We apply the pinctrl state so the line has the vendor pull-up
-+		 * and is configured as gpio input.  A real GPIO interrupt would
-+		 * be nice, but the same pin cannot be claimed by both pinctrl
-+		 * and gpiolib (identical double-claim problem as mmc/cd-gpios).
-+		 * The driver therefore keeps the existing freezable-workqueue poll
-+		 * and uses the state purely for correct pin configuration.
++		 * IRQ uses the TLMM irqchip form (interrupt-parent + interrupts),
++		 * same as wusb3801 below: the interrupt maps through the TLMM
++		 * irq domain and does NOT claim the pin via gpiolib, so it can
++		 * coexist with the pinctrl state that sets pull-up.  The earlier
++		 * irq-gpios attempt failed on exactly that double-claim.
 +		 */
 +		pinctrl-names = "default";
 +		pinctrl-0 = <&smb1351_int_default>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <84 IRQ_TYPE_EDGE_FALLING>;
 +	};
 +
 +	wusb3801@60 {
@@ -13939,10 +13917,10 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..00c0cc094
+index 000000000..614cd87f3
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1679 @@
+@@ -0,0 +1,1690 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15479,13 +15457,18 @@ index 000000000..00c0cc094
 +};
 +
 +/*
-+ * Sparse GPIO: proven-safe + Type-C gpio93 + torch gpio85.
-+ * Others reserved (MMIO hang). gpio68 (flash_en strobe) stays reserved.
++ * Reserved GPIOs: pins whose safe state we do not know.  Early bring-up
++ * parked everything unproven here after a base probe poked the wrong MMIO
++ * and rebooted the SoC.
 + *
-+ * 2026-10-18: the list is a bring-up safety net, not hardware truth - the
-+ * camera/modem pins work once they are muxed properly, and re-testing
-+ * showed gpio25 (ant_div_check) and gpio107 (ant_check) are readable, so
-+ * they are not reserved any more.
++ * 2026-10-18: the list is a safety net, not hardware truth - a pin works
++ * once it gets its proper mode straight away (same as camera/modem).
++ * Stock-DT-declared device pins have been moved out and verified on real
++ * hardware: gpio19 (rear1 reset), 25 (ant_div), 68 (flash_en LED), 83,
++ * 84 (smb1351 int), 88 (sd cd), 100, 107 (ant).  What remains is either
++ * pins the vendor DT never declares at all, or gpio66/67 (CSI mux
++ * OE/SEL - proven readable/writable but kept parked until a real CSI-mux
++ * consumer exists).
 + */
 +static const int khaje_reserved_gpios[] = {
 +	13,
@@ -15494,7 +15477,10 @@ index 000000000..00c0cc094
 +	16,
 +	17,
 +	/* 18 camera reset0 (CAM_RESET0, main) */
-+	19,
++	/* 19 = cam_sensor_rear1_reset (4th rear camera reset; no such module
++	 * in our DT and no Linux consumer).  Un-reserved 2026-10-18 — pin is
++	 * left in whatever state the bootloader applied; if it reboots the
++	 * SoC it goes back on the list. */
 +	/* 20/21/27/28 camera MCLK0..3 (CAMIF_MCLK) */
 +	/* 22/23 camera CCI0 I2C (main) */
 +	/* 24 camera reset1 (CAM_RESET1, front) */
@@ -15558,7 +15544,8 @@ index 000000000..00c0cc094
 +	79,
 +	/* 80 IRQ / 86 RESET — Focaltech FT8006S touch (must stay valid) */
 +	/* 81 TE / 82 reset — WEST, needed for FT8006S panel */
-+	83,
++	/* 83 = msm_gpio_83 (generic vendor input, pull-down; no identified
++	 * consumer).  Un-reserved 2026-10-18. */
 +	/* 84 = SMB1351 charger interrupt (stock DT: smb1351_int_default,
 +	 * gpio + bias-pull-up + input-enable).  Un-reserved 2026-10-18 to
 +	 * replace polling with real IRQ. */
@@ -15573,9 +15560,11 @@ index 000000000..00c0cc094
 +	95,
 +	96,
 +	97,
-+	/* 99,100 still reserved; 98/101 used by FT8006S bias */
++	/* 98/101 used by FT8006S bias */
 +	99,
-+	100,
++	/* 100 = msm_gpio_100 / msm_gpio_100_output_high (generic vendor output,
++	 * consumer unknown).  Un-reserved 2026-10-18 — left in bootloader
++	 * state; do not drive without knowing what it enables. */
 +	-1
 +};
 +
@@ -16329,10 +16318,10 @@ index 000000000..87eef0f1a
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/power/supply/smb1351_charger_bringup.c b/drivers/power/supply/smb1351_charger_bringup.c
 new file mode 100644
-index 000000000..be908626d
+index 000000000..a955728c3
 --- /dev/null
 +++ b/drivers/power/supply/smb1351_charger_bringup.c
-@@ -0,0 +1,768 @@
+@@ -0,0 +1,792 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -16347,6 +16336,7 @@ index 000000000..be908626d
 +
 +#include <linux/delay.h>
 +#include <linux/i2c.h>
++#include <linux/interrupt.h>
 +#include <linux/module.h>
 +#include <linux/of.h>
 +#include <linux/power_supply.h>
@@ -16790,6 +16780,16 @@ index 000000000..be908626d
 +			   msecs_to_jiffies(POLL_MS));
 +}
 +
++static irqreturn_t smb1351_irq_handler(int irq, void *data)
++{
++	struct smb1351_bringup *chip = data;
++
++	/* INT asserts on charge/VBUS events — re-run the poll path now
++	 * instead of waiting out the 2 s period. */
++	mod_delayed_work(system_freezable_wq, &chip->poll_work, 0);
++	return IRQ_HANDLED;
++}
++
 +static int smb1351_batt_get_prop(struct power_supply *psy,
 +				 enum power_supply_property psp,
 +				 union power_supply_propval *val)
@@ -17069,6 +17069,19 @@ index 000000000..be908626d
 +	/* First polls after gadget USB settles — matches cable-replug behavior */
 +	queue_delayed_work(system_freezable_wq, &chip->poll_work,
 +			   msecs_to_jiffies(3000));
++
++	if (client->irq > 0) {
++		rc = devm_request_irq(&client->dev, client->irq,
++				      smb1351_irq_handler,
++				      IRQF_TRIGGER_FALLING,
++				      "smb1351-int", chip);
++		if (rc)
++			dev_warn(&client->dev,
++				 "smb1351 IRQ request failed (%d); poll-only\n",
++				 rc);
++		else
++			dev_info(&client->dev, "smb1351 IRQ %d\n", client->irq);
++	}
 +
 +	dev_info(&client->dev, "smb1351 bringup probed @0x%02x\n", client->addr);
 +	return 0;
