@@ -24,7 +24,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 9 | LCD bias | `lcm-bias` | i2c0-003e | — | **NOT SUPPORTED** (не пробивается; питание панели идёт без отдельного bias) |
 | 10 | Камера задняя | **S5KJN1** 50МП (модуль Sunny; альтернативы HI1337/SC500CS) | CCI0 + CSIPHY | Samsung | **NORMAL** (стрим RAW10 работает; нет AE/AWB — ISP-уровень) |
 | 11 | Камера фронт | **HI556** 5МП (модуль AAC «V6457») | CCI1, i2c1-0x28 | Himax | **NORMAL** (кадры идут; нет AE/AWB) |
-| 12 | Камера depth | **OV02B1B** 2МП (модуль AAC «B313») | CCI | OmniVision | **LOW** (в DT есть, в i2c-карте не виден — не проверен стрим) |
+| 12 | Камера depth | **OV02B1B** 2МП (модуль AAC «B313») | CCI0 master 1, CSIPHY1 | OmniVision | **LOW** — была `status = disabled` без порта; **включена и связана** (2026-10-18): драйвер `1-0059: ov02b1b` пробивается, в media-графе есть сущность и линк `msm_csiphy1 ↔ ov02b1b [ENABLED]`, формат Y10_1X10 1600x1200. Поток пока не идёт (`STREAMON → EPIPE`) — нужна отдельная работа с CAMSS-пайплайном (CSIPHY/CSID/VFE) |
 | 13 | VCM (AF) | **GT9764** | i2c0-000c, в модуле задней камеры | GIANTEC | **NORMAL** (пробивается; автофокус внутри CAMSS-пути) |
 | 14 | EEPROM камер | at24: 24c128 + 24c64 + 24c02 | i2c0-51/i2c1-51 | Atmel-compat | **FULL** (читаются, содержимое верифицировано) |
 | 15 | Питание камер | **WL2866D** LDO-PMIC | i2c2-0028 | WillSemi | **FULL** |
