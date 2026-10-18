@@ -30,8 +30,8 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 15 | Питание камер | **WL2866D** LDO-PMIC | i2c2-0028 | WillSemi | **FULL** |
 | 16 | Аудиокодек | **WCD937x** (WCD9375-класс, 2 SWR-slave) | SoundWire swr0/1 | Qualcomm | **NORMAL** (карта/PCM/1135 миксеров на месте, BT-аудио работает; локальный маршрут (динамик) в PulseAudio не поднят — только `auto_null`) |
 | 17 | Усилитель динамика | **AW87xxx** PA | i2c2-0058 | Awinic | **FULL** |
-| 18 | Акселерометр | **SC7A20** | SSC (SLPI) | Silan | **NORMAL** (данные идут через SSC/hexagonrpcd; iio-sensor-proxy в работе) |
-| 19 | ALS + Proximity | **TMD2755** | SSC (SLPI) | ams AG | **NORMAL** (как accel) |
+| 18 | Акселерометр | **SC7A20** | SSC (SLPI) | Silan | **FULL** — ядерных IIO нет (шина DSP), данные идут через `hexagonrpcd`/libssc и публикуются в приложения мостом `rain-sensor-bridge` (`net.hadess.SensorProxy`) |
+| 19 | ALS + Proximity | **TMD2755** | SSC (SLPI) | ams AG | **FULL** (ALS — как accel через мост; proximity читается `ssccli`, в DBus не публикуется) |
 | 20 | SAR-датчик | **ADUX1050** | SSC | Analog Devices | **LOW** (драйвера/ноды в mainline-дереве нет) |
 | 21 | Сканер отпечатка | FPC rear (`ro.boot.fpsensor=fpc`, `fp-keys`) | SPI/GPIO | Fingerprint Cards | **NOT SUPPORTED** |
 | 22 | Wi-Fi | **WCN3990** (ath10k SNOC) | c800000.wifi | Qualcomm | **FULL** (~1.1 Гбит AP-режим проверен) |

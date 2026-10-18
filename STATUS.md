@@ -48,6 +48,7 @@
 | ADSP после resume | **Исправлено (2026-10-18)**: причина оказалась не в питании и не в отсутствии уведомления о сне, а в **fastrpc-сессии**, которую `hexagonrpcd` держит через сон — сервис `frpc_dsp` на DSP падает сразу после пробуждения, remoteproc перезапускает весь ADSP, и от этого сыпались SoundWire/кодек. `rain-sensor-suspend.service` (Before=sleep.target) гасит `hexagonrpcd` до сна: ADSP переживает resume, шквал исчез (проверено: счётчик крахов не растёт, 0 строк SoundWire в окне resume) |
 | Сенсоры после resume | **Исправлено (2026-10-18)**: краш DSP-процесса `sensor_process` рвёт fastrpc (`Broken pipe`) → оба `hexagonrpcd` деактивируются и сенсоры мертвы до ребута. `rain-sensor-resume.service` перезапускает их после пробуждения |
 | I2C во время сна | **Исправлено (2026-10-18)**: опрос зарядника/гейджа шёл на незамораживаемой `system_wq` → `i2c-3: Transfer while suspended` WARNING. Оба драйвера переведены на `system_freezable_wq` |
+| Сенсоры в приложения | **Сделано (2026-10-18)**: ядерных IIO у нас нет (сенсоры на шине ADSP), поэтому `rain-sensor-bridge.py` публикует акселерометр и ALS на system-bus в интерфейсе `net.hadess.SensorProxy` (тот, что даёт iio-sensor-proxy и ждут GNOME/Plasma/phosh): `AccelerometerOrientation`, `LightLevel`, `Claim*`. Проверено: свойства читаются, значения живые (свет 120 лк, ориентация считается) |
 | ModemManager | Падает с SIGSEGV на неудачных connect (quirk 1.25.95); смягчено перезапуском |
 | Голос/SMS через модем | Не тестировалось |
 | HFP (звонки) через BT-гарнитуру | Не тестировалось (A2DP проверен) |

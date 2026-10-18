@@ -282,7 +282,7 @@ systemctl enable ModemManager.service NetworkManager.service NetworkManager-disp
 systemctl enable ssh 2>/dev/null || true
 systemctl enable wpa_supplicant.service 2>/dev/null || true
 # Snapdragon Sensor Core (hexagonrpcd -> ADSP fastrpc)
-systemctl enable sensors-setup.service hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service 2>/dev/null || true
+systemctl enable sensors-setup.service hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service rain-sensor-bridge.service 2>/dev/null || true
 # ASoC/WCD9375 stack (speaker + headset) needs no unit any more: every
 # piece is built-in (=y) and the ADSP auto-boots (adsp_resource_init has
 # auto_boot=true).  rain-stable-boot must still not stop remoteproc1.

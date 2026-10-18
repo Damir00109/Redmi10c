@@ -23,4 +23,7 @@ systemctl restart hexagonrpcd-adsp-rootpd.service 2>/dev/null
 sleep 2
 systemctl restart hexagonrpcd-adsp-sensorspd.service 2>/dev/null
 sleep 2
+# The bridge's ssccli children die with the ADSP; restart it so the DBus
+# properties keep updating.
+systemctl try-restart rain-sensor-bridge.service 2>/dev/null
 log "sensor resume: rootpd=$(systemctl is-active hexagonrpcd-adsp-rootpd) sensorspd=$(systemctl is-active hexagonrpcd-adsp-sensorspd)"

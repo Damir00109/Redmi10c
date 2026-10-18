@@ -1,0 +1,15 @@
+[Unit]
+Description=SSC sensor bridge (net.hadess.SensorProxy)
+Documentation=file:/usr/local/sbin/rain-sensor-bridge.py
+After=dbus.service hexagonrpcd-adsp-sensorspd.service
+Requires=hexagonrpcd-adsp-sensorspd.service
+Before=iio-sensor-proxy.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/rain-sensor-bridge.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
