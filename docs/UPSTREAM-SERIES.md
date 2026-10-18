@@ -74,6 +74,12 @@
    UFS/remoteproc стабильности), pinctrl-маппинг, UFS/USB/DSI/camss/
    audio/BT-ноды, PMIC-ребёнки. Идёт последней — зависит от всех
    драйверных серий выше; разрезать на под-коммиты по подсистеме.
+   **USB здесь — чистая DT-правка** (2026-10-18): нода-обёртка
+   `usb@4ef8800` (`qcom,sm6115-dwc3` + `qcom,dwc3`) с клоками, ресетом и
+   `qcom,select-utmi-as-pipe-clk` вокруг `snps,dwc3`. Драйверные правки не
+   нужны: upstream `dwc3-qcom` сам делает QSCRATCH/клоки/ресет, а свойство —
+   штатный механизм для HS-only контроллеров (без него bind падает с
+   `failed to enable ep0out`).
 
 ## Серия 7 — QUPv2 I2C DMA quirk
 
