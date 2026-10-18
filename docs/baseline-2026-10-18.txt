@@ -1,0 +1,186 @@
+
+##### DATE #####
+вс 18 окт 2026 16:29:25 UTC
+Sun Oct 18 16:29:25 UTC 2026
+ 16:29:26 up 2 min,  0 users,  load average: 2.68, 1.28, 0.49
+Linux rain-ubuntu 7.1.5-dirty #38 SMP PREEMPT Sun Oct 18 19:03:12 MSK 2026 aarch64 GNU/Linux
+
+##### CMDLINE #####
+console=tty0 console=ttyGS0,115200 console=ttyMSM0,115200n8 earlycon consoleblank=0 log_buf_len=2M pd_ignore_unused clk_ignore_unused fw_devlink=off deferred_probe_timeout=120 rcupdate.rcu_cpu_stall_timeout=20 rcupdate.rcu_cpu_stall_suppress=1
+
+##### SLOT #####
+Active slot: _b
+
+##### SYSTEMD #####
+running
+
+##### SERVICES_RUNNING #####
+ModemManager.service
+NetworkManager-dispatcher.service
+NetworkManager.service
+adbd.service
+bluetooth.service
+chrony.service
+dbus.service
+getty@tty1.service
+gnss-keepalive.service
+gnss-share.service
+hexagonrpcd-adsp-rootpd.service
+hexagonrpcd-adsp-sensorspd.service
+networkd-dispatcher.service
+polkit.service
+pulseaudio.service
+qrtr-ns.service
+rain-sensor-bridge.service
+rmtfs.service
+rsyslog.service
+ssh.service
+systemd-journald.service
+systemd-logind.service
+systemd-resolved.service
+systemd-udevd.service
+tqftpserv.service
+udisks2.service
+uim-hotplug.service
+unattended-upgrades.service
+upower.service
+user@1000.service
+wpa_supplicant.service
+
+##### SERVICES_FAILED #####
+
+##### REMOTEPROC #####
+modem: running
+adsp: running
+
+##### POWER #####
+DEVTYPE=power_supply
+POWER_SUPPLY_NAME=bms
+POWER_SUPPLY_TYPE=Battery
+POWER_SUPPLY_STATUS=Full
+POWER_SUPPLY_HEALTH=Good
+POWER_SUPPLY_PRESENT=1
+POWER_SUPPLY_TECHNOLOGY=Li-ion
+POWER_SUPPLY_CYCLE_COUNT=41
+POWER_SUPPLY_VOLTAGE_NOW=4442000
+POWER_SUPPLY_VOLTAGE_OCV=4419000
+POWER_SUPPLY_CURRENT_NOW=63000
+POWER_SUPPLY_CHARGE_FULL_DESIGN=5096000
+POWER_SUPPLY_CHARGE_FULL=4796000
+POWER_SUPPLY_CHARGE_NOW=4765000
+POWER_SUPPLY_ENERGY_FULL=20316000
+POWER_SUPPLY_ENERGY_NOW=20232000
+POWER_SUPPLY_CAPACITY=100
+POWER_SUPPLY_TEMP=304
+POWER_SUPPLY_TEMP_AMBIENT=312
+POWER_SUPPLY_TYPE=Battery
+POWER_SUPPLY_MODEL_NAME=sh366101
+---
+DEVTYPE=power_supply
+OF_NAME=smb1351
+OF_FULLNAME=/soc/geniqup@4ac0000/i2c@4a88000/smb1351@55
+OF_COMPATIBLE_0=qcom,smb1351-charger-bringup
+OF_COMPATIBLE_N=1
+POWER_SUPPLY_NAME=battery
+POWER_SUPPLY_TYPE=Battery
+POWER_SUPPLY_STATUS=Charging
+POWER_SUPPLY_CHARGE_TYPE=N/A
+POWER_SUPPLY_HEALTH=Good
+POWER_SUPPLY_PRESENT=1
+POWER_SUPPLY_TECHNOLOGY=Li-ion
+
+##### NET #####
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+rmnet_ipa0       DOWN           
+wlan0            UP             192.168.0.146/24 fe80::648b:6923:c169:d63d/64 
+---
+Connected to 50:fe:39:e3:93:13 (on wlan0)
+	SSID: Xiaomi_E4C4
+	freq: 5220.0
+	RX: 583764 bytes (2414 packets)
+	TX: 12644 bytes (73 packets)
+	signal: -44 dBm
+
+##### STORAGE #####
+NAME        MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda           8:0    0 53.5G  0 disk 
+├─sda1        8:1    0    8K  0 part 
+├─sda2        8:2    0   32M  0 part /mnt/persist
+├─sda3        8:3    0    1M  0 part 
+├─sda4        8:4    0    2M  0 part 
+├─sda5        8:5    0  512K  0 part 
+├─sda6        8:6    0  512K  0 part 
+├─sda7        8:7    0  128M  0 part 
+├─sda8        8:8    0 19.1G  0 part /
+├─sda9        8:9    0  8.5G  0 part 
+├─sda10       8:10   0   64K  0 part 
+├─sda11       8:11   0   64K  0 part 
+├─sda12       8:12   0   16M  0 part 
+├─sda13       8:13   0  128M  0 part 
+├─sda14       8:14   0   16M  0 part 
+├─sda15       8:15   0    8M  0 part 
+└─sda16     259:0    0 23.6G  0 part 
+sdb           8:16   0    8M  0 disk 
+├─sdb1        8:17   0    7M  0 part 
+---
+SDINDDK4-64G    
+
+##### THERMAL #####
+battery: 30400
+bms: 30400
+cpu-thermal: 34100
+cpuss-thermal: 34500
+modem-thermal: 33300
+gpu-thermal: 32900
+
+##### AUDIO #####
+ 0 [XiaomiRedmi10C ]: qcm6490 - Xiaomi-Redmi10C
+                      Xiaomi-Redmi10C
+---
+0	auto_null	module-null-sink.c	s16le 2ch 44100Hz	SUSPENDED
+
+##### SENSORS #####
+active
+active
+active
+d 138.3
+
+##### I2C #####
+0-000c: dw9768
+0-0010: s5kjn1
+0-0051: at24
+1-0028: hi556
+1-0051: at24
+1-0059: ov02b1b
+2-0028: wl2866d
+2-0055: sh366101-fg-bringup
+2-0058: aw87xxx-mini
+3-0055: smb1351-charger-bringup
+3-0060: wusb3801
+
+##### INPUT #####
+gpio-vibrator
+pm8941_pwrkey
+pm8941_resin
+gpio-keys
+fts_ts
+Xiaomi-Redmi10C Headset Jack
+
+##### DMESG_ERR_WARN_COUNT #####
+20
+---
+[    2.694982] WARNING: drivers/clk/clk.c:1188 at clk_core_disable+0xa0/0xb0, CPU#4: swapper/0/1
+[    2.803263] WARNING: drivers/clk/clk.c:1047 at clk_core_unprepare+0xe4/0x104, CPU#4: swapper/0/1
+[    2.824678] Tainted: [W]=WARN
+[    3.061482] DSI PLL(0) lock failed, status=0x00000000
+[    3.065441] PLL(0) lock failed
+[    3.077279] WARNING: drivers/clk/clk.c:1188 at clk_core_disable+0xa0/0xb0, CPU#4: swapper/0/1
+[    3.097342] Tainted: [W]=WARN
+[    3.335128] WARNING: drivers/clk/clk.c:1047 at clk_core_unprepare+0xe4/0x104, CPU#4: swapper/0/1
+[    3.355213] Tainted: [W]=WARN
+[    4.186375] Bluetooth: hci0: Frame reassembly failed (-84)
+[    4.943270] qcom-q6afe aprsvc:service:4:4: cmd = 0x100f4 returned error = 0x16
+[    7.871784] [FTS_TS/E]fts_check_bootid:read boot id(0x00 0x00) fail
+[    8.163920] qcom-q6afe aprsvc:service:4:4: AFE failed to vote (4)
+[   12.869094] systemd[1]: systemd-journald.service: (This warning is only shown for the first unit using IP firewalling.)
+[   27.271238] Bluetooth: hci0: Frame reassembly failed (-84)

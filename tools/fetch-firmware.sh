@@ -50,3 +50,18 @@ if [ -d "$TMP/sensors" ]; then
 	cp -a "$TMP/sensors" "$R/sensors"
 	echo ">> unpacked sensors (hexagonrpcd + musl runtime) into $R/sensors"
 fi
+
+# Wireless regulatory database.  cfg80211 loads regulatory.db very early
+# (before pivot-init switches to the cust rootfs), so it has to live in the
+# initramfs - otherwise the load fails with -ENOENT and the Wi-Fi regulatory
+# domain never applies.  The file is architecture-independent and ships in
+# the host's wireless-regdb package.
+for f in regulatory.db regulatory.db.p7s; do
+	if [ -f "/lib/firmware/$f" ]; then
+		mkdir -p "$lib/firmware"
+		cp -a "/lib/firmware/$f" "$lib/firmware/$f"
+		echo ">> staged /lib/firmware/$f into initramfs firmware"
+	else
+		echo "WARN: /lib/firmware/$f not found (install wireless-regdb on the host)" >&2
+	fi
+done
