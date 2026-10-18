@@ -1,0 +1,110 @@
+cam_flash_torch_active|config||67 70 69 6f 36 38 00 67 70 69 6f 38 35 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_flash_torch_active|mux|gpio|67 70 69 6f 36 38 00 67 70 69 6f 38 35 00 |name=7894381
+cam_flash_torch_suspend|config||67 70 69 6f 36 38 00 67 70 69 6f 38 35 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_flash_torch_suspend|mux|gpio|67 70 69 6f 36 38 00 67 70 69 6f 38 35 00 |name=7894381
+cam_flash_tx_active|config||67 70 69 6f 39 33 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_flash_tx_active|mux|gpio|67 70 69 6f 39 33 00 |name=7894381
+cam_flash_tx_suspend|config||67 70 69 6f 39 33 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_flash_tx_suspend|mux|gpio|67 70 69 6f 39 33 00 |name=7894381
+cam_sensor_csi_mux_oe_active|config||67 70 69 6f 36 36 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_csi_mux_oe_active|mux|gpio|67 70 69 6f 36 36 00 |name=7894381
+cam_sensor_csi_mux_oe_suspend|config||67 70 69 6f 36 36 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_sensor_csi_mux_oe_suspend|mux|gpio|67 70 69 6f 36 36 00 |name=7894381
+cam_sensor_csi_mux_sel_active|config||67 70 69 6f 36 37 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_csi_mux_sel_active|mux|gpio|67 70 69 6f 36 37 00 |name=7894381
+cam_sensor_csi_mux_sel_suspend|config||67 70 69 6f 36 37 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_sensor_csi_mux_sel_suspend|mux|gpio|67 70 69 6f 36 37 00 |name=7894381
+cam_sensor_front0_reset_active|config||67 70 69 6f 32 34 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_front0_reset_active|mux|gpio|67 70 69 6f 32 34 00 |name=7894381
+cam_sensor_front0_reset_suspend|config||67 70 69 6f 32 34 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_sensor_front0_reset_suspend|mux|gpio|67 70 69 6f 32 34 00 |name=7894381
+cam_sensor_mclk0_active|config||67 70 69 6f 32 30 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_mclk0_active|mux|cam_mclk|67 70 69 6f 32 30 00 |name=7894381
+cam_sensor_mclk0_suspend|config||67 70 69 6f 32 30 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473
+cam_sensor_mclk0_suspend|mux|cam_mclk|67 70 69 6f 32 30 00 |name=7894381
+cam_sensor_mclk1_active|config||67 70 69 6f 32 31 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_mclk1_active|mux|cam_mclk|67 70 69 6f 32 31 00 |name=7894381
+cam_sensor_mclk1_suspend|config||67 70 69 6f 32 31 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473
+cam_sensor_mclk1_suspend|mux|cam_mclk|67 70 69 6f 32 31 00 |name=7894381
+cam_sensor_mclk2_active|config||67 70 69 6f 32 37 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_mclk2_active|mux|cam_mclk|67 70 69 6f 32 37 00 |name=7894381
+cam_sensor_mclk2_suspend|config||67 70 69 6f 32 37 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473
+cam_sensor_mclk2_suspend|mux|cam_mclk|67 70 69 6f 32 37 00 |name=7894381
+cam_sensor_mclk3_active|config||67 70 69 6f 32 38 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_mclk3_active|mux|cam_mclk|67 70 69 6f 32 38 00 |name=7894381
+cam_sensor_mclk3_suspend|config||67 70 69 6f 32 38 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473
+cam_sensor_mclk3_suspend|mux|cam_mclk|67 70 69 6f 32 38 00 |name=7894381
+cam_sensor_rear0_reset_active|config||67 70 69 6f 31 38 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_rear0_reset_active|mux|gpio|67 70 69 6f 31 38 00 |name=7894381
+cam_sensor_rear0_reset_suspend|config||67 70 69 6f 31 38 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_sensor_rear0_reset_suspend|mux|gpio|67 70 69 6f 31 38 00 |name=7894381
+cam_sensor_rear0_vaf_active|config||67 70 69 6f 31 30 32 00 |bias-disable,drive-strength=33554432,name=1718513507 26473,output-high
+cam_sensor_rear0_vaf_active|mux|gpio|67 70 69 6f 31 30 32 00 |name=7894381
+cam_sensor_rear0_vaf_suspend|config||67 70 69 6f 31 30 32 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_sensor_rear0_vaf_suspend|mux|gpio|67 70 69 6f 31 30 32 00 |name=7894381
+cam_sensor_rear1_reset_active|config||67 70 69 6f 31 39 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_rear1_reset_active|mux|gpio|67 70 69 6f 31 39 00 |name=7894381
+cam_sensor_rear1_reset_suspend|config||67 70 69 6f 31 39 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_sensor_rear1_reset_suspend|mux|gpio|67 70 69 6f 31 39 00 |name=7894381
+cam_sensor_rear23_vio_active|config||67 70 69 6f 36 36 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_rear23_vio_active|mux|gpio|67 70 69 6f 36 36 00 |name=7894381
+cam_sensor_rear23_vio_suspend|config||67 70 69 6f 36 36 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_sensor_rear23_vio_suspend|mux|gpio|67 70 69 6f 36 36 00 |name=7894381
+cam_sensor_rear2_reset_active|config||67 70 69 6f 36 35 00 67 70 69 6f 36 36 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_rear2_reset_active|mux|gpio|67 70 69 6f 36 35 00 67 70 69 6f 36 36 00 |name=7894381
+cam_sensor_rear2_reset_suspend|config||67 70 69 6f 36 35 00 67 70 69 6f 36 36 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_sensor_rear2_reset_suspend|mux|gpio|67 70 69 6f 36 35 00 67 70 69 6f 36 36 00 |name=7894381
+cam_sensor_rear3_reset_active|config||67 70 69 6f 36 35 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cam_sensor_rear3_reset_active|mux|gpio|67 70 69 6f 36 35 00 |name=7894381
+cam_sensor_rear3_reset_suspend|config||67 70 69 6f 36 35 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473,output-low
+cam_sensor_rear3_reset_suspend|mux|gpio|67 70 69 6f 36 35 00 |name=7894381
+cci0_active|config||67 70 69 6f 32 33 00 67 70 69 6f 32 32 00 |bias-pull-up,drive-strength=33554432,name=1718513507 26473
+cci0_active|mux|cci_i2c|67 70 69 6f 32 33 00 67 70 69 6f 32 32 00 |name=7894381
+cci0_suspend|config||67 70 69 6f 32 33 00 67 70 69 6f 32 32 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473
+cci0_suspend|mux|cci_i2c|67 70 69 6f 32 33 00 67 70 69 6f 32 32 00 |name=7894381
+cci1_active|config||67 70 69 6f 33 30 00 67 70 69 6f 32 39 00 |bias-pull-up,drive-strength=33554432,name=1718513507 26473
+cci1_active|mux|cci_i2c|67 70 69 6f 33 30 00 67 70 69 6f 32 39 00 |name=7894381
+cci1_suspend|config||67 70 69 6f 33 30 00 67 70 69 6f 32 39 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473
+cci1_suspend|mux|cci_i2c|67 70 69 6f 33 30 00 67 70 69 6f 32 39 00 |name=7894381
+cd_off|config||67 70 69 6f 38 38 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+cd_off|mux|gpio|67 70 69 6f 38 38 00 |name=7894381
+cd_on|config||67 70 69 6f 38 38 00 |bias-pull-up,drive-strength=33554432,name=1718513507 26473
+cd_on|mux|gpio|67 70 69 6f 38 38 00 |name=7894381
+msm_gpio_100|config||67 70 69 6f 31 30 30 00 |bias-disable,drive-strength=33554432,name=1718513507 26473,output-low
+msm_gpio_100|mux|gpio|67 70 69 6f 31 30 30 00 |name=7894381
+msm_gpio_100_output_high|config||67 70 69 6f 31 30 30 00 |bias-disable,drive-strength=33554432,name=1718513507 26473,output-high
+msm_gpio_100_output_high|mux|gpio|67 70 69 6f 31 30 30 00 |name=7894381
+msm_gpio_104|config||67 70 69 6f 31 30 34 00 |bias-disable,drive-strength=33554432,name=1718513507 26473,output-low
+msm_gpio_104|mux|gpio|67 70 69 6f 31 30 34 00 |name=7894381
+msm_gpio_104_output_high|config||67 70 69 6f 31 30 34 00 |bias-disable,drive-strength=33554432,name=1718513507 26473,output-high
+msm_gpio_104_output_high|mux|gpio|67 70 69 6f 31 30 34 00 |name=7894381
+msm_gpio_83|config||67 70 69 6f 38 33 00 |bias-pull-down,drive-strength=33554432,name=1718513507 26473
+msm_gpio_83|mux|gpio|67 70 69 6f 38 33 00 |name=7894381
+pm8008_active|config||67 70 69 6f 32 36 00 |bias-pull-up,drive-strength=33554432,name=1718513507 26473,output-high
+pm8008_active|mux|gpio|67 70 69 6f 32 36 00 |name=7894381
+pm8008_interrupt|config||67 70 69 6f 32 35 00 |bias-disable,input-enable,name=1718513507 26473
+pm8008_interrupt|mux|gpio|67 70 69 6f 32 35 00 |name=7894381
+sdc1_clk_off|config||73 64 63 31 5f 63 6c 6b 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+sdc1_clk_on|config||73 64 63 31 5f 63 6c 6b 00 |bias-disable,drive-strength=268435456,name=1718513507 26473
+sdc1_cmd_off|config||73 64 63 31 5f 63 6d 64 00 |bias-pull-up,drive-strength=33554432,name=1718513507 26473
+sdc1_cmd_on|config||73 64 63 31 5f 63 6d 64 00 |bias-pull-up,drive-strength=167772160,name=1718513507 26473
+sdc1_data_off|config||73 64 63 31 5f 64 61 74 61 00 |bias-pull-up,drive-strength=33554432,name=1718513507 26473
+sdc1_data_on|config||73 64 63 31 5f 64 61 74 61 00 |bias-pull-up,drive-strength=167772160,name=1718513507 26473
+sdc1_rclk_off|config||73 64 63 31 5f 72 63 6c 6b 00 |bias-pull-down,name=1718513507 26473
+sdc1_rclk_on|config||73 64 63 31 5f 72 63 6c 6b 00 |bias-pull-down,name=1718513507 26473
+sdc2_clk_off|config||73 64 63 32 5f 63 6c 6b 00 |bias-disable,drive-strength=33554432,name=1718513507 26473
+sdc2_clk_on|config||73 64 63 32 5f 63 6c 6b 00 |bias-disable,drive-strength=268435456,name=1718513507 26473
+sdc2_cmd_off|config||73 64 63 32 5f 63 6d 64 00 |bias-pull-up,drive-strength=33554432,name=1718513507 26473
+sdc2_cmd_on|config||73 64 63 32 5f 63 6d 64 00 |bias-pull-up,drive-strength=167772160,name=1718513507 26473
+sdc2_data_off|config||73 64 63 32 5f 64 61 74 61 00 |bias-pull-up,drive-strength=33554432,name=1718513507 26473
+sdc2_data_on|config||73 64 63 32 5f 64 61 74 61 00 |bias-pull-up,drive-strength=167772160,name=1718513507 26473
+smb1351_int_default|config||67 70 69 6f 38 34 00 |bias-pull-up,drive-strength=33554432,input-enable,name=1718513507 26473
+smb1351_int_default|mux|gpio|67 70 69 6f 38 34 00 |name=7894381
+tb_trig1_on|config||67 70 69 6f 31 39 00 |bias-pull-up,drive-strength=134217728,input-enable,name=1718513507 26473
+tb_trig1_on|mux|SDC1_TB|67 70 69 6f 31 39 00 |name=7894381
+ufs_dev_reset_assert|config||75 66 73 5f 72 65 73 65 74 00 |bias-pull-down,drive-strength=134217728,name=1718513507 26473,output-low
+ufs_dev_reset_deassert|config||75 66 73 5f 72 65 73 65 74 00 |bias-pull-down,drive-strength=134217728,name=1718513507 26473,output-high
+wcd937x_reset_active|config||67 70 69 6f 39 32 00 |drive-strength=268435456,name=1718513507 26473,output-high
+wcd937x_reset_active|mux|gpio|67 70 69 6f 39 32 00 |name=7894381
+wcd937x_reset_sleep|config||67 70 69 6f 39 32 00 |bias-disable,drive-strength=268435456,name=1718513507 26473,output-low
+wcd937x_reset_sleep|mux|gpio|67 70 69 6f 39 32 00 |name=7894381
