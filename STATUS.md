@@ -44,7 +44,9 @@
 | Audio calibration (ACDB) | Вендорная калибровка не перенесена: ВЧ-шум аналоговой полки кодека |
 | **Data в слоте 2 SIM** | Регистрация/голос идут, data модем отвергает (`cm error: no-service`); нужна DSD-подписка, которую ставит только RIL Android. Слот 2 погашен (`uim-provision`) |
 | Suspend при включённом BT | Блокируется драйвером: `hci_uart_qca qca_suspend → -110`. С выключенным BT сон уходит штатно |
-| ADB после resume | USB-гаджет не возвращается (`adb offline`) до ребута |
+| ADB после resume | **Исправлено (2026-10-18)**: `usb-adb-resume.service` перепривязывает гаджет (unbind → restart adbd → bind) — `adb` возвращается онлайн сам |
+| ADSP после resume | Падает (`fatal error received`, irq46) и перезапускается remoteproc'ом; при этом SoundWire/кодек сыплют `Failed to sync masks`/`card0: already registered` — звук после сна переинициализируется. Причина: mainline не уведомляет DSP о системном сне (downstream `subsys_notif` наверх не перенесён) — у `qcom_q6v5*` нет suspend-хуков |
+| I2C во время сна | **Исправлено (2026-10-18)**: опрос зарядника/гейджа шёл на незамораживаемой `system_wq` → `i2c-3: Transfer while suspended` WARNING. Оба драйвера переведены на `system_freezable_wq` |
 | ModemManager | Падает с SIGSEGV на неудачных connect (quirk 1.25.95); смягчено перезапуском |
 | Голос/SMS через модем | Не тестировалось |
 | HFP (звонки) через BT-гарнитуру | Не тестировалось (A2DP проверен) |

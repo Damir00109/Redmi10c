@@ -15729,10 +15729,10 @@ index 7ee839dca..d35fb4fca 100644
 +obj-$(CONFIG_FUEL_GAUGE_SH366101_BRINGUP)	+= sh366101_fg_bringup.o
 diff --git a/drivers/power/supply/sh366101_fg_bringup.c b/drivers/power/supply/sh366101_fg_bringup.c
 new file mode 100644
-index 000000000..30eff3744
+index 000000000..87eef0f1a
 --- /dev/null
 +++ b/drivers/power/supply/sh366101_fg_bringup.c
-@@ -0,0 +1,535 @@
+@@ -0,0 +1,539 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15985,7 +15985,10 @@ index 000000000..30eff3744
 +	}
 +
 +	power_supply_changed(fg->bms_psy);
-+	schedule_delayed_work(&fg->poll_work, msecs_to_jiffies(POLL_MS));
++	/* Freezable queue: the poll does i2c (and the gaugeinfo block
++	 * reads) and must not run while the system is suspended. */
++	queue_delayed_work(system_freezable_wq, &fg->poll_work,
++			   msecs_to_jiffies(POLL_MS));
 +}
 +
 +static int sh_bms_get_prop(struct power_supply *psy,
@@ -16231,7 +16234,8 @@ index 000000000..30eff3744
 +		return PTR_ERR(fg->bms_psy);
 +
 +	INIT_DELAYED_WORK(&fg->poll_work, sh_poll_work);
-+	schedule_delayed_work(&fg->poll_work, msecs_to_jiffies(POLL_MS));
++	queue_delayed_work(system_freezable_wq, &fg->poll_work,
++			   msecs_to_jiffies(POLL_MS));
 +
 +	fg->dbgfs = debugfs_create_dir("sh366101", NULL);
 +	debugfs_create_file("dump", 0444, fg->dbgfs, fg, &sh_dump_fops);
@@ -16270,10 +16274,10 @@ index 000000000..30eff3744
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/power/supply/smb1351_charger_bringup.c b/drivers/power/supply/smb1351_charger_bringup.c
 new file mode 100644
-index 000000000..9ddc8189c
+index 000000000..be908626d
 --- /dev/null
 +++ b/drivers/power/supply/smb1351_charger_bringup.c
-@@ -0,0 +1,764 @@
+@@ -0,0 +1,768 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -16725,7 +16729,10 @@ index 000000000..9ddc8189c
 +	}
 +	mutex_unlock(&chip->lock);
 +
-+	schedule_delayed_work(&chip->poll_work, msecs_to_jiffies(POLL_MS));
++	/* Freezable queue: the poll does i2c and must not run while the
++	 * system is suspended ("Transfer while suspended" warning). */
++	queue_delayed_work(system_freezable_wq, &chip->poll_work,
++			   msecs_to_jiffies(POLL_MS));
 +}
 +
 +static int smb1351_batt_get_prop(struct power_supply *psy,
@@ -17005,7 +17012,8 @@ index 000000000..9ddc8189c
 +	INIT_DELAYED_WORK(&chip->poll_work, smb1351_poll_work);
 +	smb1351_update_status(chip);
 +	/* First polls after gadget USB settles — matches cable-replug behavior */
-+	schedule_delayed_work(&chip->poll_work, msecs_to_jiffies(3000));
++	queue_delayed_work(system_freezable_wq, &chip->poll_work,
++			   msecs_to_jiffies(3000));
 +
 +	dev_info(&client->dev, "smb1351 bringup probed @0x%02x\n", client->addr);
 +	return 0;
@@ -17705,10 +17713,25 @@ index 6f3c00b08..efc01eaf3 100644
  			goto err_disable_clks;
  	}
 diff --git a/drivers/usb/dwc3/dwc3-qcom-legacy.c b/drivers/usb/dwc3/dwc3-qcom-legacy.c
-index d3fad0fcf..40ec5912e 100644
+index d3fad0fcf..06ed3cef6 100644
 --- a/drivers/usb/dwc3/dwc3-qcom-legacy.c
 +++ b/drivers/usb/dwc3/dwc3-qcom-legacy.c
-@@ -915,6 +915,7 @@ static const struct dev_pm_ops dwc3_qcom_dev_pm_ops = {
+@@ -433,8 +433,13 @@ static int dwc3_qcom_suspend(struct dwc3_qcom *qcom, bool wakeup)
+ 
+ 	for (i = 0; i < qcom->num_ports; i++) {
+ 		val = readl(qcom->qscratch_base + pwr_evnt_irq_stat_reg[i]);
++		/*
++		 * rain: this port is HS-only and the gadget stays bound, so the
++		 * link never idles into L2 and this fires on every suspend.
++		 * Keep the information but not at error level.
++		 */
+ 		if (!(val & PWR_EVNT_LPM_IN_L2_MASK))
+-			dev_err(qcom->dev, "port-%d HS-PHY not in L2\n", i + 1);
++			dev_dbg(qcom->dev, "port-%d HS-PHY not in L2\n", i + 1);
+ 	}
+ 
+ 	for (i = qcom->num_clocks - 1; i >= 0; i--)
+@@ -915,6 +920,7 @@ static const struct dev_pm_ops dwc3_qcom_dev_pm_ops = {
  
  static const struct of_device_id dwc3_qcom_of_match[] = {
  	{ .compatible = "qcom,dwc3" },
