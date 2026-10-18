@@ -26,6 +26,7 @@ SSC_DIR = "/usr/bin"
 SSC_ENV = dict(os.environ, LD_LIBRARY_PATH="/usr/lib/musl")
 ACCEL_RE = re.compile(r"X=(-?[\d.]+) Y=(-?[\d.]+) Z=(-?[\d.]+)")
 LIGHT_RE = re.compile(r"[Ll]ight.*?(-?[\d.]+)\s*(?:[Ll]ux|lux)")
+PROX_RE = re.compile(r"[Pp]roximity.*?:\s*(FAR|NEAR)")
 
 # The SSC firmware ships an all-zero mount matrix; the axes come out rotated
 # 180 degrees around Z relative to the chassis (same correction as
@@ -41,8 +42,10 @@ class SensorProxy(dbus.service.Object):
         self.lock = threading.Lock()
         self.accel = None
         self.light = None
+        self.prox = None
         self.accel_claimed = False
         self.light_claimed = False
+        self.prox_claimed = False
 
     # ---- data from the ssccli subprocesses ----
     def set_accel(self, x, y, z):
@@ -61,6 +64,12 @@ class SensorProxy(dbus.service.Object):
             self.light = lux
         if self.light_claimed:
             self.PropertiesChanged(self.IFACE, {"LightLevel": dbus.Double(lux)}, [])
+
+    def set_prox(self, near):
+        with self.lock:
+            self.prox = near
+        if self.prox_claimed:
+            self.PropertiesChanged(self.IFACE, {"ProximityNear": dbus.Boolean(near)}, [])
 
     @staticmethod
     def _orientation(x, y, z):
@@ -90,7 +99,8 @@ class SensorProxy(dbus.service.Object):
         return {
             "HasAccelerometer": dbus.Boolean(True),
             "HasAmbientLight": dbus.Boolean(True),
-            "HasProximity": dbus.Boolean(False),
+            "HasProximity": dbus.Boolean(True),
+            "ProximityNear": dbus.Boolean(bool(self.prox)),
             "AccelerometerOrientation": dbus.String(
                 self._orientation(*accel) if accel else "normal"),
             "LightLevel": dbus.Double(light if light is not None else -1.0),
@@ -119,18 +129,33 @@ class SensorProxy(dbus.service.Object):
 
     @dbus.service.method("net.hadess.SensorProxy", in_signature="", out_signature="")
     def ClaimProximity(self):
-        pass
+        self.prox_claimed = True
 
     @dbus.service.method("net.hadess.SensorProxy", in_signature="", out_signature="")
     def ReleaseProximity(self):
-        pass
+        self.prox_claimed = False
 
     @dbus.service.signal(dbus.PROPERTIES_IFACE, signature="sa{sv}as")
     def PropertiesChanged(self, iface, changed, invalidated):
         pass
 
 
-def pump(sensor, handler):
+def parse_accel(line):
+    m = ACCEL_RE.search(line)
+    return [float(g) for g in m.groups()] if m else None
+
+
+def parse_light(line):
+    m = LIGHT_RE.search(line)
+    return [float(m.group(1))] if m else None
+
+
+def parse_prox(line):
+    m = PROX_RE.search(line)
+    return [m.group(1).upper() == "NEAR"] if m else None
+
+
+def pump(sensor, handler, parse):
     """Run ssccli for one sensor and feed every measurement to handler()."""
     print("rain-sensor-bridge: streaming %s" % sensor, flush=True)
     while True:
@@ -140,9 +165,9 @@ def pump(sensor, handler):
                 env=SSC_ENV, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                 text=True, bufsize=1)
             for line in proc.stdout:
-                m = ACCEL_RE.search(line) if sensor == "accelerometer" else LIGHT_RE.search(line)
-                if m:
-                    handler(*[float(g) for g in m.groups()])
+                args = parse(line)
+                if args is not None:
+                    handler(*args)
             proc.wait()
         except Exception:
             pass
@@ -157,8 +182,12 @@ def main():
     proxy.busname = dbus.service.BusName("net.hadess.SensorProxy", bus)
     print("rain-sensor-bridge: owning net.hadess.SensorProxy", flush=True)
 
-    threading.Thread(target=pump, args=("accelerometer", proxy.set_accel), daemon=True).start()
-    threading.Thread(target=pump, args=("light", proxy.set_light), daemon=True).start()
+    threading.Thread(target=pump,
+                     args=("accelerometer", proxy.set_accel, parse_accel), daemon=True).start()
+    threading.Thread(target=pump,
+                     args=("light", proxy.set_light, parse_light), daemon=True).start()
+    threading.Thread(target=pump,
+                     args=("proximity", proxy.set_prox, parse_prox), daemon=True).start()
     GLib.MainLoop().run()
 
 
