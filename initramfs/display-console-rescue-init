@@ -78,10 +78,11 @@ fi
   echo "=== END USB DIAG ==="
 } >/dev/console 2>&1
 
-# WCN3990 Wi-Fi bring-up (working recipe from dualboot project):
-# qrtr-ns -f 1 → pd-mapper → rmtfs (modemst partitions) → tqftpserv →
-# remoteproc start. Modem PAS boots modem.mdt, then TQFT-loads
-# wlanmdsp.mbn into the WLAN DSP; ath10k_snoc then creates wlan0.
+# WCN3990 Wi-Fi bring-up: qrtr-ns -f 1 → rmtfs (modemst partitions) →
+# tqftpserv → remoteproc start.  No userspace pd-mapper: the in-kernel
+# QCOM_PD_MAPPER answers the PD lookups (verified 2026-10-18).  Modem PAS
+# boots modem.mdt, then TQFT-loads wlanmdsp.mbn into the WLAN DSP;
+# ath10k_snoc then creates wlan0.
 if [ -x /bin/tqftpserv ]; then
   mkdir -p /tmp/tqftpserv /var/lib/rmtfs
   # bind modemst/fsg/fsc partitions for rmtfs (no udev in initramfs)
@@ -102,7 +103,6 @@ if [ -x /bin/tqftpserv ]; then
   done
   [ -x /bin/qrtr-ns ] && /bin/qrtr-ns -f 1 &
   sleep 1
-  [ -x /bin/pd-mapper ] && /bin/pd-mapper &
   [ -x /bin/rmtfs ] && /bin/rmtfs -s -o /var/lib/rmtfs &
   /bin/tqftpserv &
   sleep 2

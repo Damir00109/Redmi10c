@@ -8,25 +8,7 @@ LOG=/var/log/usb-adb-gadget.log
 G=/sys/kernel/config/usb_gadget/g1
 FFS=/dev/usb-ffs/adb
 BB=/usr/local/bin/busybox
-: "${RAIN_USB_PHY:=0}"
-
 log() { echo "$(date -Is) $*" >>"$LOG"; }
-
-rmw32() {
-  a=$1; clr=$2; set=$3
-  cur=$("$BB" devmem "$a" 32 2>/dev/null) || return 1
-  cur=${cur#0x}
-  nv=$(printf '0x%08x' $(( (0x$cur & ~clr) | set )))
-  "$BB" devmem "$a" 32 "$nv" 2>/dev/null
-}
-
-usb_phy_once() {
-  [ "$RAIN_USB_PHY" = 1 ] || return 0
-  [ -x "$BB" ] || return 0
-  log "phy once (RAIN_USB_PHY=1)"
-  rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
-  rmw32 0x04ef8830 0x0 0x01000000 >/dev/null
-}
 
 ffs_ready() {
   # ep0 appears after mount; ep1/ep2 after adbd writes descriptors
@@ -100,7 +82,6 @@ setup_once() {
 
   # If adbd already wrote endpoints, bind now; else leave unbound for adbd.service ExecStartPost
   if [ -e "$FFS/ep1" ] || [ -e "$FFS/ep1out" ]; then
-    usb_phy_once
     if [ -z "$(cat "$G/UDC" 2>/dev/null | tr -d '\n')" ]; then
       if ! echo "$UDC" >"$G/UDC" 2>>"$LOG"; then
         log "bind UDC=$UDC failed"
@@ -130,7 +111,6 @@ bind_udc() {
     log "bind_udc: already $cur"
     return 0
   fi
-  usb_phy_once
   if ! echo "$UDC" >"$G/UDC" 2>>"$LOG"; then
     log "bind_udc failed UDC=$UDC"
     return 1

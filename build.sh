@@ -186,7 +186,7 @@ build_initramfs() {
   # tqftpserv + shared libs (dynamic aarch64): serves modem TQFT requests
   # for wlanmdsp.mbn during remoteproc boot (WCN3990 Wi-Fi bring-up).
   if [ -f "$ROOT/initramfs/tqftpserv" ]; then
-    for t in tqftpserv qrtr-ns pd-mapper rmtfs qrtr-lookup; do
+    for t in tqftpserv qrtr-ns rmtfs qrtr-lookup; do
       [ -f "$ROOT/initramfs/$t" ] && cp "$ROOT/initramfs/$t" "$IR/bin/$t"
     done
     mkdir -p "$IR/lib" "$IR/usr/lib"
