@@ -22,7 +22,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 7 | Аудио smart-boost | `fs15xx` (foursemi FS1599) | i2c2-0034 | Foursemi | **NOT SUPPORTED** (нода есть, драйвера в дереве нет; boost PVDD для AW87xxx — работает без него) |
 | 8 | Подсветка (доп.) | `bkl-bl` | i2c0-0036 | — | **NOT SUPPORTED** (не пробивается; подсветка идёт через DSI-панель `5e94000.dsi.0`) |
 | 9 | LCD bias | `lcm-bias` | i2c0-003e | — | **NOT SUPPORTED** (не пробивается; питание панели идёт без отдельного bias) |
-| 10 | Камера задняя | **S5KJN1** 50МП (модуль Sunny; альтернативы HI1337/SC500CS) | CCI0 + CSIPHY | Samsung | **NORMAL** (стрим RAW10 работает; нет AE/AWB — ISP-уровень) |
+| 10 | Камера задняя | **S5KJN1** 50МП (модуль Sunny; альтернативы HI1337/SC500CS) | CCI0 + CSIPHY | Samsung | **NORMAL** (стрим RAW10 работает; нет AE/AWB — ISP-уровень. В v4l2-контролах сенсора есть `exposure`/флипы, т.е. ручной AE из userspace возможен) |
 | 11 | Камера фронт | **HI556** 5МП (модуль AAC «V6457») | CCI1, i2c1-0x28 | Himax | **NORMAL** (кадры идут; нет AE/AWB) |
 | 12 | Камера depth | **OV02B1B** 2МП (модуль AAC «B313») | CCI0 master 1, CSIPHY1 | OmniVision | **LOW** — была `status = disabled` без порта; **включена и связана** (2026-10-18): драйвер `1-0059: ov02b1b` пробивается, в media-графе есть сущность и линк `msm_csiphy1 ↔ ov02b1b [ENABLED]`, формат Y10_1X10 1600x1200. Поток пока не идёт (`STREAMON → EPIPE`) — нужна отдельная работа с CAMSS-пайплайном (CSIPHY/CSID/VFE) |
 | 13 | VCM (AF) | **GT9764** | i2c0-000c, в модуле задней камеры | GIANTEC | **NORMAL** (пробивается; автофокус внутри CAMSS-пути) |
@@ -32,7 +32,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 17 | Усилитель динамика | **AW87xxx** PA | i2c2-0058 | Awinic | **FULL** |
 | 18 | Акселерометр | **SC7A20** | SSC (SLPI) | Silan | **FULL** — ядерных IIO нет (шина DSP), данные идут через `hexagonrpcd`/libssc и публикуются в приложения мостом `rain-sensor-bridge` (`net.hadess.SensorProxy`) |
 | 19 | ALS + Proximity | **TMD2755** | SSC (SLPI) | ams AG | **FULL** (ALS и proximity — через мост `rain-sensor-bridge`: `LightLevel`, `ProximityNear`) |
-| 20 | SAR-датчик | **ADUX1050** | SSC | Analog Devices | **LOW** (драйвера/ноды в mainline-дереве нет) |
+| 20 | SAR-датчик | **ADUX1050** | SSC | Analog Devices | **LOW** — драйвера нет, и через `libssc`/`ssccli` он недоступен: поддерживаются только proximity/light/accelerometer/magnetometer/compass |
 | 21 | Сканер отпечатка | FPC rear (`ro.boot.fpsensor=fpc`, `fp-keys`) | SPI/GPIO | Fingerprint Cards | **NOT SUPPORTED** |
 | 22 | Wi-Fi | **WCN3990** (ath10k SNOC) | c800000.wifi | Qualcomm | **FULL** (~1.1 Гбит AP-режим проверен) |
 | 22a | Bluetooth | тот же WCN3990 (hci_qca) | GENI UART 4a8c000 | Qualcomm | **NORMAL** (A2DP работает; редкий wedge при re-init — известный дебт) |
@@ -67,7 +67,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | GPU | `5900000.gpu` + `596a000.gmu` | Adreno 610 v2 + GMU (SW/ZAP) | **FULL** (SMMU/devfreq/GMU-pwr) |
 | DSP модема | `6080000.remoteproc` | MPSS — модем/Location/QMI | **NORMAL** (QMI/MM/LTE-data; voice/SMS частично; слот2 без data) |
 | DSP аудио | `ab00000.remoteproc` | ADSP — LPASS/APR (q6afe/adm/core), fastrpc CB ×7 | **NORMAL** — ADSP поднимается ядром (`auto_boot=true`), PD-маппер in-kernel (`QCOM_PD_MAPPER`); **resume починен**: падал из-за fastrpc-сессии `hexagonrpcd` — гасится до сна (`rain-sensor-suspend`) |
-| CDSP | thermal-зоны только | compute-DSP, HVX | **LOW** (отдельной remoteproc-ноды в DT нет) |
+| CDSP | thermal-зоны только | compute-DSP, HVX | **LOW** — ноды в нашем DT нет (в стоке `remoteproc-cdsp@b300000`, `qcom,khaje-cdsp-pas`), **и прошивки нет**: в нашем firmware-наборе только дескриптор `cdspr.jsn`, самого `cdsp.mdt` нет. Включение = вытащить блоб из стока + перепаковать релиз; ничего пользовательского CDSP сейчас не использует |
 | Wi-Fi MAC | `c800000.wifi` | WCN3990 SNOC (ath10k) | **FULL** |
 | IPA | `5840000.ipa` | IP-акселератор модем↔AP (rmnet_ipa0, QMAP v4.2) | **NORMAL** (работает; PAS-sequencing — кастомный патч) |
 | UFS HC | `4804000.ufshc` | UFS-контроллер, 6 LUN | **FULL** (khaje quirks + ref-clk) |
