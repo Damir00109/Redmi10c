@@ -16,8 +16,18 @@
    disabled/unprepared» WARNs (наблюдались на DSI PLL на SM6225).
    Заменён на propagate состояния + обновление топологии.
    Cf. upstream f8f8f1d04494 + follow-ups — возможно уже решено
-   наверху, сверить перед отправкой.
-3. **`qcom_scm.c`: QSEECOM allowlist для `xiaomi,fog`** — UEFI
+   наверху, сверить перед отправкой. **Известный пробел (2026-10-18)**:
+   пропагация состояния на нового родителя делается только при reparent'е,
+   а на unprepare/disable не зеркалится — из-за этого при перезапуске ADSP
+   приходит `WARNING ... Enabling unprepared LPASS_*_MCLK`, а счётчики
+   родителя могут остаться задранными. Правку «prepare перед enable» пробовал
+   и откатил (ручной stop/start ADSP после неё вешал систему).
+3. **`power: freezable poll work`** (2026-10-18) — опрос зарядника
+   (`smb1351_charger_bringup`) и гейджа (`sh366101_fg_bringup`) шёл на
+   незамораживаемой `system_wq`, из-за чего во сне делались i2c-транзакции
+   (`i2c-3: Transfer while suspended` WARNING). Оба переведены на
+   `system_freezable_wq` — generic-фикс, кандидат наверх.
+4. **`qcom_scm.c`: QSEECOM allowlist для `xiaomi,fog`** — UEFI
    secure-app трастлет на этом устройстве отвечает, efivars читаются.
    Платформенная добавка в существующую таблицу — простая.
 4. **`gpucc`: SM6375 Lucid→Zonda silicon correction** — wrong GPU CC
@@ -80,6 +90,9 @@
    нужны: upstream `dwc3-qcom` сам делает QSCRATCH/клоки/ресет, а свойство —
    штатный механизм для HS-only контроллеров (без него bind падает с
    `failed to enable ep0out`).
+   **Depth-камера (2026-10-18)**: нода `ov02b1b` включена и связана портом с
+   `camss port@1` (`csiphy1_ep` ↔ `ov02b1b_ep`, 1 линия, 332.8 МГц) — идёт в
+   DT-серию вместе с остальными сенсорами.
 
 ## Серия 7 — QUPv2 I2C DMA quirk
 
@@ -92,6 +105,19 @@
     Само property — generic-фича драйвера (кандидат наверх); его
     применение в `sm6225-xiaomi-fog.dts` (`&i2c1`) — платформенный
     workaround, пока не найден настоящий фикс SE-DMA.
+
+## Серия 8 — новые драйверы (написаны с нуля)
+
+11. **`power/supply/sh366101_fg_bringup.c`** — SinoWealth SH366101:
+    SBS-свойства + gaugeinfo-блоки (Qmax→SOH, энергия, OCV, внутр. темпа),
+    `system_freezable_wq`. Публикуемый драйвер, стиль upstream.
+12. **`power/supply/smb1351_charger_bringup.c`** — Summit SMB1351 (зарядник).
+13. **`gpu/drm/panel/panel-xinli-ft8006s.c`** — панель FT8006S.
+14. **`media/i2c/ov02b1b.c`** — depth-сенсор (1 линия, 1600x1200).
+15. **`misc/aw87xxx-mini.c`**, **`misc/wl2866d.c`** — PA Awinic и camera-PMIC
+    (урезанные, «mini» — для наверх переписывать по подсистемам).
+16. **`pinctrl/qcom/pinctrl-khaje.c`** — идёт в серию 3 (pinctrl).
+    `input/touchscreen/fts_spi/` — вендорный форк, наверх не отправлять.
 
 ## Сознательно НЕ upstreamable (платформенные quirks — держать локально)
 
