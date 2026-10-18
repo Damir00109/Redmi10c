@@ -123,6 +123,42 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | Антенны | main + diversity + check-GPIO | LTE/Wi-Fi приём | **NORMAL** (основной тракт работает; diversity-check GPIO не заведены) |
 | NFC-антенна | pn8x | рамка | **LOW** (чип id читается; стека нет) |
 
+## Проверка на живом устройстве (2026-10-18, kernel #9, Ubuntu слот B)
+
+Каждый блок проверен командой на работающей системе:
+
+| Блок | Команда → факт | Вердикт |
+|---|---|---|
+| CPU | `cpuinfo` → 8 ядер; `scaling_cur_freq` 0.94/2.2 ГГц | **FULL** — devfreq живой |
+| DRAM | `free -m` → 2612 МБ доступно | **FULL** |
+| UFS | `scsi_disk` → 6 LUN, model `SDINDDK4-64G`, state `running`, 17 sda-партиций | **FULL** |
+| Панель | `drm card0-DSI-1 status` → `connected`, renderD128 | **FULL** |
+| Подсветка | `/sys/class/backlight/5e94000.dsi.0` → 614/2047 | **FULL** — регулируется через DSI-панель |
+| Тач | `fts_ts` → input4 на spi0.0 | **FULL** |
+| bkl-bl / lcm-bias | i2c-карта → не пробиваются | **NOT SUPPORTED** — подтверждено |
+| Камеры | `media-ctl` → 35 entities, 12 /dev/video*; i2c: s5kjn1, hi556, gt9764, 24c128, 24c64 | **NORMAL** — топология полная; OV02B1B в карте отсутствует |
+| OV02B1B | i2c-карта → нет | **LOW** — подтверждено |
+| Звук | `aplay -l` → card0 MultiMedia1; swr-master ×2 + slave ×2 | **FULL** |
+| Wi-Fi | `iw dev` → connected Xiaomi_E4C4 **5GHz/5220MHz**, RX 23 МБ | **FULL** — реальный трафик |
+| BT | `hciconfig` → hci0 **UP RUNNING**, Powered | **NORMAL** |
+| NFC | i2c-карта → nq-nci не пробивается | **LOW** — подтверждено |
+| Зарядка/гейдж | `power_supply` → battery 100% `Charging`, usb online | **FULL** |
+| GPU | `/dev/dri` → renderD128; devfreq 320МГц→таблица до 1.1ГГц | **FULL** — транзишны идут |
+| Модем | `mmcli` → MPSS.HA отвечает, qrtr0+rmnet_ipa0; `failed: sim-missing` | **NORMAL** — стек жив; SIM не вставлена |
+| remoteproc | modem `running`, adsp `running` | **FULL** |
+| IPA | `rmnet_ipa0` DOWN (нет bearer без SIM) | **NORMAL** — интерфейс существует |
+| tsens | tz0–3 → battery 32.8°C, cpu 36°C — живые значения | **FULL** |
+| VADC | iio:device0 → 14 каналов | **FULL** |
+| RTC | `hwclock` → 1970 (читает, не пишет) | **LOW** — как на стоке |
+| Сенсоры | `hexagonrpcd` ×2 running, `-R` root присутствует; iio-sensor-proxy inactive | **NORMAL** |
+| Вибратор | `gpio-vibrator` input0 | **FULL** |
+| Джек | `Xiaomi-Redmi10C Headset Jack` input | **FULL** |
+| SD | `mmcblk0` 30.4М блоков — карта видна | **FULL** |
+| USB-C | `typec port0` + `port0-partner` | **NORMAL** |
+| Вспышка | `leds/white:torch` нода есть | **NORMAL** |
+| Fingerprint | нет сервиса/ноды | **NOT SUPPORTED** |
+| GPIO/TLMM | 3 gpiochip, 80 линий | **FULL** |
+
 ## Сводка поддержки (mainline kernel #9)
 
 - **FULL**: панель, тач, UFS, SD, DRAM, GPU, display-стек, Wi-Fi,
