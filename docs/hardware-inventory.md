@@ -43,7 +43,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 27 | USB-C CC №2 | **WUSB3801** | i2c3-0060 | WillSemi | **NORMAL** (пробивается; роль/PD минимальны) |
 | 28 | Вибромотор | coin-motor через **qpnp-vibrator-ldo** | GPIO+LDO PM6125 | — | **FULL** |
 | 29 | Джек-детект | WCD937x MBHC + **FSA4480** | SoundWire + i2c | Qualcomm/onsemi | **FULL** (гарнитура + кнопки) |
-| 30 | SD-слот | SDHCI (`4784000.mmc`) | mmc | — | **FULL** (детект polling — gpio88 reserved) |
+| 30 | SD-слот | SDHCI (`4784000.mmc`) | mmc | — | **FULL** (2026-10-18) — настоящий card-detect: `gpio88` снят с резерва, `cd-gpios = <&tlmm 88 GPIO_ACTIVE_HIGH>` (полярность на этом борде **активная-высокая** — проверено: при вставленной карте пин `high`); `Got CD GPIO` → `mmcblk0 14.5G`. Polling (`broken-cd`) убран. Стейт в `pinctrl-0` не ставим — конфликт claim'а (mmc берёт пин как GPIO) |
 | 31 | Детект антенн | `ant_check`/`ant_div_check` | GPIO | — | **NORMAL** (2026-10-18) — номера линий из стокового DT (`soc/ant_check` → TLMM **107**, `soc/ant_check_div` → TLMM **25**), заведены как `gpio-keys`-свитчи; состояние читается: `gpio25: in low no pull`, `gpio107: in low pull down` (обе низкие). Полярность/смысл сверить на стенде. Важно: эти пины **не были** в `reserved_gpios` — ранняя перестраховка касалась других, и рантайм-проверка (pinmux/pinconf дампы) показала, что они читаются штатно |
 
 **Отсутствует (проверено):** гироскоп, магнитометр/компас, IR-blaster,
