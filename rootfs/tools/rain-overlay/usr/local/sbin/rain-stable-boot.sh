@@ -40,7 +40,7 @@ for RP in /sys/class/remoteproc/remoteproc*; do
   esac
 done
 
-# Remove stale ath10k modules (qcom-modem-start + ath10k-snoc-load will reload)
+# Remove stale ath10k modules (qcom-modem-start will reload them)
 for m in ath10k_snoc ath10k_core ath10k_pci ath10k_sdio; do
   lsmod 2>/dev/null | grep -q "^$m" && rmmod "$m" 2>/dev/null || true
 done

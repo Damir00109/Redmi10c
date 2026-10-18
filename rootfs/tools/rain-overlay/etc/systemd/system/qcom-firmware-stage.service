@@ -1,10 +1,7 @@
 [Unit]
-Description=Stage Qualcomm modem/WiFi firmware (mount modem_a, symlink firmware)
+Description=Stage the tqftpserv work dir and rmtfs partition links
 DefaultDependencies=no
 After=local-fs.target systemd-udevd.service
-# Wait for modem_a partition device to appear before starting
-Requires=dev-disk-by\x2dpartlabel-modem_a.device
-After=dev-disk-by\x2dpartlabel-modem_a.device
 Before=qcom-modem-start.service qrtr-ns.service rmtfs.service tqftpserv.service
 
 [Service]

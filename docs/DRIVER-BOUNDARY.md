@@ -107,12 +107,13 @@ ADSP у нас `qcom,sm6115-adsp-pas` → `adsp_resource_init` с
 (`QCOM_Q6V5_ADSP=m`, для qcs404-подобных). Скрипт и юнит **удалены** —
 после холодного ребута card0 поднимается сам, ADSP `running`.
 
-### P4. `ath10k-snoc-load.sh` → свести к нулю
+### P4. `ath10k-snoc-load.sh` → свести к нулю — **СДЕЛАНО**
 
 `ATH10K_SNOC=y`: `modprobe` — no-op, ожидание `wlan0` — только settle-пауза
-под зависания DSP. Если после P1/P5 проба ath10k стабильна, скрипт удаляется;
-остаётся зависимость «модем/WLAN-DSP up → ath10k probe», которую должно
-держать ядро (deferred probe), а не sleep 3.
+под зависания DSP. **Проверено ребутом:** с выключенным юнитом `ath10k_snoc` пробивается сам
+(deferred probe ждёт WLAN DSP, в dmesg видно probe на ~41-й секунде), `wlan0`
+поднимается и подключается к сети. Скрипт и юнит **удалены**; зависимость
+«модем/WLAN-DSP up → ath10k probe» держит ядро.
 
 ### P5. In-kernel `pd-mapper` vs userspace `pd-mapper` — **СДЕЛАНО**
 
@@ -125,13 +126,21 @@ in-kernel маппер отдаёт `adsp_audio/root/sensor`, `cdsp_root`, `mpss
 (`qrtr-ns`, `qcom-modem-start`, mount-override, `build-rootfs.sh`) **убраны**;
 после ребута модем/ADSP/Wi-Fi/сенсоры работают, `pd-mapper` inactive.
 
-### P6. `qcom-firmware-stage.sh` — сократить
+### P6. `qcom-firmware-stage.sh` — сократить — **СДЕЛАНО**
 
 Прошивки уже лежат в `/lib/firmware` (initramfs кладёт `adsp.*`, `modem.*`,
-`a610_zap`, `ipa_fws`, ath10k board-2). Остаётся runtime-логика: симлинки
-`board.bin` из раздела modem_a, `mcfg.tmp`-заглушки для tqftpserv, rmtfs-линки.
-Часть можно вынести в сборку rootfs (положить нужные BDF в образ), часть —
-в udev-правила вместо скрипта.
+`a610_zap`, `ipa_fws`, ath10k `board-2.bin` + `firmware-5.bin`). Скрипт
+**сокращён до минимума**: пустые `mcfg.tmp`/`lctoem.tmp` для tqftpserv,
+readonly-дерево для абсолютных путей и rmtfs-линки по `PARTNAME`.
+
+Убрано как лишнее (проверено ребутом: модем + WLAN + ath10k поднимаются):
+mount `modem_a` и его зависимости, симлинки прошивок в `/run/modem_fw`
+(их никто не читал), копии `wlanmdsp.mbn` (уже в образе), `modprobe rmtfs_mem`
+(`=y`), симлинки `board.bin`/`firmware-5.bin`. Важное уточнение по последнему:
+`firmware-5.bin` ath10k **нужен** (без него WLAN-процесс в модеме падает и
+роняет весь модем: `err_qdi.c: EX:wlan_process`), но он уже приходит из
+`initramfs/lib/firmware/` — старый скрипт лишь перезаписывал файл симлинком.
+`board.bin` не нужен: ath10k берёт контейнер `board-2.bin`.
 
 ### P7. `sensors-setup`: socinfo — из ядра, не хардкодом — **СДЕЛАНО (частично)**
 
@@ -175,9 +184,9 @@ in-kernel маппер отдаёт `adsp_audio/root/sensor`, `cdsp_root`, `mpss
 | ADSP boot | ядро (auto_boot), скрипт удалён | **сделано (P3)** |
 | Звук (ASoC) | ядро `=y` | ок |
 | Модем boot | userspace (by design) | ок (auto_boot=false) |
-| WLAN probe | ядро `=y` + settle-скрипт | **сократить (P4)** |
+| WLAN probe | только ядро (deferred probe) | **сделано (P4)** |
 | pd-mapper | только ядро (`QCOM_PD_MAPPER`) | **сделано (P5)** |
-| Прошивки | initramfs + staging-скрипт | **в сборку rootfs (P6)** |
+| Прошивки | `/lib/firmware` из initramfs; скрипт — только tqftpserv/rmtfs | **сделано (P6)** |
 | Мёртвый blacklist | удалён | **сделано (P2)** |
 | socinfo в sensors-setup | из `/sys/devices/soc0` | **сделано (P7)** |
 | Сенсоры | userspace SSC | нельзя (SSC-шина) |

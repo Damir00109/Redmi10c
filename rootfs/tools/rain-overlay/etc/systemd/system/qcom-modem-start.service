@@ -3,7 +3,6 @@ Description=Start Qualcomm modem remoteproc (PAS)
 DefaultDependencies=no
 After=qrtr-ns.service rmtfs.service tqftpserv.service
 Requires=qrtr-ns.service rmtfs.service tqftpserv.service
-Before=ath10k-snoc-load.service
 
 [Service]
 Type=oneshot

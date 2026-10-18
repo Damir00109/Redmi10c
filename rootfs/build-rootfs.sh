@@ -274,7 +274,7 @@ systemctl enable rain-bt.service bluetooth rain-serial-console.service 2>/dev/nu
 # pd-mapper is NOT enabled: the in-kernel QCOM_PD_MAPPER answers the
 # ADSP/modem PD lookups (verified 2026-10-18).
 systemctl enable qcom-firmware-stage.service qrtr-ns.service rmtfs.service tqftpserv.service 2>/dev/null || true
-systemctl enable qcom-modem-start.service ath10k-snoc-load.service uim-provision.service uim-hotplug.service 2>/dev/null || true
+systemctl enable qcom-modem-start.service uim-provision.service uim-hotplug.service 2>/dev/null || true
 systemctl enable ModemManager.service NetworkManager.service NetworkManager-dispatcher.service 2>/dev/null || true
 systemctl enable ssh 2>/dev/null || true
 systemctl enable wpa_supplicant.service 2>/dev/null || true
