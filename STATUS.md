@@ -43,7 +43,7 @@
 | Магнитометр / компас | В железе Redmi 10C их нет (проверено: данных нет) |
 | Audio calibration (ACDB) | Вендорная калибровка не перенесена: ВЧ-шум аналоговой полки кодека |
 | **Data в слоте 2 SIM** | Регистрация/голос идут, data модем отвергает (`cm error: no-service`); нужна DSD-подписка, которую ставит только RIL Android. Слот 2 погашен (`uim-provision`) |
-| Suspend при включённом BT | Блокируется драйвером: `hci_uart_qca qca_suspend → -110`. С выключенным BT сон уходит штатно |
+| Suspend при включённом BT | **Исправлено (2026-10-18)**: `rain-bt-suspend.service` (Before=sleep.target) отвязывает serdev `serial0-0` перед сном, `rain-bt-resume.service` привязывает обратно. Проверено с включённым BT: сон состоялся (`suspend_stats=2`, 0 «Some devices failed»), `hci0` вернулся `UP RUNNING` |
 | ADB после resume | **Исправлено (2026-10-18)**: `usb-adb-resume.service` перепривязывает гаджет (unbind → restart adbd → bind) — `adb` возвращается онлайн сам |
 | ADSP после resume | Падает (`fatal error received`, irq46) и перезапускается remoteproc'ом; при этом SoundWire/кодек сыплют `Failed to sync masks`/`card0: already registered` — звук после сна переинициализируется. Причина: mainline не уведомляет DSP о системном сне (downstream `subsys_notif` наверх не перенесён) — у `qcom_q6v5*` нет suspend-хуков |
 | Сенсоры после resume | **Исправлено (2026-10-18)**: краш DSP-процесса `sensor_process` рвёт fastrpc (`Broken pipe`) → оба `hexagonrpcd` деактивируются и сенсоры мертвы до ребута. `rain-sensor-resume.service` перезапускает их после пробуждения |

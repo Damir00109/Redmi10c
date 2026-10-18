@@ -1,0 +1,10 @@
+[Unit]
+Description=Re-attach the BT serdev after resume
+After=suspend.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rain-bt-suspend.sh rebind
+
+[Install]
+WantedBy=suspend.target

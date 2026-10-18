@@ -100,7 +100,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | VADC | `pmic@0:adc@3100` | термодатчики, батарея, camera-flash therm | **FULL** |
 | RTC | `pmic@0:rtc@6000` | rtc-pm8xxx | **LOW** (только чтение — PMIC write-protect, на стоке так же) |
 | Temp-alarm | `pmic@0:temp-alarm@2400` | pm6125-tz | **FULL** |
-| PMIC GPIO | `pmic@0:gpio@c000` | gpio-ключи/LED на PMIC | **NORMAL** |
+| PMIC GPIO | `pmic@0:gpio@c000` | gpio-ключи/LED на PMIC | **FULL** (9 линий, состояния читаются; 3 не используются — аудит 2026-10-18) |
 | Vibrator LDO | `qpnp-vibrator-ldo` | питание вибромотора | **FULL** |
 
 ### Периферия платы
@@ -113,13 +113,13 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | USB-C порт | DWC3 + CC-контроллеры | данные + зарядка | **NORMAL** (data/charge OK; роль-менеджмент CC частично) |
 | Батарея | SMB1351 + SH366101 | ~5000 мАч | **FULL** |
 | Динамик | AW87xxx PA | громкоговоритель | **FULL** |
-| Ресивер | WCD937x | телефонный динамик | **NORMAL** (путь есть; voice-профили не проверены) |
+| Ресивер | WCD937x | телефонный динамик | **NORMAL** — DAPM-граф кодека содержит `EAR/EAR_RDAC/EAR PGA` (путь есть); звуковой тест не делался |
 | Микрофоны ×2 | аналог → WCD937x ADC | основной + шумодав | **NORMAL** (захват есть; routing/UCM минимальны) |
 | Джек 3.5мм | WCD937x MBHC + FSA4480 | детект + кнопки гарнитуры | **FULL** |
 | Кнопки | pon (pwrkey/resin) + gpio-keys | power, vol± | **FULL** |
 | Fingerprint | FPC rear | биометрия | **NOT SUPPORTED** |
 | Вибромотор | qpnp-vibrator-ldo | coin-motor | **FULL** |
-| Вспышка | `camera-flash@0` (CCI0) | LED torch/flash | **NORMAL** (torch есть; интеграция с камерой не проверена) |
+| Вспышка | `camera-flash@0` (CCI0) | LED torch/flash | **NORMAL** — torch проверен (`white:torch`, `max_brightness=1`, вкл/выкл); v4l2-flash API не заведён (интеграция с камерой) |
 | Антенны | main + diversity + check-GPIO | LTE/Wi-Fi приём | **NORMAL** (основной тракт работает; diversity-check GPIO не заведены) |
 | NFC-антенна | pn8x | рамка | **LOW** (чип id читается; стека нет) |
 

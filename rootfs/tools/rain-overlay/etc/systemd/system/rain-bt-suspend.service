@@ -1,0 +1,11 @@
+[Unit]
+Description=Detach the BT serdev before system sleep
+DefaultDependencies=no
+Before=sleep.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rain-bt-suspend.sh unbind
+
+[Install]
+WantedBy=sleep.target
