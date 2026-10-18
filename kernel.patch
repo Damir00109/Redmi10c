@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..0cdf3bf2e
+index 000000000..f295cbee5
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1250 @@
+@@ -0,0 +1,1259 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -750,10 +750,12 @@ index 000000000..0cdf3bf2e
 +		vcc-supply = <&vib_vcc>;
 +	};
 +
-+	/* Rear torch LED — Android soc:flashlight (qcom,leds-back-gpio-flash):
++	/* Rear flashlight — Android soc:flashlight (qcom,leds-back-gpio-flash):
 +	 * flash_en=gpio68, flash_now=gpio85, torch-seq = en:0/now:1.
-+	 * Digital only — current fixed by driver-IC resistor (400mA torch).
-+	 * gpio68 stays unused: flash strobe (800mA) not needed for rescue. */
++	 * Digital only — current fixed by driver-IC resistor (400mA torch,
++	 * 800mA flash).  gpio85 is the existing torch; gpio68 is the higher-
++	 * current flash/enable line.  Expose both as gpio-leds so userspace
++	 * can drive them; default-trigger none keeps them off at boot. */
 +	leds {
 +		compatible = "gpio-leds";
 +
@@ -761,6 +763,13 @@ index 000000000..0cdf3bf2e
 +			label = "white:torch";
 +			gpios = <&tlmm 85 GPIO_ACTIVE_HIGH>;
 +			linux,default-trigger = "torch";
++		};
++
++		flash {
++			label = "white:flash";
++			gpios = <&tlmm 68 GPIO_ACTIVE_HIGH>;
++			/* Keep off at boot: this is the 800mA flash strobe line. */
++			linux,default-trigger = "none";
 +		};
 +	};
 +};
@@ -13930,10 +13939,10 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..693de2b72
+index 000000000..00c0cc094
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1677 @@
+@@ -0,0 +1,1679 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15533,7 +15542,9 @@ index 000000000..693de2b72
 +	/* 65 camera reset2 (CAM_RESET2, depth) */
 +	66,
 +	67,
-+	68,
++	/* 68 = camera flash_en (stock DT: cam_flash_torch_*, gpio output).
++	 * Un-reserved 2026-10-18 and exposed as a gpio-led; sleep state
++	 * drives it low (LED off), so the default-off led node is safe. */
 +	69,
 +	70,
 +	71,

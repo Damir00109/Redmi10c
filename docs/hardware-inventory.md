@@ -163,7 +163,7 @@ ADB/сенсоры/I2C на resume починены.
 | Джек | `Xiaomi-Redmi10C Headset Jack` input | **FULL** |
 | SD | `mmcblk0` 30.4М блоков — карта видна | **FULL** |
 | USB-C | `typec port0` + `port0-partner` | **NORMAL** |
-| Вспышка | `leds/white:torch` нода есть | **NORMAL** |
+| Вспышка | `leds/white:torch` + `leds/white:flash` | **NORMAL** (torch = gpio85; flash/enable = gpio68, снят с резерва 2026-10-18, по дефолту off; v4l2-flash API — вне scope) |
 | Fingerprint | нет сервиса/ноды | **NOT SUPPORTED** |
 | GPIO/TLMM | 3 gpiochip, 80 линий | **FULL** |
 
