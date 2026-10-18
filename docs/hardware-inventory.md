@@ -44,7 +44,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 28 | Вибромотор | coin-motor через **qpnp-vibrator-ldo** | GPIO+LDO PM6125 | — | **FULL** |
 | 29 | Джек-детект | WCD937x MBHC + **FSA4480** | SoundWire + i2c | Qualcomm/onsemi | **FULL** (гарнитура + кнопки) |
 | 30 | SD-слот | SDHCI (`4784000.mmc`) | mmc | — | **FULL** (детект polling — gpio88 reserved) |
-| 31 | Детект антенн | `ant_check`/`ant_div_check` | GPIO | — | **LOW** (GPIO-линии не заведены; не нужны для работы) |
+| 31 | Детект антенн | `ant_check`/`ant_div_check` | GPIO | — | **NOT SUPPORTED** — номера линий достали из стокового DT (`soc/ant_check`: TLMM **107**, `soc/ant_check_div`: TLMM **25**), но завести их у нас нельзя: GPIO 25 в нашем `reserved_gpios` (PM8008 IRQ/EN — MMIO-доступ вешает SoC), а GPIO 107 в SOUTH-банке, который тоже может вешать (см. комментарий про gpio101 в fog.dts). На Android это вендорские input-устройства `ant_check-input`/`ant_div_check-input` |
 
 **Отсутствует (проверено):** гироскоп, магнитометр/компас, IR-blaster,
 внешний модем (интегрирован в SoC), датчик Холла, LED-индикатор.
