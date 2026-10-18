@@ -1430,10 +1430,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..fb6385662
+index 000000000..a0d07ba6a
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2455 @@
+@@ -0,0 +1,2496 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -3416,27 +3416,68 @@ index 000000000..fb6385662
 +			vdda33-supply = <&vreg_usb_3p3>;
 +		};
 +
-+		usb_dwc3: usb@4e00000 {
-+			compatible = "snps,dwc3";
-+			reg = <0x04e00000 0xcd00>;
-+			interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
-+			dr_mode = "peripheral";
-+			maximum-speed = "high-speed";
-+			phys = <&usb_hsphy>;
-+			phy-names = "usb2-phy";
-+			snps,dis_u2_susphy_quirk;
-+			snps,dis_enblslpm_quirk;
-+			snps,dis_del_phy_power_chg_quirk;
++		/*
++		 * QSCRATCH wrapper (0x4ef8800): dwc3-qcom maps the QSCRATCH
++		 * register block (PHY control bits, UTMI clock select, power
++		 * event IRQ), brings up the clocks/reset and populates the DWC3
++		 * core below.  Without this node no driver owns 0x4ef8800 and
++		 * the initramfs had to poke QSCRATCH_GENERAL_CFG/HS_PHY_CTRL/
++		 * SS_PHY_CTRL and the GCC clock enables by hand — which is also
++		 * why a cold boot (ABL leaves the USB clocks off) needs the
++		 * clocks referenced here.
++		 */
++		usb: usb@4ef8800 {
++			compatible = "qcom,sm6115-dwc3", "qcom,dwc3";
++			reg = <0x04ef8800 0x400>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			ranges;
++
++			clocks = <&gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
++				 <&gcc GCC_USB30_PRIM_MASTER_CLK>,
++				 <&gcc GCC_SYS_NOC_USB3_PRIM_AXI_CLK>,
++				 <&gcc GCC_USB30_PRIM_SLEEP_CLK>,
++				 <&gcc GCC_USB30_PRIM_MOCK_UTMI_CLK>,
++				 <&gcc GCC_USB3_PRIM_CLKREF_CLK>;
++			clock-names = "cfg_noc", "core", "iface", "sleep",
++				      "mock_utmi", "xo";
++
++			resets = <&gcc GCC_USB30_PRIM_BCR>;
++
 +			/*
-+			 * The core advertises 64-bit AWIDTH, but only 32 bits
-+			 * reach DRAM on Khaje and the block is not behind an
-+			 * IOMMU (stock DT puts it behind apps_smmu SID 0x120
-+			 * with a <4GB IOVA pool).  Cap the DMA mask or coherent
-+			 * buffers land above 4 GB on 4 GB-RAM boards
-+			 * ("unknown endpoint event 0").
++			 * HS-only port (no SuperSpeed PHY in this DTS): select
++			 * the UTMI clock as the PIPE clock.  Without this the
++			 * PIPE clock is never selected (QSCRATCH_GENERAL_CFG
++			 * lacks PIPE_UTMI_CLK_SEL) and the first gadget bind
++			 * fails with "dwc3: failed to enable ep0out".
 +			 */
-+			snps,dis-64bit-dma;
++			qcom,select-utmi-as-pipe-clk;
++
 +			status = "okay";
++
++			usb_dwc3: usb@4e00000 {
++				compatible = "snps,dwc3";
++				reg = <0x04e00000 0xcd00>;
++				interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
++				dr_mode = "peripheral";
++				maximum-speed = "high-speed";
++				phys = <&usb_hsphy>;
++				phy-names = "usb2-phy";
++				snps,dis_u2_susphy_quirk;
++				snps,dis_enblslpm_quirk;
++				snps,dis_del_phy_power_chg_quirk;
++				/*
++				 * The core advertises 64-bit AWIDTH, but only
++				 * 32 bits reach DRAM on Khaje and the block is
++				 * not behind an IOMMU (stock DT puts it behind
++				 * apps_smmu SID 0x120 with a <4GB IOVA pool).
++				 * Cap the DMA mask or coherent buffers land
++				 * above 4 GB on 4 GB-RAM boards ("unknown
++				 * endpoint event 0").
++				 */
++				snps,dis-64bit-dma;
++				status = "okay";
++			};
 +		};
 +
 +		/*

@@ -16,38 +16,14 @@ $BB mount -t devpts devpts /dev/pts 2>/dev/null
 
 echo "=== rain ubuntu pivot ==="
 
-rmw32() {
-  a=$1; clr=$2; set=$3
-  cur=$($BB devmem "$a" 32 2>/dev/null) || return 1
-  cur=${cur#0x}
-  nv=$($BB printf '0x%08x' $(( (0x$cur & ~clr) | set )))
-  $BB devmem "$a" 32 "$nv" 2>/dev/null
-}
-
-usb_phy_init() {
-  rmw32 0x0141a004 0x1 0x0 >/dev/null
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    v=$($BB devmem 0x0141a004 32 2>/dev/null); v=${v#0x}
-    [ $(( (0x$v >> 31) & 1 )) -eq 1 ] && break
-    $BB sleep 1
-  done
-  $BB devmem 0x0141a014 32 0x1 2>/dev/null
-  $BB devmem 0x0141a010 32 0x1 2>/dev/null
-  $BB devmem 0x0141a018 32 0x1 2>/dev/null
-  $BB devmem 0x0141d000 32 0x0 2>/dev/null
-  $BB devmem 0x0141d008 32 0x3 2>/dev/null
-  rmw32 0x04ef8808 0x0 0x100 >/dev/null
-  $BB sleep 0.3
-  rmw32 0x04ef8808 0x0 0x9 >/dev/null
-  $BB sleep 0.3
-  rmw32 0x04ef8808 0x100 0x0 >/dev/null
-  rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
-  rmw32 0x04ef8830 0x0 0x01000000 >/dev/null
-  $BB devmem 0x0161306c 32 0x61 2>/dev/null
-  $BB devmem 0x01613070 32 0x08 2>/dev/null
-  $BB devmem 0x01613074 32 0x2d 2>/dev/null
-  rmw32 0x04e0c200 0x140 0x0 >/dev/null
-}
+# USB is fully driver-owned (verified 2026-10-18 on a cold boot):
+#   QSCRATCH (0x4ef8800)     -> dwc3-qcom via the usb@4ef8800 wrapper node
+#   UTMI clock select        -> qcom,select-utmi-as-pipe-clk on the wrapper;
+#                               without it the first gadget bind fails with
+#                               "dwc3: failed to enable ep0out"
+#   GCC clocks (0x141a000)   -> referenced by the wrapper + CLK_IS_CRITICAL
+#   HS PHY overrides         -> PHY driver defaults (verified identical)
+#   GUSB2PHYCFG0 (0x4e0c200) -> snps,dis_u2_susphy/dis_enblslpm quirks
 
 G=/sys/kernel/config/usb_gadget/g1
 setup_gadget() {
@@ -66,23 +42,22 @@ setup_gadget() {
   $BB ln -sfn "$G/functions/acm.usb0" "$G/configs/c.1/acm.usb0" 2>/dev/null
   echo "" >"$G/UDC" 2>/dev/null
   $BB sleep 0.3
-  rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
   if echo "$UDC" >"$G/UDC" 2>/dev/null; then
     echo "GADGET_OK udc=$UDC"
   else
     echo GADGET_FAIL
     return 1
   fi
-  rmw32 0x04e0c704 0x80000000 0x0 >/dev/null
-  $BB sleep 0.3
-  rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
-  rmw32 0x04e0c704 0x0 0x80000000 >/dev/null
+  # DCTL.CSFTRST (core soft reset) removed: toggling it right after the
+  # gadget bound left the cold-booted controller unable to bind again,
+  # which broke the later ADB rebind (rescue has no such toggle and works).
   return 0
 }
 
+
+
 # Always init USB PHY — ADB gadget is needed for debugging
 # But do NOT redirect console to ttyGS0 (breaks if USB endpoint fails)
-usb_phy_init
 for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   UDC=$($BB ls /sys/class/udc 2>/dev/null | $BB head -n 1)
   [ -n "$UDC" ] && break
@@ -166,11 +141,11 @@ if [ ! -x "/newroot$INIT" ]; then
   exec $BB sh
 fi
 
-# Keep existing gadget; avoid second full usb_phy_init (hangs some boots)
-rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
+# Keep the existing gadget (setup_gadget is idempotent)
 if [ ! -c /dev/ttyGS0 ]; then
   setup_gadget
 fi
+
 
 $BB mount --move /dev /newroot/dev 2>/dev/null || $BB mount -t devtmpfs devtmpfs /newroot/dev
 # Kernel creates early devtmpfs nodes (null/zero/...) with mode 660 on this

@@ -66,23 +66,29 @@ pinctrl-msm (reserved_gpios, irq_quiesce), ath10k wmi guard, i2c-qcom-geni
 
 ## 4. Кандидаты на перенос в ядро (по приоритету)
 
-### P1. USB PHY / QSCRATCH MMIO → в драйверы PHY/dwc3
+### P1. USB PHY / QSCRATCH MMIO → в драйверы PHY/dwc3 — **СДЕЛАНО (2026-10-18)**
 
-Оба initramfs-скрипта и gadget-скрипт дёргают регистры `devmem`-ом:
+Перенесено в ядро, все userspace-пьоки удалены (в `pivot-init` MMIO нет вообще):
 
-| Адрес | Что | Где в ядре должно быть |
+| Что было в userspace | Куда ушло | Проверка |
 |---|---|---|
-| `0x141a004/010/014/018`, `0x141d000/008` | сброс/PLL/enable PHY (вне DT-нод) | PHY-драйвер (`phy-qcom-*`) |
-| `0x4ef8808/810/830` | QSCRATCH: reset-последовательность (0x100→0x9→сброс) | `dwc3-qcom` |
-| `0x161306c/070/074` | тюнинг HS PHY (0x61/0x08/0x2d) | `phy-qcom-snps-femto-v2` (или `qcom,phy-init-sequence` в DT) |
-| `0x4e0c200` | DWC3 global (сброс бит 0x140) | `dwc3` core |
+| `0x4ef8808/810/830` QSCRATCH | нода-обёртка `usb@4ef8800` (`qcom,sm6115-dwc3`) → `dwc3-qcom` | `/proc/iomem`: регион за драйвером; `qs10=0x10100000` до бинда |
+| `0x141a010/014/018`, `0x141d000/008` GCC | клоки в обёртке (`clocks`) + `CLK_IS_CRITICAL` | USB поднимается без пьоков |
+| `0x161306c/70/74` HS PHY оверрайды | дефолты PHY-драйвера | значения совпали: `0x61616161/0x08080808/0x2D2D2D2D` |
+| `0x4e0c200` GUSB2PHYCFG0 | `snps,dis_u2_susphy_quirk`/`dis_enblslpm_quirk` | — |
+| `0x4e0c704` DCTL (RUN_STOP) | не нужен (был маскировкой бага) | bind без него работает |
 
-Мы уже правили `phy-qcom-snps-femto-v2.c`, `dwc3-qcom-legacy.c`, `dwc3/core.c` —
-остаток (эти четыре группы регистров) логично добить там же, чтобы initramfs
-перестал писать в MMIO. **Усилие:** среднее. **Риск:** средний (USB — путь
-восстановления; тестировать только через `fastboot boot`).
-**Побочный выигрыш:** снимается правило «не трогать USB PHY MMIO в цикле» и
-мёртвый `RAIN_USB_PHY` в `usb-adb-gadget.sh`.
+**Главная находка при переносе:** `dwc3-qcom` выбирает UTMI-клок как PIPE-клок
+**только** при `qcom,select-utmi-as-pipe-clk` (`dwc3_qcom_select_utmi_clk()`).
+Без этого свойства первый bind гаджета падает с `dwc3: failed to enable ep0out`
+(QSCRATCH_GENERAL_CFG без `PIPE_UTMI_CLK_SEL|PIPE3_PHYSTATUS_SW`), и устройство
+не энумерится. Раньше это делал userspace-пьок. Свойство добавлено в обёртку —
+порт HS-only контроллера.
+
+Ловушка при тестировании: **`fastboot boot` маскирует cold-boot проблемы** — ABL
+оставляет клоки USB включёнными для fastboot, поэтому образ работает после
+`fastboot boot` и падает после `fastboot flash` + холодный ребут. Проверять
+только холодным бутом.
 
 ### P2. Удалить мёртвое: `modprobe.d/rain-stable.conf`
 
@@ -160,7 +166,7 @@ hexagonrpcd).
 
 | Подсистема | Сейчас | Куда двигать |
 |---|---|---|
-| USB PHY/QSCRATCH init | userspace `devmem` | **→ ядро (P1)** |
+| USB PHY/QSCRATCH init | **ядро** (обёртка `usb@4ef8800` + `qcom,select-utmi-as-pipe-clk`) | **сделано (P1)** |
 | ADSP boot | ядро (auto_boot) + лишний скрипт | **удалить скрипт (P3)** |
 | Звук (ASoC) | ядро `=y` | ок |
 | Модем boot | userspace (by design) | ок (auto_boot=false) |

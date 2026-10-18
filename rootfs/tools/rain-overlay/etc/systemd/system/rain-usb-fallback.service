@@ -1,0 +1,12 @@
+[Unit]
+Description=USB ACM fallback if the ADB gadget failed to bind
+After=multi-user.target adbd.service usb-adb-gadget.service
+Wants=adbd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/usb-acm-fallback.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

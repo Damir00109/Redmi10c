@@ -22,40 +22,14 @@ $BB echo 1 > /proc/sys/kernel/hung_task_panic 2>/dev/null
 $BB echo 15 > /proc/sys/kernel/panic 2>/dev/null
 
 # Early USB PHY clocks/reset/QSCRATCH sequence (same as pivot-init).
-rmw32() {
-  a=$1; clr=$2; set=$3
-  cur=$($BB devmem "$a" 32 2>/dev/null) || return 1
-  cur=${cur#0x}
-  nv=$($BB printf '0x%08x' $(( (0x$cur & ~clr) | set )))
-  $BB devmem "$a" 32 "$nv" 2>/dev/null
-}
+# USB is fully driver-owned (verified 2026-10-18 on a cold boot):
+#   QSCRATCH (0x4ef8800)     -> dwc3-qcom via the usb@4ef8800 wrapper node
+#   UTMI clock select        -> qcom,select-utmi-as-pipe-clk on the wrapper;
+#                               without it the first bind fails: ep0out
+#   GCC clocks (0x141a000)   -> referenced by the wrapper + CLK_IS_CRITICAL
+#   HS PHY overrides         -> PHY driver defaults (verified identical)
+#   GUSB2PHYCFG0 (0x4e0c200) -> snps,dis_u2_susphy/dis_enblslpm quirks
 
-usb_phy_init() {
-  rmw32 0x0141a004 0x1 0x0 >/dev/null
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    v=$($BB devmem 0x0141a004 32 2>/dev/null); v=${v#0x}
-    [ -n "$v" ] && [ $(( (0x$v >> 31) & 1 )) -eq 1 ] && break
-    $BB sleep 1
-  done
-  $BB devmem 0x0141a014 32 0x1 2>/dev/null
-  $BB devmem 0x0141a010 32 0x1 2>/dev/null
-  $BB devmem 0x0141a018 32 0x1 2>/dev/null
-  $BB devmem 0x0141d000 32 0x0 2>/dev/null
-  $BB devmem 0x0141d008 32 0x3 2>/dev/null
-  rmw32 0x04ef8808 0x0 0x100 >/dev/null
-  $BB sleep 0.3
-  rmw32 0x04ef8808 0x0 0x9 >/dev/null
-  $BB sleep 0.3
-  rmw32 0x04ef8808 0x100 0x0 >/dev/null
-  rmw32 0x04ef8810 0x0 0x10100000 >/dev/null
-  rmw32 0x04ef8830 0x0 0x01000000 >/dev/null
-  $BB devmem 0x0161306c 32 0x61 2>/dev/null
-  $BB devmem 0x01613070 32 0x08 2>/dev/null
-  $BB devmem 0x01613074 32 0x2d 2>/dev/null
-  rmw32 0x04e0c200 0x140 0x0 >/dev/null
-}
-
-usb_phy_init
 G=/sys/kernel/config/usb_gadget/rain
 $BB mkdir -p "$G/strings/0x409" "$G/configs/c.1/strings/0x409" "$G/functions/acm.usb0" 2>/dev/null
 echo 0x1d6b > "$G/idVendor" 2>/dev/null
@@ -77,6 +51,32 @@ if [ -n "$UDC" ]; then
 else
   echo 'no UDC' >/dev/console 2>/dev/null
 fi
+
+# --- read the Ubuntu-side USB logs from the cust partition ---
+$BB mkdir -p /cust
+for d in /dev/disk/by-partlabel/cust /dev/sda8; do
+  $BB mount -t ext4 -o ro "$d" /cust 2>/dev/null && break
+done
+if [ -d /cust/var/log ]; then
+  echo "=== ubuntu logs ===" >/dev/console
+  $BB tail -n 40 /cust/var/log/usb-adb-gadget.log >/dev/console 2>&1
+  echo "--- fallback ---" >/dev/console
+  $BB tail -n 20 /cust/var/log/rain-usb-fallback.log >/dev/console 2>&1
+  echo "=== end ubuntu logs ===" >/dev/console
+else
+  echo "=== cust not mounted ===" >/dev/console
+fi
+
+# --- USB cold-boot diagnostics (printed to the display console) ---
+{
+  echo "=== USB DIAG ==="
+  echo "udc: $($BB ls /sys/class/udc 2>/dev/null | $BB tr '\n' ' ')"
+  echo "dwc3-qcom: $(cat /sys/bus/platform/devices/4ef8800.usb/driver/uevent 2>/dev/null | head -1)"
+  echo "dwc3 core: $(cat /sys/bus/platform/devices/4e00000.usb/driver/uevent 2>/dev/null | head -1)"
+  echo "hsphy: $(cat /sys/bus/platform/devices/1613000.phy/driver/uevent 2>/dev/null | head -1)"
+  $BB dmesg | $BB grep -iE 'dwc3|udc|hsphy|snps|phy@|4ef8800|ep0' | $BB tail -n 25
+  echo "=== END USB DIAG ==="
+} >/dev/console 2>&1
 
 # WCN3990 Wi-Fi bring-up (working recipe from dualboot project):
 # qrtr-ns -f 1 → pd-mapper → rmtfs (modemst partitions) → tqftpserv →
