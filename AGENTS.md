@@ -51,7 +51,7 @@
 Загрузка ~44с (graphical.target ~22с), `is-system-running: running`, 0 failed.
 
 - **ADB**: adbd + FunctionFS (`CONFIG_USB_CONFIGFS_F_FS=y`), composite-гаджет ADB+ACM `18d1:4ee7`, ключ хоста в `/etc/adb/adb_keys`. Без F_FS гаджет не поднимается вообще.
-- **Wi-Fi**: цепочка qcom-firmware-stage→qrtr-ns→rmtfs→pd-mapper→tqftpserv→qcom-modem-start→ath10k-snoc-load→qcom-wifi-connect. Сеть `Xiaomi_E4C4` в `qcom-wifi-connect.service.d/creds.conf` (SSID в netplan-файле старый — там сети нет). Сервис убран с критической цепочки (`After=multi-user.target` drop-in) — иначе держал target +50с.
+- **Wi-Fi**: цепочка qcom-firmware-stage→qrtr-ns→rmtfs→tqftpserv→qcom-modem-start; дальше `ath10k_snoc` пробивается сам (deferred probe ждёт WLAN DSP, отдельного юнита нет). PD-маппер — только in-kernel (`QCOM_PD_MAPPER`). Сеть `Xiaomi_E4C4` задаётся netplan-файлом overlay `rootfs/tools/rain-overlay/etc/netplan/90-NM-wifi.yaml` (NetworkManager создаёт из него профиль `Xiaomi_E4C4`); отдельных сервисов `qcom-wifi-connect`/`netplan-wpa-wlan0` в цепочке нет.
 - **`/dev/null` EACCES при старте**: ядро создаёт ранние devtmpfs-ноды с mode 660 → dbus умирал до фикса udev'ом. Решено chmod'ом в pivot-init ПОСЛЕ `mount --move` (на `/newroot/dev`, иначе бьёт по затенённым статическим нодам) + `zz-dev-nodes.conf` в `/etc/tmpfiles.d`.
 - **`/` принадлежал uid 1000**: `rsync -a` в смонтированный образ проставляет владельца исходной папки на корень образа → tmpfiles "unsafe path transition". Фикс в build-rootfs.sh (chown 0:0 + find -uid утечки после rsync).
 - **logind**: гонка с dbus (стартовал до выдачи шины, висел без имени → мёртвая кнопка питания, user@1000 failed). Drop-in `Requires/After=dbus.service` + `Restart=always`.
