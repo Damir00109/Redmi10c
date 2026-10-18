@@ -1,0 +1,26 @@
+#!/bin/bash
+# Re-attach the Snapdragon Sensor Core services after a resume.
+#
+# The ADSP faults on resume (mainline never notifies the DSP about a system
+# sleep), remoteproc restarts it, and hexagonrpcd's fastrpc connection dies
+# with "Could not fetch next FastRPC message: Broken pipe" — both services
+# then deactivate and the sensors stay dead until a reboot.  Restarting them
+# re-attaches to the fresh ADSP instance.
+set +e
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+LOG=/var/log/rain-resume-probe.log
+log() { echo "$(date -Is) $*" >> "$LOG"; }
+
+# Wait for the ADSP and the fastrpc device to come back.
+for _ in $(seq 1 20); do
+  [ -e /dev/fastrpc-adsp ] && [ "$(cat /sys/class/remoteproc/remoteproc1/state 2>/dev/null)" = running ] && break
+  sleep 1
+done
+
+log "sensor resume: restarting hexagonrpcd (adsp=$(cat /sys/class/remoteproc/remoteproc1/state 2>/dev/null))"
+systemctl restart hexagonrpcd-adsp-rootpd.service 2>/dev/null
+sleep 2
+systemctl restart hexagonrpcd-adsp-sensorspd.service 2>/dev/null
+sleep 2
+log "sensor resume: rootpd=$(systemctl is-active hexagonrpcd-adsp-rootpd) sensorspd=$(systemctl is-active hexagonrpcd-adsp-sensorspd)"

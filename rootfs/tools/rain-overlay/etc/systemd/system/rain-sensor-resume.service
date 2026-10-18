@@ -1,0 +1,10 @@
+[Unit]
+Description=Re-attach the Snapdragon Sensor Core services after resume
+After=suspend.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rain-sensor-resume.sh
+
+[Install]
+WantedBy=suspend.target
