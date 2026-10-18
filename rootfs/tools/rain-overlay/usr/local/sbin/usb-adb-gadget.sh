@@ -118,10 +118,32 @@ bind_udc() {
   return 0
 }
 
+# After a system resume the DWC3 controller/PHY is re-initialised: the host
+# still sees the device (the gadget stays configured) but the FunctionFS
+# endpoints adbd wrote at boot are gone, so "adb devices" shows the device
+# offline until the gadget is re-bound with fresh descriptors.  adbd also
+# does not re-open the endpoints by itself, hence the restart below.
+resume_udc() {
+  UDC=$(ls /sys/class/udc 2>/dev/null | head -1)
+  [ -n "$UDC" ] || { log "resume: no UDC"; return 1; }
+  [ -d "$G" ] || { log "resume: no gadget"; return 1; }
+
+  cur=$(cat "$G/UDC" 2>/dev/null | tr -d '\n')
+  if [ -n "$cur" ]; then
+    echo "" > "$G/UDC" 2>/dev/null
+    sleep 0.5
+    log "resume: unbound $cur"
+  fi
+
+  systemctl restart adbd.service 2>/dev/null || true
+  bind_udc
+}
+
 case "${1:-setup}" in
   bind) bind_udc; exit $? ;;
+  resume) resume_udc; exit $? ;;
   setup|"") ;;
-  *) echo "usage: $0 [setup|bind]" >&2; exit 2 ;;
+  *) echo "usage: $0 [setup|bind|resume]" >&2; exit 2 ;;
 esac
 
 for i in $(seq 1 20); do

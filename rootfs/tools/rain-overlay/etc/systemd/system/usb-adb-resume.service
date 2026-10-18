@@ -1,0 +1,10 @@
+[Unit]
+Description=Re-bind the USB ADB gadget after resume
+After=suspend.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/usb-adb-gadget.sh resume
+
+[Install]
+WantedBy=suspend.target
