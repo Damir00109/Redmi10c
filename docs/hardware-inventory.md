@@ -28,7 +28,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 13 | VCM (AF) | **GT9764** | i2c0-000c, в модуле задней камеры | GIANTEC | **NORMAL** (пробивается; автофокус внутри CAMSS-пути) |
 | 14 | EEPROM камер | at24: 24c128 + 24c64 + 24c02 | i2c0-51/i2c1-51 | Atmel-compat | **FULL** (читаются, содержимое верифицировано) |
 | 15 | Питание камер | **WL2866D** LDO-PMIC | i2c2-0028 | WillSemi | **FULL** |
-| 16 | Аудиокодек | **WCD937x** (WCD9375-класс, 2 SWR-slave) | SoundWire swr0/1 | Qualcomm | **FULL** (динамик + гарнитура) |
+| 16 | Аудиокодек | **WCD937x** (WCD9375-класс, 2 SWR-slave) | SoundWire swr0/1 | Qualcomm | **NORMAL** (карта/PCM/1135 миксеров на месте, BT-аудио работает; локальный маршрут (динамик) в PulseAudio не поднят — только `auto_null`) |
 | 17 | Усилитель динамика | **AW87xxx** PA | i2c2-0058 | Awinic | **FULL** |
 | 18 | Акселерометр | **SC7A20** | SSC (SLPI) | Silan | **NORMAL** (данные идут через SSC/hexagonrpcd; iio-sensor-proxy в работе) |
 | 19 | ALS + Proximity | **TMD2755** | SSC (SLPI) | ams AG | **NORMAL** (как accel) |
@@ -39,7 +39,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 23 | NFC | **pn8x** (`nq-nci`, PN80T/SN100-класс) | i2c1-002a | NXP | **LOW** (чип пробивается chip id 0x64; стека/использования нет) |
 | 24 | Зарядник | **SMB1351** | i2c3-0055 | Summit | **FULL** |
 | 25 | Fuel gauge | **SH366101** | i2c2-0055 | Sinowealth | **FULL** (SBS: SOC/V/I/temp/циклы/STATUS/HEALTH + gaugeinfo-блоки: Qmax→SOH, энергия мВт·ч, OCV, внутр. темпа; требует FIFO на i2c — см. quirks) |
-| 26 | USB-C CC №1 | **FUSB303** | i2c1-0021 | onsemi/Fairchild | **NOT SUPPORTED** (в mainline-дереве не пробивается) |
+| 26 | USB-C CC №1 | **FUSB303** | i2c1-0021 | onsemi/Fairchild | **NOT SUPPORTED** — сырой probe по всем 4 AP-шинам (0x21/0x22/0x25) даёт NACK (`ENXIO`); в отличие от WUSB3801/smb1351, которые дают `EBUSY` как занятые драйверами. Драйверу не к чему биндиться |
 | 27 | USB-C CC №2 | **WUSB3801** | i2c3-0060 | WillSemi | **NORMAL** (пробивается; роль/PD минимальны) |
 | 28 | Вибромотор | coin-motor через **qpnp-vibrator-ldo** | GPIO+LDO PM6125 | — | **FULL** |
 | 29 | Джек-детект | WCD937x MBHC + **FSA4480** | SoundWire + i2c | Qualcomm/onsemi | **FULL** (гарнитура + кнопки) |
@@ -66,14 +66,14 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | APSS CPU | `f521000.cpufreq`, `pmu`, `psci` | 8× Kryo 265 (2 кластера), cpufreq | **FULL** |
 | GPU | `5900000.gpu` + `596a000.gmu` | Adreno 610 v2 + GMU (SW/ZAP) | **FULL** (SMMU/devfreq/GMU-pwr) |
 | DSP модема | `6080000.remoteproc` | MPSS — модем/Location/QMI | **NORMAL** (QMI/MM/LTE-data; voice/SMS частично; слот2 без data) |
-| DSP аудио | `ab00000.remoteproc` | ADSP — LPASS/APR (q6afe/adm/core), fastrpc CB ×7 | **NORMAL** (звук/сенсоры работают; редкий `AFE vote` шум при старте) |
+| DSP аудио | `ab00000.remoteproc` | ADSP — LPASS/APR (q6afe/adm/core), fastrpc CB ×7 | **NORMAL** — ADSP поднимается ядром (`auto_boot=true`), PD-маппер in-kernel (`QCOM_PD_MAPPER`); **на resume падает и перезапускается** (mainline не уведомляет DSP о сне) |
 | CDSP | thermal-зоны только | compute-DSP, HVX | **LOW** (отдельной remoteproc-ноды в DT нет) |
 | Wi-Fi MAC | `c800000.wifi` | WCN3990 SNOC (ath10k) | **FULL** |
 | IPA | `5840000.ipa` | IP-акселератор модем↔AP (rmnet_ipa0, QMAP v4.2) | **NORMAL** (работает; PAS-sequencing — кастомный патч) |
 | UFS HC | `4804000.ufshc` | UFS-контроллер, 6 LUN | **FULL** (khaje quirks + ref-clk) |
 | UFS PHY | `4807000.phy` | QMP v4 PHY | **FULL** |
 | SD host | `4784000.mmc` | SDHCI, microSD | **FULL** |
-| USB3 | `4e0000.usb` | DWC3 host/gadget | **FULL** (quirk: DMA 32-бит клэмп) |
+| USB3 | `4e0000.usb` | DWC3 host/gadget | **FULL** — QSCRATCH/клоки/ресет теперь во владении ядра (нода-обёртка `usb@4ef8800` + `qcom,select-utmi-as-pipe-clk`); из userspace MMIO убран |
 | USB PHY | `1613000.phy` | SNPS femto v2 | **FULL** |
 | Display MDP | `5e01000.display-controller` | композитор/видео-пути | **FULL** |
 | DSI host | `5e94000.dsi` + `5e94400.phy` | DSI-хост + 7nm PHY | **FULL** (PLL-err логирование восстановлено) |
@@ -123,7 +123,12 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | Антенны | main + diversity + check-GPIO | LTE/Wi-Fi приём | **NORMAL** (основной тракт работает; diversity-check GPIO не заведены) |
 | NFC-антенна | pn8x | рамка | **LOW** (чип id читается; стека нет) |
 
-## Проверка на живом устройстве (2026-10-18, kernel #9, Ubuntu слот B)
+## Проверка на живом устройстве (2026-10-18, Ubuntu слот B)
+
+Повторная проверка после работ по переносу драйверов в ядро и по
+suspend/resume. Изменилось с прошлого прогона: fuel gauge отдаёт полную
+телеметрию, USB полностью во владении ядра, userspace-`pd-mapper` убран,
+ADB/сенсоры/I2C на resume починены.
 
 Каждый блок проверен командой на работающей системе:
 
@@ -142,7 +147,10 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | Wi-Fi | `iw dev` → connected Xiaomi_E4C4 **5GHz/5220MHz**, RX 23 МБ | **FULL** — реальный трафик |
 | BT | `hciconfig` → hci0 **UP RUNNING**, Powered | **NORMAL** |
 | NFC | i2c-карта → nq-nci не пробивается | **LOW** — подтверждено |
-| Зарядка/гейдж | `power_supply` → battery 100% `Charging`; `bms` отдаёт SBS + gaugeinfo (Qmax/SOH, энергия, OCV, внутр. темпа) | **FULL** |
+| Зарядка/гейдж | `power_supply` → battery `Charging`; `bms`: OCV 4419 мВ, `CHARGE_FULL_DESIGN` 5096 мАч (SOH 93.8%), энергия, внутр. темпа | **FULL** |
+| USB (kernel-owned) | `/proc/iomem` → `04ef8800-04ef8bff : 4ef8800.usb` (QSCRATCH за драйвером), UDC `4e00000.usb` | **FULL** |
+| Suspend/resume | `s2idle`; ADB (`usb-adb-resume`), сенсоры (`rain-sensor-resume`), I2C-во-сне починены; **BT блокирует сон** (`qca_suspend -110`), ADSP падает на resume | **NORMAL** |
+| Сенсоры | `hexagonrpcd-adsp-rootpd`/`sensorspd` active, `/dev/fastrpc-adsp`, `iio:device0` | **NORMAL** |
 | GPU | `/dev/dri` → renderD128; devfreq 320МГц→таблица до 1.1ГГц | **FULL** — транзишны идут |
 | Модем | `mmcli` → MPSS.HA отвечает, qrtr0+rmnet_ipa0; `failed: sim-missing` | **NORMAL** — стек жив; SIM не вставлена |
 | remoteproc | modem `running`, adsp `running` | **FULL** |
