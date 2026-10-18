@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..1af0df37b
+index 000000000..0cdf3bf2e
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1230 @@
+@@ -0,0 +1,1250 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -609,6 +609,13 @@ index 000000000..1af0df37b
 +		bias-pull-up;
 +	};
 +
++	smb1351_int_default: smb1351-int-default-state {
++		pins = "gpio84";
++		function = "gpio";
++		input-enable;
++		bias-pull-up;
++	};
++
 +	qup_uart3_default: qup-uart3-default-state {
 +		/* CTS+RX: gpio8, gpio11 */
 +		pins = "gpio8", "gpio9", "gpio10", "gpio11";
@@ -856,6 +863,19 @@ index 000000000..1af0df37b
 +	smb1351@55 {
 +		compatible = "qcom,smb1351-charger-bringup";
 +		reg = <0x55>;
++
++		/* INT is TLMM gpio84, open-drain active-low, stock DT declares
++		 * smb1351_int_default (gpio + bias-pull-up + input-enable).
++		 *
++		 * We apply the pinctrl state so the line has the vendor pull-up
++		 * and is configured as gpio input.  A real GPIO interrupt would
++		 * be nice, but the same pin cannot be claimed by both pinctrl
++		 * and gpiolib (identical double-claim problem as mmc/cd-gpios).
++		 * The driver therefore keeps the existing freezable-workqueue poll
++		 * and uses the state purely for correct pin configuration.
++		 */
++		pinctrl-names = "default";
++		pinctrl-0 = <&smb1351_int_default>;
 +	};
 +
 +	wusb3801@60 {
@@ -13910,10 +13930,10 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..c85fd39f1
+index 000000000..693de2b72
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1675 @@
+@@ -0,0 +1,1677 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15528,7 +15548,9 @@ index 000000000..c85fd39f1
 +	/* 80 IRQ / 86 RESET — Focaltech FT8006S touch (must stay valid) */
 +	/* 81 TE / 82 reset — WEST, needed for FT8006S panel */
 +	83,
-+	84,
++	/* 84 = SMB1351 charger interrupt (stock DT: smb1351_int_default,
++	 * gpio + bias-pull-up + input-enable).  Un-reserved 2026-10-18 to
++	 * replace polling with real IRQ. */
 +	/* 88 = SD card detect: stock DT declares it (cd_on/cd_off, gpio +
 +	 * bias-pull-up + input-enable) and the state already exists in
 +	 * sm6225.dtsi as sdc2_cd_default - un-reserved 2026-10-18, the pin
