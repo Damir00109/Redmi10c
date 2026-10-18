@@ -66,7 +66,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | APSS CPU | `f521000.cpufreq`, `pmu`, `psci` | 8× Kryo 265 (2 кластера), cpufreq | **FULL** |
 | GPU | `5900000.gpu` + `596a000.gmu` | Adreno 610 v2 + GMU (SW/ZAP) | **FULL** (SMMU/devfreq/GMU-pwr) |
 | DSP модема | `6080000.remoteproc` | MPSS — модем/Location/QMI | **NORMAL** (QMI/MM/LTE-data; voice/SMS частично; слот2 без data) |
-| DSP аудио | `ab00000.remoteproc` | ADSP — LPASS/APR (q6afe/adm/core), fastrpc CB ×7 | **NORMAL** — ADSP поднимается ядром (`auto_boot=true`), PD-маппер in-kernel (`QCOM_PD_MAPPER`); **на resume падает и перезапускается** (mainline не уведомляет DSP о сне) |
+| DSP аудио | `ab00000.remoteproc` | ADSP — LPASS/APR (q6afe/adm/core), fastrpc CB ×7 | **NORMAL** — ADSP поднимается ядром (`auto_boot=true`), PD-маппер in-kernel (`QCOM_PD_MAPPER`); **resume починен**: падал из-за fastrpc-сессии `hexagonrpcd` — гасится до сна (`rain-sensor-suspend`) |
 | CDSP | thermal-зоны только | compute-DSP, HVX | **LOW** (отдельной remoteproc-ноды в DT нет) |
 | Wi-Fi MAC | `c800000.wifi` | WCN3990 SNOC (ath10k) | **FULL** |
 | IPA | `5840000.ipa` | IP-акселератор модем↔AP (rmnet_ipa0, QMAP v4.2) | **NORMAL** (работает; PAS-sequencing — кастомный патч) |
@@ -149,7 +149,7 @@ ADB/сенсоры/I2C на resume починены.
 | NFC | i2c-карта → nq-nci не пробивается | **LOW** — подтверждено |
 | Зарядка/гейдж | `power_supply` → battery `Charging`; `bms`: OCV 4419 мВ, `CHARGE_FULL_DESIGN` 5096 мАч (SOH 93.8%), энергия, внутр. темпа | **FULL** |
 | USB (kernel-owned) | `/proc/iomem` → `04ef8800-04ef8bff : 4ef8800.usb` (QSCRATCH за драйвером), UDC `4e00000.usb` | **FULL** |
-| Suspend/resume | `s2idle`; ADB (`usb-adb-resume`), сенсоры (`rain-sensor-resume`), I2C-во-сне починены; **BT блокирует сон** (`qca_suspend -110`), ADSP падает на resume | **NORMAL** |
+| Suspend/resume | `s2idle` (проверено с пробуждением по WoWLAN magic packet): ADB (`usb-adb-resume`), сенсоры (`rain-sensor-resume`), BT (`rain-bt-suspend/-resume`), I2C-во-сне и **падение ADSP** (`rain-sensor-suspend`) починены; окно сна чистое | **FULL** |
 | Сенсоры | `hexagonrpcd-adsp-rootpd`/`sensorspd` active, `/dev/fastrpc-adsp`, `iio:device0` | **NORMAL** |
 | GPU | `/dev/dri` → renderD128; devfreq 320МГц→таблица до 1.1ГГц | **FULL** — транзишны идут |
 | Модем | `mmcli` → MPSS.HA отвечает, qrtr0+rmnet_ipa0; `failed: sim-missing` | **NORMAL** — стек жив; SIM не вставлена |

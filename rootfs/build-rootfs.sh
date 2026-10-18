@@ -270,7 +270,7 @@ sudo touch "$RF/etc/cloud/cloud-init.disabled"
 sudo rm -f "$RF/etc/systemd/system/multi-user.target.wants/rain-wifi-nm.service" 2>/dev/null || true
 
 sudo chroot "$RF" bash -c '
-systemctl enable rain-stable-boot.service usb-adb-gadget.service usb-adb-resume.service rain-sensor-resume.service rain-bt-suspend.service rain-bt-resume.service adbd.service getty@tty1.service 2>/dev/null || true
+systemctl enable rain-stable-boot.service usb-adb-gadget.service usb-adb-resume.service rain-sensor-resume.service rain-sensor-suspend.service rain-bt-suspend.service rain-bt-resume.service adbd.service getty@tty1.service 2>/dev/null || true
 # hci0 comes up by itself (hci_uart built-in + bluetoothd); PulseAudio is a
 # separate unit now — rain-bt used to be the only thing starting it.
 systemctl enable bluetooth pulseaudio.service rain-serial-console.service 2>/dev/null || true

@@ -1,0 +1,11 @@
+[Unit]
+Description=Release the fastrpc session before system sleep
+DefaultDependencies=no
+Before=sleep.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rain-sensor-suspend.sh
+
+[Install]
+WantedBy=sleep.target
