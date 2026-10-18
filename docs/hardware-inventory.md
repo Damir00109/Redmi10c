@@ -113,8 +113,8 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | USB-C порт | DWC3 + CC-контроллеры | данные + зарядка | **NORMAL** (data/charge OK; роль-менеджмент CC частично) |
 | Батарея | SMB1351 + SH366101 | ~5000 мАч | **FULL** |
 | Динамик | AW87xxx PA | громкоговоритель | **FULL** |
-| Ресивер | WCD937x | телефонный динамик | **NORMAL** — DAPM-граф кодека содержит `EAR/EAR_RDAC/EAR PGA` (путь есть); звуковой тест не делался |
-| Микрофоны ×2 | аналог → WCD937x ADC | основной + шумодав | **NORMAL** (захват есть; routing/UCM минимальны) |
+| Ресивер | WCD937x | телефонный динамик | **LOW** — DAPM-граф содержит `EAR/EAR_RDAC/EAR_PA`/`RX_EAR Mode`, но локальная карта не открывается (EINVAL) → нужен UCM/routing (блок D) |
+| Микрофоны ×2 | аналог → WCD937x ADC | основной + шумодав | **LOW** — микшеры есть (`ADC1..3`), но локальная карта **не открывается** (`arecord`/`aplay` → EINVAL) — нет UCM/routing (блок D) |
 | Джек 3.5мм | WCD937x MBHC + FSA4480 | детект + кнопки гарнитуры | **FULL** |
 | Кнопки | pon (pwrkey/resin) + gpio-keys | power, vol± | **FULL** |
 | Fingerprint | FPC rear | биометрия | **NOT SUPPORTED** |
