@@ -92,6 +92,9 @@
 - Ноде вибратора (gpio36) нельзя давать pinctrl — gpiod/pinctrl дерутся за пин.
 - devmem-поки по TLMM на этом чипе вешают шину — использовать `vibtest` (EV_FF ioctl).
 - Магнитометра/компаса в железе нет. devinfo slot byte не работает — слоты переключаются через GPT type GUID + UFS boot LUN.
+- **i2c-geni SE-DMA на Khaje вешает шину на transfer ≥32 байт.** Любой transfer, где `i2c_get_dma_safe_msg_buf(msg, 32)` возвращает буфер (т.е. `len >= 32`), уходит в SE-DMA и никогда не завершается — задача в D-state, shell мёртв (hung-task). FIFO-путь работает. Лечится property `qcom,no-dma` (`drivers/i2c/busses/i2c-qcom-geni.c`, выставлено на `&i2c1` в `sm6225-xiaomi-fog.dts`). Подробности — `docs/FUEL-GAUGE-SH366101.md`.
+- **Fuel gauge SH366101 читает gaugeinfo-блоки (32 B) только через ALTMAC 0x3E → ALTBLOCK 0x40 → ALTCHK 0x60, unseal не нужен**; на i2c1 обязателен `qcom,no-dma` (см. выше). 5 с — SBS, 30 с — блоки; диагностика `cat /d/sh366101/dump`.
+- **Консоль rescue = USB ACM**: если `stty`/termios ругается «Inappropriate ioctl» — в `/dev/ttyACM*` лежит обычный файл (создан failed-redirect'ом), удалить; номер порта может съехать на ttyACM1. Надёжнее python-termios, чем `stty -F`.
 
 ## UFS на khaje (2026-10-17, проверено стрессом)
 

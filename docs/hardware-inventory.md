@@ -38,7 +38,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 22a | Bluetooth | тот же WCN3990 (hci_qca) | GENI UART 4a8c000 | Qualcomm | **NORMAL** (A2DP работает; редкий wedge при re-init — известный дебт) |
 | 23 | NFC | **pn8x** (`nq-nci`, PN80T/SN100-класс) | i2c1-002a | NXP | **LOW** (чип пробивается chip id 0x64; стека/использования нет) |
 | 24 | Зарядник | **SMB1351** | i2c3-0055 | Summit | **FULL** |
-| 25 | Fuel gauge | **SH366101** | i2c2-0055 | Sinowealth | **FULL** (SOC/V/I/Charging видны) |
+| 25 | Fuel gauge | **SH366101** | i2c2-0055 | Sinowealth | **FULL** (SBS: SOC/V/I/temp/циклы/STATUS/HEALTH + gaugeinfo-блоки: Qmax→SOH, энергия мВт·ч, OCV, внутр. темпа; требует FIFO на i2c — см. quirks) |
 | 26 | USB-C CC №1 | **FUSB303** | i2c1-0021 | onsemi/Fairchild | **NOT SUPPORTED** (в mainline-дереве не пробивается) |
 | 27 | USB-C CC №2 | **WUSB3801** | i2c3-0060 | WillSemi | **NORMAL** (пробивается; роль/PD минимальны) |
 | 28 | Вибромотор | coin-motor через **qpnp-vibrator-ldo** | GPIO+LDO PM6125 | — | **FULL** |

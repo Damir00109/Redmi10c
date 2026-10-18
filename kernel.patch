@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..ad1ccd2c8
+index 000000000..a1b424984
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1174 @@
+@@ -0,0 +1,1180 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -781,6 +781,12 @@ index 000000000..ad1ccd2c8
 +&i2c1 {
 +	status = "okay";
 +	clock-frequency = <400000>;
++	/*
++	 * The SE-DMA path wedges this QUPv2 serial engine (any transfer of
++	 * >=32 bytes never completes and the bus is lost). The sh366101 fuel
++	 * gauge reads 32-byte gaugeinfo blocks, so pin the bus to FIFO mode.
++	 */
++	qcom,no-dma;
 +
 +	sh366101@55 {
 +		compatible = "sh,sh366101";
@@ -5312,6 +5318,23 @@ index 000000000..b97eb092a
 +MODULE_AUTHOR("Redmi 10C bringup");
 +MODULE_DESCRIPTION("Xinli FT8006S video-mode DSI panel");
 +MODULE_LICENSE("GPL");
+diff --git a/drivers/i2c/busses/i2c-qcom-geni.c b/drivers/i2c/busses/i2c-qcom-geni.c
+index a482a4c60..76f7348dc 100644
+--- a/drivers/i2c/busses/i2c-qcom-geni.c
++++ b/drivers/i2c/busses/i2c-qcom-geni.c
+@@ -1100,6 +1100,12 @@ static int geni_i2c_probe(struct platform_device *pdev)
+ 		gi2c->no_dma = true;
+ 	} else {
+ 		fifo_disable = readl_relaxed(gi2c->se.base + GENI_IF_DISABLE_RO) & FIFO_IF_DISABLE;
++		/*
++		 * Some platforms wedge the serial engine when a transfer takes
++		 * the SE-DMA path; allow boards to pin the bus to FIFO mode.
++		 */
++		if (!fifo_disable && device_property_read_bool(dev, "qcom,no-dma"))
++			gi2c->no_dma = true;
+ 	}
+ 
+ 	if (fifo_disable) {
 diff --git a/drivers/input/touchscreen/Kconfig b/drivers/input/touchscreen/Kconfig
 index aeaf9a9cb..607d4a43e 100644
 --- a/drivers/input/touchscreen/Kconfig
@@ -15665,28 +15688,35 @@ index 7ee839dca..d35fb4fca 100644
 +obj-$(CONFIG_FUEL_GAUGE_SH366101_BRINGUP)	+= sh366101_fg_bringup.o
 diff --git a/drivers/power/supply/sh366101_fg_bringup.c b/drivers/power/supply/sh366101_fg_bringup.c
 new file mode 100644
-index 000000000..5483095b4
+index 000000000..30eff3744
 --- /dev/null
 +++ b/drivers/power/supply/sh366101_fg_bringup.c
-@@ -0,0 +1,253 @@
+@@ -0,0 +1,535 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
 + * https://github.com/Damir00109/Redmi10c
 + */
 +/*
-+ * Minimal SinoWealth sh366101 fuel-gauge bringup for Xiaomi rain (SM6225).
-+ * Registers power_supply "bms" with SOC/voltage/current/temp from SBS regs.
-+ * No AFI/TS firmware load — assumes gauge already running (ABL/Android).
++ * SinoWealth sh366101 fuel-gauge driver for Xiaomi rain (SM6225).
++ * Registers power_supply "bms" with SBS telemetry (SOC/voltage/current/
++ * temperature/charge/cycle/status/health) plus the extended gaugeinfo
++ * blocks: learned Qmax (CHARGE_FULL_DESIGN), energy in mWh, OCV and the
++ * gauge's internal die temperature. No AFI/TS firmware load — assumes the
++ * gauge is already running (ABL/Android).
 + *
-+ * Register map from downstream sh366101_fg.c.
++ * Register map and block protocol from downstream sh366101_fg.c.
 + */
 +
++#include <linux/debugfs.h>
 +#include <linux/delay.h>
 +#include <linux/i2c.h>
++#include <linux/jiffies.h>
 +#include <linux/module.h>
 +#include <linux/power_supply.h>
++#include <linux/seq_file.h>
 +#include <linux/slab.h>
++#include <linux/unaligned.h>
 +#include <linux/workqueue.h>
 +
 +#define SH_REG_VOLTAGE		0x04
@@ -15698,15 +15728,48 @@ index 000000000..5483095b4
 +#define SH_REG_TEMP_EX		0x02
 +#define SH_REG_CYCLE		0x1A
 +
++/* ALTMAC block-access protocol: write cmd to 0x3E, read 32B from 0x40,
++ * checksum word at 0x60 = (len+4)<<8 | ~(cmd_lo + cmd_hi + data). */
++#define SH_CMD_ALTMAC		0x3E
++#define SH_CMD_ALTBLOCK		0x40
++#define SH_CMD_ALTCHK		0x60
++#define SH_CMD_DELAY_MS		3
++
++#define SH_BLOCK_CALIINFO	0xE014
++#define SH_BLOCK_GAUGEINFO	0xE0
++#define SH_BLOCK_GAUGEBLOCK2	0xE2
++#define SH_BLOCK_GAUGEBLOCK3	0xE3
++#define SH_BLOCK_GAUGEBLOCK4	0xE4
++#define SH_BLOCK_GAUGEBLOCK5	0xE5
++#define SH_BLOCK_GAUGEBLOCK6	0xE6
++#define SH_BLOCK_GAUGEBLOCK7	0xE7
++#define SH_BLOCK_FUSION		0xEF
++
++#define SH_BLOCK_LEN		32
++#define TEMPER_OFFSET		2731
++
++#define FG_STATUS_CHG_DISCHG	BIT(0)
 +#define FG_STATUS_BATT_PRESENT	BIT(3)
++#define FG_STATUS_FULL_SOC	BIT(9)
++#define FG_STATUS_HIGH_TEMP	BIT(15)
++#define FG_STATUS_LOW_TEMP	BIT(14)
 +
 +#define POLL_MS			5000
++/* gaugeinfo blocks are ~10ms of i2c each — refresh slower than SBS */
++#define EXT_REFRESH_MS		30000
++
++#define U16_LE(p)	get_unaligned_le16(p)
++#define U16_BE(p)	get_unaligned_be16(p)
++#define U32_LE(p)	get_unaligned_le32(p)
++#define U32_BE(p)	get_unaligned_be32(p)
 +
 +struct sh366101_bringup {
 +	struct i2c_client	*client;
 +	struct mutex		lock;
 +	struct power_supply	*bms_psy;
 +	struct delayed_work	poll_work;
++	struct dentry		*dbgfs;
++	unsigned long		ext_stamp;
 +	int			soc;
 +	int			volt_uv;
 +	int			curr_ua;
@@ -15714,7 +15777,16 @@ index 000000000..5483095b4
 +	int			fcc_uah;
 +	int			rmc_uah;
 +	int			cycle;
++	int			status_flags;
 +	bool			present;
++	/* extended gaugeinfo data */
++	int			qmax_uah;	/* learned pack capacity */
++	int			true_fcc_uah;
++	int			energy_now_uwh;
++	int			energy_full_uwh;
++	int			ocv_uv;
++	int			temp_ambient_dC;
++	bool			ext_valid;
 +};
 +
 +static int sh_read_word(struct sh366101_bringup *fg, u8 reg, u16 *val)
@@ -15727,6 +15799,82 @@ index 000000000..5483095b4
 +	return 0;
 +}
 +
++static int sh_read_buffer(struct i2c_client *client, u8 reg, u8 *buf, u8 len)
++{
++	struct i2c_msg msg[2] = {
++		{ .addr = client->addr, .flags = 0, .buf = &reg, .len = 1 },
++		{ .addr = client->addr, .flags = I2C_M_RD, .buf = buf, .len = len },
++	};
++
++	return i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg)) < 0 ? -EIO : 0;
++}
++
++/* Caller holds fg->lock. */
++static int sh_read_block(struct sh366101_bringup *fg, u16 cmd, u8 *buf)
++{
++	u16 chk;
++	u8 sum;
++	int i, len, rc;
++
++	rc = i2c_smbus_write_word_data(fg->client, SH_CMD_ALTMAC, cmd);
++	if (rc)
++		return rc;
++	msleep(SH_CMD_DELAY_MS);
++
++	rc = sh_read_buffer(fg->client, SH_CMD_ALTBLOCK, buf, SH_BLOCK_LEN);
++	if (rc)
++		return rc;
++	msleep(SH_CMD_DELAY_MS);
++
++	rc = sh_read_word(fg, SH_CMD_ALTCHK, &chk);
++	if (rc)
++		return rc;
++
++	/* high byte: data length +4; low byte: ~(cmd_lo+cmd_hi+data) */
++	len = (chk >> 8) - 4;
++	if (len <= 0 || len > SH_BLOCK_LEN)
++		return -EIO;
++
++	sum = (u8)cmd + (u8)(cmd >> 8);
++	for (i = 0; i < len; i++)
++		sum += buf[i];
++	return ((u8)~sum == (u8)chk) ? 0 : -EBADMSG;
++}
++
++/* Caller holds fg->lock. Reads the useful subset of gaugeinfo blocks. */
++static void sh_refresh_ext(struct sh366101_bringup *fg)
++{
++	u8 buf[SH_BLOCK_LEN];
++
++	fg->ext_valid = false;
++
++	if (!sh_read_block(fg, SH_BLOCK_CALIINFO, buf))
++		/* IntTemper: internal die temp, 0.1°C */
++		fg->temp_ambient_dC = (int)U16_LE(&buf[18]) - TEMPER_OFFSET;
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK2, buf)) {
++		/* PackQmax: learned full capacity (≈ design), mAh */
++		fg->qmax_uah = (int)(s16)U16_BE(&buf[2]) * 1000;
++		fg->ext_valid = true;
++	}
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK5, buf)) {
++		/* TrueFCC/TrueRE/TrueFCE: unfiltered, mAh/mWh */
++		fg->true_fcc_uah = (int)(s16)U16_BE(&buf[11]) * 1000;
++		fg->energy_now_uwh = (int)(s16)U16_BE(&buf[19]) * 1000;
++		fg->energy_full_uwh = (int)(s16)U16_BE(&buf[21]) * 1000;
++		fg->ext_valid = true;
++	}
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK6, buf)) {
++		/* OcvVcell: open-circuit cell voltage, mV */
++		fg->ocv_uv = (int)(s16)U16_BE(&buf[24]) * 1000;
++		fg->ext_valid = true;
++	}
++
++	fg->ext_stamp = jiffies;
++}
++
 +static void sh_refresh(struct sh366101_bringup *fg)
 +{
 +	u16 data;
@@ -15734,10 +15882,12 @@ index 000000000..5483095b4
 +
 +	mutex_lock(&fg->lock);
 +
-+	if (!sh_read_word(fg, SH_REG_STATUS, &data))
++	if (!sh_read_word(fg, SH_REG_STATUS, &data)) {
++		fg->status_flags = data;
 +		fg->present = !!(data & FG_STATUS_BATT_PRESENT);
-+	else
++	} else {
 +		fg->present = true; /* keep optimistic if status fails */
++	}
 +
 +	if (!sh_read_word(fg, SH_REG_SOC, &data)) {
 +		soc_raw = (int)data;
@@ -15785,6 +15935,14 @@ index 000000000..5483095b4
 +						   poll_work);
 +
 +	sh_refresh(fg);
++
++	if (time_after(jiffies, fg->ext_stamp +
++		       msecs_to_jiffies(EXT_REFRESH_MS))) {
++		mutex_lock(&fg->lock);
++		sh_refresh_ext(fg);
++		mutex_unlock(&fg->lock);
++	}
++
 +	power_supply_changed(fg->bms_psy);
 +	schedule_delayed_work(&fg->poll_work, msecs_to_jiffies(POLL_MS));
 +}
@@ -15797,6 +15955,22 @@ index 000000000..5483095b4
 +
 +	mutex_lock(&fg->lock);
 +	switch (psp) {
++	case POWER_SUPPLY_PROP_STATUS:
++		if (fg->status_flags & FG_STATUS_FULL_SOC)
++			val->intval = POWER_SUPPLY_STATUS_FULL;
++		else if (fg->status_flags & FG_STATUS_CHG_DISCHG)
++			val->intval = POWER_SUPPLY_STATUS_CHARGING;
++		else
++			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
++		break;
++	case POWER_SUPPLY_PROP_HEALTH:
++		if (fg->status_flags & FG_STATUS_HIGH_TEMP)
++			val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
++		else if (fg->status_flags & FG_STATUS_LOW_TEMP)
++			val->intval = POWER_SUPPLY_HEALTH_COLD;
++		else
++			val->intval = POWER_SUPPLY_HEALTH_GOOD;
++		break;
 +	case POWER_SUPPLY_PROP_PRESENT:
 +		val->intval = fg->present;
 +		break;
@@ -15821,6 +15995,41 @@ index 000000000..5483095b4
 +	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 +		val->intval = fg->cycle;
 +		break;
++	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
++		if (!fg->ext_valid || !fg->qmax_uah) {
++			mutex_unlock(&fg->lock);
++			return -ENODATA;
++		}
++		val->intval = fg->qmax_uah;
++		break;
++	case POWER_SUPPLY_PROP_ENERGY_NOW:
++		if (!fg->ext_valid || !fg->energy_now_uwh) {
++			mutex_unlock(&fg->lock);
++			return -ENODATA;
++		}
++		val->intval = fg->energy_now_uwh;
++		break;
++	case POWER_SUPPLY_PROP_ENERGY_FULL:
++		if (!fg->ext_valid || !fg->energy_full_uwh) {
++			mutex_unlock(&fg->lock);
++			return -ENODATA;
++		}
++		val->intval = fg->energy_full_uwh;
++		break;
++	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
++		if (!fg->ext_valid || !fg->ocv_uv) {
++			mutex_unlock(&fg->lock);
++			return -ENODATA;
++		}
++		val->intval = fg->ocv_uv;
++		break;
++	case POWER_SUPPLY_PROP_TEMP_AMBIENT:
++		if (!fg->ext_valid || !fg->temp_ambient_dC) {
++			mutex_unlock(&fg->lock);
++			return -ENODATA;
++		}
++		val->intval = fg->temp_ambient_dC;
++		break;
 +	case POWER_SUPPLY_PROP_TECHNOLOGY:
 +		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 +		break;
@@ -15836,13 +16045,20 @@ index 000000000..5483095b4
 +}
 +
 +static enum power_supply_property sh_bms_props[] = {
++	POWER_SUPPLY_PROP_STATUS,
++	POWER_SUPPLY_PROP_HEALTH,
 +	POWER_SUPPLY_PROP_PRESENT,
 +	POWER_SUPPLY_PROP_CAPACITY,
 +	POWER_SUPPLY_PROP_VOLTAGE_NOW,
++	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 +	POWER_SUPPLY_PROP_CURRENT_NOW,
 +	POWER_SUPPLY_PROP_TEMP,
++	POWER_SUPPLY_PROP_TEMP_AMBIENT,
 +	POWER_SUPPLY_PROP_CHARGE_FULL,
++	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 +	POWER_SUPPLY_PROP_CHARGE_NOW,
++	POWER_SUPPLY_PROP_ENERGY_FULL,
++	POWER_SUPPLY_PROP_ENERGY_NOW,
 +	POWER_SUPPLY_PROP_CYCLE_COUNT,
 +	POWER_SUPPLY_PROP_TECHNOLOGY,
 +	POWER_SUPPLY_PROP_MODEL_NAME,
@@ -15855,6 +16071,91 @@ index 000000000..5483095b4
 +	.num_properties	= ARRAY_SIZE(sh_bms_props),
 +	.get_property	= sh_bms_get_prop,
 +};
++
++/* Full gaugeinfo dump — field layout from downstream sh366101_fg.c. */
++static int sh_dump_show(struct seq_file *s, void *unused)
++{
++	struct sh366101_bringup *fg = s->private;
++	u8 b[SH_BLOCK_LEN];
++
++	mutex_lock(&fg->lock);
++
++	if (!sh_read_block(fg, SH_BLOCK_CALIINFO, b))
++		seq_printf(s, "CALIINFO: Elasp=%u Volt=%d Cur=%d TS1=%d IntTemp=%d\n",
++			   U32_LE(&b[0]), (s16)U16_LE(&b[12]),
++			   (s32)U32_LE(&b[8]),
++			   (s16)U16_LE(&b[22]) - TEMPER_OFFSET,
++			   (s16)U16_LE(&b[18]) - TEMPER_OFFSET);
++	else
++		seq_puts(s, "CALIINFO: read fail\n");
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEINFO, b))
++		seq_printf(s, "GAUGEINFO: Run=0x%08X State=0x%08X Work=0x%04X RSTS=0x%02X\n",
++			   U32_LE(&b[0]), U32_LE(&b[4]),
++			   U16_LE(&b[10]), b[23]);
++	else
++		seq_puts(s, "GAUGEINFO: read fail\n");
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK2, b))
++		seq_printf(s, "BLOCK2: Qmax=%d Cyc=%d VatEOC=%d IatEOC=%d ChgVEOC=%d Relax=%d\n",
++			   (s16)U16_BE(&b[2]), U16_BE(&b[14]),
++			   (s16)U16_BE(&b[4]), (s16)U16_BE(&b[6]),
++			   (s16)U16_BE(&b[8]), U16_BE(&b[28]));
++	else
++		seq_puts(s, "BLOCK2: read fail\n");
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK3, b))
++		seq_printf(s, "BLOCK3: PasCol=%d PasEgy=%d Qstart=%d Estart=%d StateTime=%u\n",
++			   (s16)U16_BE(&b[10]), (s16)U16_BE(&b[12]),
++			   (s16)U16_BE(&b[14]), (s16)U16_BE(&b[16]),
++			   U32_BE(&b[20]));
++	else
++		seq_puts(s, "BLOCK3: read fail\n");
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK4, b))
++		seq_printf(s, "BLOCK4: RCRaw=%d FCCRaw=%d RERaw=%d FCERaw=%d C0DOD0=%d\n",
++			   (s16)U16_BE(&b[24]), (s16)U16_BE(&b[26]),
++			   (s16)U16_BE(&b[28]), (s16)U16_BE(&b[30]),
++			   (s16)U16_BE(&b[10]));
++	else
++		seq_puts(s, "BLOCK4: read fail\n");
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK5, b))
++		seq_printf(s, "BLOCK5: FilRC=%d FilFCC=%d FSOC=%d TrueRC=%d TrueFCC=%d RSOC=%d TrueRE=%d TrueFCE=%d\n",
++			   (s16)U16_BE(&b[4]), (s16)U16_BE(&b[6]), b[8],
++			   (s16)U16_BE(&b[9]), (s16)U16_BE(&b[11]), b[13],
++			   (s16)U16_BE(&b[19]), (s16)U16_BE(&b[21]));
++	else
++		seq_puts(s, "BLOCK5: read fail\n");
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK6, b))
++		seq_printf(s, "BLOCK6: ChgVol=%d TapCur=%d ChgCur=%d OcvVcell=%d SOCJmp=%d\n",
++			   (s16)U16_BE(&b[10]), (s16)U16_BE(&b[12]),
++			   (s16)U16_BE(&b[14]), (s16)U16_BE(&b[24]), b[22]);
++	else
++		seq_puts(s, "BLOCK6: read fail\n");
++
++	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK7, b))
++		seq_printf(s, "BLOCK7: %*phN\n", SH_BLOCK_LEN, b);
++	else
++		seq_puts(s, "BLOCK7: read fail\n");
++
++	if (!sh_read_block(fg, SH_BLOCK_FUSION, b)) {
++		int i;
++
++		seq_puts(s, "FusionModel:");
++		for (i = 0; i < 16; i++)
++			seq_printf(s, " 0x%04X", U16_BE(&b[i * 2]));
++		seq_putc(s, '\n');
++	} else {
++		seq_puts(s, "FusionModel: read fail\n");
++	}
++
++	mutex_unlock(&fg->lock);
++	return 0;
++}
++DEFINE_SHOW_ATTRIBUTE(sh_dump);
++
 +
 +static int sh366101_bringup_probe(struct i2c_client *client)
 +{
@@ -15891,6 +16192,9 @@ index 000000000..5483095b4
 +	INIT_DELAYED_WORK(&fg->poll_work, sh_poll_work);
 +	schedule_delayed_work(&fg->poll_work, msecs_to_jiffies(POLL_MS));
 +
++	fg->dbgfs = debugfs_create_dir("sh366101", NULL);
++	debugfs_create_file("dump", 0444, fg->dbgfs, fg, &sh_dump_fops);
++
 +	dev_info(&client->dev, "sh366101 FG bringup probed @0x%02x (soc=%d%%)\n",
 +		 client->addr, fg->soc);
 +	return 0;
@@ -15901,6 +16205,7 @@ index 000000000..5483095b4
 +	struct sh366101_bringup *fg = i2c_get_clientdata(client);
 +
 +	cancel_delayed_work_sync(&fg->poll_work);
++	debugfs_remove_recursive(fg->dbgfs);
 +}
 +
 +static const struct of_device_id sh366101_bringup_of_match[] = {
@@ -15920,7 +16225,7 @@ index 000000000..5483095b4
 +};
 +module_i2c_driver(sh366101_bringup_driver);
 +
-+MODULE_DESCRIPTION("SinoWealth sh366101 fuel gauge bringup (minimal)");
++MODULE_DESCRIPTION("SinoWealth sh366101 fuel gauge");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/power/supply/smb1351_charger_bringup.c b/drivers/power/supply/smb1351_charger_bringup.c
 new file mode 100644

@@ -27,7 +27,7 @@
 | Модем | регистрация, QMI/UIM, IMEI, ModemManager (`qcom-soc`), автовыбор carrier-конфига из PDC |
 | **Hot-swap SIM** | вынул/вставил в слоте 1 на ходу → `uim-hotplug` перепривязывает подписку, LTE поднимается без ребута |
 | Сеть | NetworkManager: LTE (`tele2`) + Wi-Fi одновременно, `nmtui`/`nmcli`; SSH (host-keys генерятся в сборке) |
-| Питание | SMB1351 (зарядка), fuel gauge (`Charging`, SOC, V, I) |
+| Питание | SMB1351 (зарядка), fuel gauge SH366101: SOC, V, I, temp, циклы, STATUS/HEALTH + расширенные блоки (Qmax→SOH, энергия мВт·ч, OCV, внутр. темпа кристалла) |
 | Thermal | TSENS (16 датчиков) + 4 cooling devices; **троттлинга нет** под 8-ядерной нагрузкой (плато ~59 °C, trip 95/125 °C) |
 | CPU | cpufreq-hw + schedutil (A53 1.9008 / A73 2.4 ГГц), cpuidle |
 | **Suspend / resume** | `s2idle`, сон/пробуждение кнопкой Power (см. ограничения) |
@@ -84,7 +84,7 @@
 | Thermal sensors | **Работает** | Температурные датчики регистрируются |
 | Vibrator | **Работает** | `gpio-vibrator` (input0, FF_RUMBLE); румбл проверен на устройстве |
 | Фонарик | **Работает** | LED `white:torch`; вкл/выкл проверены |
-| Зарядка / fuel gauge | **Работает** | Драйверы зарядки и измерения батареи поднимаются |
+| Зарядка / fuel gauge | **Работает** | SMB1351 + SH366101; базовые SBS-свойства и расширенные gaugeinfo-блоки (Qmax/SOH, энергия, OCV, внутр. темпа) — см. `docs/hardware-inventory.md` |
 | SoundWire RX | **Работает** | Khaje frame/порт-параметры и RX-маршрут стабильны |
 | Speaker audio | **Работает** | `audio-bind` сервис привязывает `a7c0000.pinctrl` после подъёма ADSP (гонка за clock `q6afecc`), применяет вендорный маршрут (RX2 → aw87xxx); карта `card0`, sink `speaker` |
 | Audio calibration (ACDB) | **Не реализовано** | Android ACDB/userspace calibration ещё не перенесены |

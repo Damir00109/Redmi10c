@@ -75,6 +75,18 @@
    audio/BT-ноды, PMIC-ребёнки. Идёт последней — зависит от всех
    драйверных серий выше; разрезать на под-коммиты по подсистеме.
 
+## Серия 7 — QUPv2 I2C DMA quirk
+
+10. **`i2c-qcom-geni`: `qcom,no-dma` DT property** — новый булев
+    property, пиннит шину к FIFO-режиму (SE-DMA остаётся для
+    GPI/hub-вариантов). Root cause на железе: на Khaje любой transfer
+    ≥32 байта уходит в SE-DMA (`i2c_get_dma_safe_msg_buf(msg, 32)`) и
+    **никогда не завершается** — шина теряется, задача уходит в
+    D-state, система ловит hung-task. FIFO-путь работает штатно.
+    Само property — generic-фича драйвера (кандидат наверх); его
+    применение в `sm6225-xiaomi-fog.dts` (`&i2c1`) — платформенный
+    workaround, пока не найден настоящий фикс SE-DMA.
+
 ## Сознательно НЕ upstreamable (платформенные quirks — держать локально)
 
 - hci_qca: bt_en-ограничение до wcn6750+, IBS off для wcn399x,
@@ -90,3 +102,7 @@
 - `clk_ignore_unused`/`pd_ignore_unused` в cmdline — bring-up
   костыль; платформа без них грузится (проверено), но Ubuntu-путь
   не валидирован — отдельный будущий эксперимент.
+- `qcom,no-dma` на `&i2c1` в `sm6225-xiaomi-fog.dts` — обход
+  зависания SE-DMA на Khaje (≥32 байт за transfer); механизм
+  (property) upstream-согласуем, само применение — workaround
+  до фикса DMA-пути.
