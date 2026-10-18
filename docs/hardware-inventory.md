@@ -24,7 +24,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 9 | LCD bias | `lcm-bias` | i2c0-003e | — | **NOT SUPPORTED** (не пробивается; питание панели идёт без отдельного bias) |
 | 10 | Камера задняя | **S5KJN1** 50МП (модуль Sunny; альтернативы HI1337/SC500CS) | CCI0 + CSIPHY | Samsung | **NORMAL** (стрим RAW10 работает; нет AE/AWB — ISP-уровень. В v4l2-контролах сенсора есть `exposure`/флипы, т.е. ручной AE из userspace возможен) |
 | 11 | Камера фронт | **HI556** 5МП (модуль AAC «V6457») | CCI1, i2c1-0x28 | Himax | **NORMAL** (кадры идут; нет AE/AWB) |
-| 12 | Камера depth | **OV02B1B** 2МП (модуль AAC «B313») | CCI0 master 1, CSIPHY1 | OmniVision | **LOW** — была `status = disabled` без порта; **включена и связана** (2026-10-18): драйвер `1-0059: ov02b1b` пробивается, в media-графе есть сущность и линк `msm_csiphy1 ↔ ov02b1b [ENABLED]`, формат Y10_1X10 1600x1200. **CSI-мультиплексор gpio66/67 (OE/SEL) заведён** (2026-10-18) через gpio-hog'и, пины сняты с резерва, система загружается без ребута. Поток всё ещё не проверен: rescue-образ не содержит `media-ctl`/`v4l2-ctl`, полная проверка требует загрузки этого ядра в Ubuntu-слот |
+| 12 | Камера depth | **OV02B1B** 2МП (модуль AAC «B313») | CCI0 master 1, CSIPHY1 | OmniVision | **LOW** — была `status = disabled` без порта; **включена и связана** (2026-10-18): драйвер `1-0059: ov02b1b` пробивается, в media-графе есть сущность и линк `msm_csiphy1 ↔ ov02b1b [ENABLED]`, формат Y10_1X10 1600x1200. **gpio66/67 (CAM_CUSTOM2/CSI mux OE/SEL) проверены** (2026-10-18): пины безопасны для чтения/записи, но статические gpio-hog'и (`output-low`/`output-high`) не убирают `STREAMON → EPIPE`; поток требует отдельной работы с CAMSS-пайплайном/форматами. Пины возвращены в `reserved_gpios` до следующего захода |
 | 13 | VCM (AF) | **GT9764** | i2c0-000c, в модуле задней камеры | GIANTEC | **NORMAL** (пробивается; автофокус внутри CAMSS-пути) |
 | 14 | EEPROM камер | at24: 24c128 + 24c64 + 24c02 | i2c0-51/i2c1-51 | Atmel-compat | **FULL** (читаются, содержимое верифицировано) |
 | 15 | Питание камер | **WL2866D** LDO-PMIC | i2c2-0028 | WillSemi | **FULL** |
@@ -142,7 +142,7 @@ ADB/сенсоры/I2C на resume починены.
 | Тач | `fts_ts` → input4 на spi0.0 | **FULL** |
 | bkl-bl / lcm-bias | i2c-карта → не пробиваются | **NOT SUPPORTED** — подтверждено |
 | Камеры | `media-ctl` → 35 entities, 12 /dev/video*; i2c: s5kjn1, hi556, ov02b1b, gt9764, 24c128, 24c64 | **NORMAL** — топология полная; OV02B1B в графе (csiphy1 link enabled) |
-| OV02B1B | i2c-карта → 1-0059; media-граф: csiphy1 link enabled | **LOW** — CSI-mux gpio66/67 заведён, поток не проверен |
+| OV02B1B | i2c-карта → 1-0059; media-граф: csiphy1 link enabled | **LOW** — gpio66/67 проверены — EPIPE остаётся |
 | Звук | `aplay -l` → card0 MultiMedia1; swr-master ×2 + slave ×2 | **FULL** |
 | Wi-Fi | `iw dev` → connected Xiaomi_E4C4 **5GHz/5220MHz**, RX 23 МБ | **FULL** — реальный трафик |
 | BT | `hciconfig` → hci0 **UP RUNNING**, Powered | **NORMAL** |
@@ -179,7 +179,7 @@ ADB/сенсоры/I2C на resume починены.
   ADSP/LPASS (стартовый AFE-шум), IPA, CAMSS, interconnect/clk-
   quirks, RTC (read-only), USB-C роли, SIM-1, микрофоны/ресивер,
   вспышка.
-- **LOW**: depth-камера (OV02B1B в графе, CSI-mux gpio66/67 заведён, поток не проверен), SAR ADUX1050, NFC (только
+- **LOW**: depth-камера (OV02B1B в графе, gpio66/67 проверены — EPIPE остаётся), SAR ADUX1050, NFC (только
   id), SIM-2, ant-check GPIO, CDSP-нода.
 - **NOT SUPPORTED**: сканер отпечатков (FPC), FUSB303, bkl-bl,
   lcm-bias, fs15xx (audio smart-boost — драйвера в дереве нет).

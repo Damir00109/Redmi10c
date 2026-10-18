@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..e86efee86
+index 000000000..1af0df37b
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1249 @@
+@@ -0,0 +1,1230 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -600,25 +600,6 @@ index 000000000..e86efee86
 +			drive-strength = <8>;
 +			output-high;
 +		};
-+	};
-+
-+	/* CSI mux between camera sensors and CSIPHYs.  Stock DT declares
-+	 * cam_sensor_csi_mux_oe/sel_* on gpio66/67 as gpio outputs; sleep
-+	 * states drive both low.  Drive them statically for the depth camera
-+	 * path experiment (OE low = mux enabled, SEL low = one input selected).
-+	 */
-+	csi_mux_oe_hog: csi-mux-oe-hog {
-+		gpio-hog;
-+		gpios = <66 GPIO_ACTIVE_HIGH>;
-+		output-low;
-+		line-name = "csi-mux-oe";
-+	};
-+
-+	csi_mux_sel_hog: csi-mux-sel-hog {
-+		gpio-hog;
-+		gpios = <67 GPIO_ACTIVE_HIGH>;
-+		output-low;
-+		line-name = "csi-mux-sel";
 +	};
 +
 +	wusb3801_int_default: wusb3801-int-default-state {
@@ -13929,10 +13910,10 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..9e31925a7
+index 000000000..c85fd39f1
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1676 @@
+@@ -0,0 +1,1675 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15530,9 +15511,8 @@ index 000000000..9e31925a7
 +	63,
 +	64,
 +	/* 65 camera reset2 (CAM_RESET2, depth) */
-+	/* 66/67 = CSI mux OE/SEL (stock DT: cam_sensor_csi_mux_oe/sel_*).
-+	 * Active states are plain gpio outputs; sleep states drive both low.
-+	 * Un-reserve so we can drive the mux for the depth camera path. */
++	66,
++	67,
 +	68,
 +	69,
 +	70,
