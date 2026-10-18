@@ -199,7 +199,7 @@ sudo chmod 755 "$RF/var/lib/tqftpserv"
 
 # tqftpserv/busybox static binaries from the rescue initramfs staging
 sudo mkdir -p "$RF/usr/local/sbin" "$RF/usr/local/bin"
-for b in tqftpserv qrtr-ns pd-mapper rmtfs qrtr-lookup; do
+for b in tqftpserv qrtr-ns rmtfs qrtr-lookup; do
   [ -x "$REDMI/initramfs/$b" ] && sudo cp -a "$REDMI/initramfs/$b" "$RF/usr/local/sbin/$b"
 done
 [ -x "$REDMI/out/build/busybox" ] && sudo cp -a "$REDMI/out/build/busybox" "$RF/usr/local/bin/busybox"
@@ -270,18 +270,19 @@ sudo rm -f "$RF/etc/systemd/system/multi-user.target.wants/rain-wifi-nm.service"
 
 sudo chroot "$RF" bash -c '
 systemctl enable rain-stable-boot.service usb-adb-gadget.service adbd.service getty@tty1.service 2>/dev/null || true
-systemctl enable rain-audio.service rain-bt.service bluetooth rain-serial-console.service 2>/dev/null || true
-systemctl enable qcom-firmware-stage.service qrtr-ns.service rmtfs.service pd-mapper.service tqftpserv.service 2>/dev/null || true
+systemctl enable rain-bt.service bluetooth rain-serial-console.service 2>/dev/null || true
+# pd-mapper is NOT enabled: the in-kernel QCOM_PD_MAPPER answers the
+# ADSP/modem PD lookups (verified 2026-10-18).
+systemctl enable qcom-firmware-stage.service qrtr-ns.service rmtfs.service tqftpserv.service 2>/dev/null || true
 systemctl enable qcom-modem-start.service ath10k-snoc-load.service uim-provision.service uim-hotplug.service 2>/dev/null || true
 systemctl enable ModemManager.service NetworkManager.service NetworkManager-dispatcher.service 2>/dev/null || true
 systemctl enable ssh 2>/dev/null || true
 systemctl enable wpa_supplicant.service 2>/dev/null || true
 # Snapdragon Sensor Core (hexagonrpcd -> ADSP fastrpc)
 systemctl enable sensors-setup.service hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service 2>/dev/null || true
-# ASoC/WCD9375 stack (speaker + headset).  Needs the ADSP to stay up: the
-# ADSP is what provides the LPASS clocks, so rain-stable-boot must not stop
-# remoteproc1 (see usr/local/sbin/rain-stable-boot.sh).
-systemctl enable rain-audio.service 2>/dev/null || true
+# ASoC/WCD9375 stack (speaker + headset) needs no unit any more: every
+# piece is built-in (=y) and the ADSP auto-boots (adsp_resource_init has
+# auto_boot=true).  rain-stable-boot must still not stop remoteproc1.
 # GNSS: the modem exposes QMI LOC/PDS (QRTR service 16); the ModemManager
 # Location interface drives it and gnss-share republishes the NMEA on
 # /var/run/gnss-share.sock for geoclue/apps (device_driver="mm").

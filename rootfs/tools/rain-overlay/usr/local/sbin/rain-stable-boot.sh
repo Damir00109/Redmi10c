@@ -16,7 +16,6 @@ echo "=== $(date -Is) rain-stable-boot ==="
 # Kill any stale QMI/WiFi processes from a previous boot
 pkill -x tqftpserv 2>/dev/null || true
 pkill -x rmtfs 2>/dev/null || true
-pkill -x pd-mapper 2>/dev/null || true
 pkill -x ModemManager 2>/dev/null || true
 
 # Stop any running remoteproc (modem) — qcom-modem-start will restart it.
@@ -48,7 +47,7 @@ done
 
 # Remove stale masks from previous boots (rain-stable-boot used to mask these)
 for u in NetworkManager.service NetworkManager-wait-online.service \
-         tqftpserv.service rmtfs.service pd-mapper.service \
+         tqftpserv.service rmtfs.service \
          netplan-wpa-wlan0.service wpa_supplicant.service; do
   [ -L "/etc/systemd/system/$u" ] && \
     [ "$(readlink "/etc/systemd/system/$u")" = "/dev/null" ] && \

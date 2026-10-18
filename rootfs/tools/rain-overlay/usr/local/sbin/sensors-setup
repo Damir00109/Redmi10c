@@ -50,10 +50,12 @@ printf 'END:AP\n' > "$R/sensors/sns_reg_ctrl"
 chmod -R a+rX "$R"
 chown -R fastrpc:fastrpc "$R/mnt_persist" "$R/sensors/sns_reg_ctrl" 2>/dev/null || true
 
-# socinfo files the sensor PD reads via /sys/devices/soc0
+# socinfo files the sensor PD reads.  soc_id/revision come from the kernel
+# (drivers/soc/qcom/socinfo.c -> /sys/devices/soc0); the platform fields are
+# not exposed by the socinfo driver on this SoC, so they stay literal.
 mkdir -p "$R/socinfo"
-echo 518     > "$R/socinfo/soc_id"
-echo 1.0     > "$R/socinfo/revision"
+cat /sys/devices/soc0/soc_id   2>/dev/null > "$R/socinfo/soc_id"   || echo 518 > "$R/socinfo/soc_id"
+cat /sys/devices/soc0/revision 2>/dev/null > "$R/socinfo/revision" || echo 1.0 > "$R/socinfo/revision"
 echo bengal  > "$R/socinfo/hw_platform"
 echo fog     > "$R/socinfo/platform_subtype"
 echo 0       > "$R/socinfo/platform_subtype_id"

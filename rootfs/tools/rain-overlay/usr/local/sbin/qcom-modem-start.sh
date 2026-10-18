@@ -1,6 +1,7 @@
 #!/bin/bash
 # Start the Qualcomm modem via remoteproc PAS.
-# Requires: qrtr-ns, rmtfs, pd-mapper, tqftpserv already running.
+# Requires: qrtr-ns, rmtfs, tqftpserv already running (the PD map
+# comes from the in-kernel QCOM_PD_MAPPER).
 set +e
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 

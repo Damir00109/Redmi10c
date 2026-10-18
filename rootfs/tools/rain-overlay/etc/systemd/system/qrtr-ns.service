@@ -2,7 +2,7 @@
 Description=Qualcomm QRTR Name Service
 DefaultDependencies=no
 After=qcom-firmware-stage.service
-Before=rmtfs.service pd-mapper.service tqftpserv.service qcom-modem-start.service
+Before=rmtfs.service tqftpserv.service qcom-modem-start.service
 
 [Service]
 Type=simple

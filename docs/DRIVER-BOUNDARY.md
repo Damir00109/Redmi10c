@@ -90,21 +90,22 @@ pinctrl-msm (reserved_gpios, irq_quiesce), ath10k wmi guard, i2c-qcom-geni
 `fastboot boot` и падает после `fastboot flash` + холодный ребут. Проверять
 только холодным бутом.
 
-### P2. Удалить мёртвое: `modprobe.d/rain-stable.conf`
+### P2. Удалить мёртвое: `modprobe.d/rain-stable.conf` — **СДЕЛАНО**
 
 Каждое имя в blacklist — либо `=y` (blacklist не действует на built-in), либо
 вообще не собран: `ath10k_snoc=y`, `qrtr=y`, `qrtr_smd=y`, `qcom_q6v5_pas=y`,
 `qcom_sysmon=y`, `mdt_loader=y`, `sh366101_fg_bringup=y`,
 `smb1351_charger_bringup=y`; `ath10k_pci/sdio`, `qmi_helpers` — не собраны.
-Файл не влияет ни на что → удалить (или переписать под реальные `=m`).
+Файл не влиял ни на что → **удалён** (проверено ребутом: Wi-Fi/BT/зарядка/gauge
+на месте).
 
-### P3. `rain-audio-start.sh` — избыточен
+### P3. `rain-audio-start.sh` — избыточен — **СДЕЛАНО**
 
 ADSP у нас `qcom,sm6115-adsp-pas` → `adsp_resource_init` с
 `.auto_boot = true` (`qcom_q6v5_pas.c`) → **ADSP поднимается ядром сам**.
 Весь звук `=y`. `modprobe qcom_q6v5_adsp` в скрипте — вообще другой драйвер
-(`QCOM_Q6V5_ADSP=m`, для qcs404-подобных). Скрипт можно удалить вместе с
-юнитом, оставив только (если подтвердится) фикс гонки pinctrl/`q6afecc`.
+(`QCOM_Q6V5_ADSP=m`, для qcs404-подобных). Скрипт и юнит **удалены** —
+после холодного ребута card0 поднимается сам, ADSP `running`.
 
 ### P4. `ath10k-snoc-load.sh` → свести к нулю
 
@@ -113,13 +114,16 @@ ADSP у нас `qcom,sm6115-adsp-pas` → `adsp_resource_init` с
 остаётся зависимость «модем/WLAN-DSP up → ath10k probe», которую должно
 держать ядро (deferred probe), а не sleep 3.
 
-### P5. In-kernel `pd-mapper` vs userspace `pd-mapper`
+### P5. In-kernel `pd-mapper` vs userspace `pd-mapper` — **СДЕЛАНО**
 
 `CONFIG_QCOM_PD_MAPPER=y` + наша правка (домены `qcom,sm6225`) — ядро умеет
 отвечать на QRTR-запросы PD. Userspace `pd-mapper` крутится параллельно.
-Если после удаления юнита ADSP/hexagonrpcd/звук продолжают работать —
-userspace-демон лишний. **Нужен эксперимент** (стоп юнита + рестарт
-hexagonrpcd).
+**Проверено:** с остановленным userspace-демоном сенсорный PD-сервис
+перезапускается, а модем поднимается (`qcom-modem-start` без зависимости) —
+in-kernel маппер отдаёт `adsp_audio/root/sensor`, `cdsp_root`, `mpss_root_gps`,
+`mpss_wlan` (таблица `sm6115_domains`). Юнит, скрипт-копия и зависимости
+(`qrtr-ns`, `qcom-modem-start`, mount-override, `build-rootfs.sh`) **убраны**;
+после ребута модем/ADSP/Wi-Fi/сенсоры работают, `pd-mapper` inactive.
 
 ### P6. `qcom-firmware-stage.sh` — сократить
 
@@ -129,12 +133,13 @@ hexagonrpcd).
 Часть можно вынести в сборку rootfs (положить нужные BDF в образ), часть —
 в udev-правила вместо скрипта.
 
-### P7. `sensors-setup`: socinfo — из ядра, не хардкодом
+### P7. `sensors-setup`: socinfo — из ядра, не хардкодом — **СДЕЛАНО (частично)**
 
 Скрипт пишет `soc_id=518/revision/hw_platform=...` руками. Ядро уже отдаёт
 это в `/sys/devices/soc0/` (`soc_id=518`, `machine=Xiaomi Redmi 10C fog/rain`).
-Заменить хардкод на копирование из `/sys/devices/soc0` (устойчиво к смене
-платформы).
+`soc_id`/`revision` теперь берутся из `/sys/devices/soc0`; `hw_platform`,
+`platform_subtype`, `platform_version` остаются литералами — socinfo-драйвер
+на этом SoC их не экспонирует.
 
 ### P8. Драйверы, которых в ядре нет (написать)
 
@@ -167,12 +172,14 @@ hexagonrpcd).
 | Подсистема | Сейчас | Куда двигать |
 |---|---|---|
 | USB PHY/QSCRATCH init | **ядро** (обёртка `usb@4ef8800` + `qcom,select-utmi-as-pipe-clk`) | **сделано (P1)** |
-| ADSP boot | ядро (auto_boot) + лишний скрипт | **удалить скрипт (P3)** |
+| ADSP boot | ядро (auto_boot), скрипт удалён | **сделано (P3)** |
 | Звук (ASoC) | ядро `=y` | ок |
 | Модем boot | userspace (by design) | ок (auto_boot=false) |
 | WLAN probe | ядро `=y` + settle-скрипт | **сократить (P4)** |
-| pd-mapper | ядро `=y` + userspace демон | **тест на удаление (P5)** |
+| pd-mapper | только ядро (`QCOM_PD_MAPPER`) | **сделано (P5)** |
 | Прошивки | initramfs + staging-скрипт | **в сборку rootfs (P6)** |
+| Мёртвый blacklist | удалён | **сделано (P2)** |
+| socinfo в sensors-setup | из `/sys/devices/soc0` | **сделано (P7)** |
 | Сенсоры | userspace SSC | нельзя (SSC-шина) |
 | Fuel gauge / зарядник | ядро (полные) | ок |
 | Тач (прошивка) | ядро | ок |
