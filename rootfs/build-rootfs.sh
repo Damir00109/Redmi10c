@@ -78,7 +78,7 @@ apt-get install -y --no-install-recommends \
   iproute2 iputils-ping ca-certificates curl wget \
   nano less htop tmux bash-completion \
   usbutils fdisk parted e2fsprogs \
-  qrtr-tools rmtfs tqftpserv protection-domain-mapper \
+  qrtr-tools rmtfs tqftpserv \
   libqrtr1 net-tools wireless-regdb locales qbootctl \
   network-manager dbus \
   bluez pulseaudio pulseaudio-module-bluetooth pulseaudio-utils \
@@ -197,11 +197,12 @@ else
 fi
 sudo chmod 755 "$RF/var/lib/tqftpserv"
 
-# tqftpserv/busybox static binaries from the rescue initramfs staging
+# Only tqftpserv is staged from the rescue initramfs: its unit runs
+# /usr/local/sbin/tqftpserv.  rmtfs and qrtr-ns come from the distro
+# packages (their units use /usr/bin) — copying them here was redundant.
 sudo mkdir -p "$RF/usr/local/sbin" "$RF/usr/local/bin"
-for b in tqftpserv qrtr-ns rmtfs qrtr-lookup; do
-  [ -x "$REDMI/initramfs/$b" ] && sudo cp -a "$REDMI/initramfs/$b" "$RF/usr/local/sbin/$b"
-done
+[ -x "$REDMI/initramfs/tqftpserv" ] && sudo cp -a "$REDMI/initramfs/tqftpserv" "$RF/usr/local/sbin/tqftpserv"
+[ -x "$REDMI/initramfs/qrtr-lookup" ] && sudo cp -a "$REDMI/initramfs/qrtr-lookup" "$RF/usr/local/sbin/qrtr-lookup"
 [ -x "$REDMI/out/build/busybox" ] && sudo cp -a "$REDMI/out/build/busybox" "$RF/usr/local/bin/busybox"
 
 # wifi / serial / stable-boot overlay (canonical copies under tools/rain-overlay)

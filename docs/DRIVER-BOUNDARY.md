@@ -175,6 +175,13 @@ mount `modem_a` и его зависимости, симлинки прошив�
   встроенным (`CONFIG_QCOM_FASTRPC=y`, проверено: `/dev/fastrpc-adsp` есть при
   пустом `lsmod`), а `hci_uart`/`libcomposite` и так были `=y` — строки-пустышки
   удалены;
+- **tqftpserv/rmtfs/qrtr-ns — что откуда берётся** (проверено): `rmtfs` и
+  `qrtr-ns` — из apt-пакетов (`/usr/bin/*`, юниты указывают туда), а
+  `tqftpserv` — наша копия из initramfs-стейджинга (`/usr/local/sbin/tqftpserv`,
+  юнит указывает туда). Лишние копии `rmtfs`/`qrtr-ns` в `/usr/local/sbin` и
+  apt-пакет `protection-domain-mapper` (заменён in-kernel маппером) убраны из
+  сборки; мёртвый `initramfs/pd-mapper` удалён из репозитория. В rescue-образе
+  все четыре бинарника по-прежнему нужны (`/bin/*`, switch_root не делается);
 - `rain-bt` удалён (как `rain-audio`): `hci0` поднимается сам
   (`hci_uart` built-in + bluetoothd), проверено холодным ребутом. Его побочная
   работа — запуск PulseAudio — перенесена на сам `pulseaudio.service`
