@@ -19,8 +19,8 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 4 | Основная память | **SDINDDK4-64G** UFS 2.x, 64 ГБ | UFS 4804000/4807000 | SanDisk/WDC | **FULL** (quirk: `disable-runtime-pm` + ahit=0) |
 | 5 | Панель | `c3q_43_03_0b` FHD+ video-mode | DSI 5e00000 | CSOT/Tianma-class | **FULL** |
 | 6 | Тачскрин | **FT8006S** (`fts_ts`; модалиас `NVT-ts-spi` фантомен) | SPI0 (4a80000) | Focaltech | **FULL** |
-| 7 | Подсветка | `fs15xx` | i2c2-0034 | FocalTech-class | **FULL** (пробивается, регулирует яркость) |
-| 8 | Подсветка (доп.) | `bkl-bl` | i2c0-0036 | — | **NOT SUPPORTED** (альтернативная реализация; функцию берёт fs15xx) |
+| 7 | Аудио smart-boost | `fs15xx` (foursemi FS1599) | i2c2-0034 | Foursemi | **NOT SUPPORTED** (нода есть, драйвера в дереве нет; boost PVDD для AW87xxx — работает без него) |
+| 8 | Подсветка (доп.) | `bkl-bl` | i2c0-0036 | — | **NOT SUPPORTED** (не пробивается; подсветка идёт через DSI-панель `5e94000.dsi.0`) |
 | 9 | LCD bias | `lcm-bias` | i2c0-003e | — | **NOT SUPPORTED** (не пробивается; питание панели идёт без отдельного bias) |
 | 10 | Камера задняя | **S5KJN1** 50МП (модуль Sunny; альтернативы HI1337/SC500CS) | CCI0 + CSIPHY | Samsung | **NORMAL** (стрим RAW10 работает; нет AE/AWB — ISP-уровень) |
 | 11 | Камера фронт | **HI556** 5МП (модуль AAC «V6457») | CCI1, i2c1-0x28 | Himax | **NORMAL** (кадры идут; нет AE/AWB) |
@@ -142,7 +142,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | Wi-Fi | `iw dev` → connected Xiaomi_E4C4 **5GHz/5220MHz**, RX 23 МБ | **FULL** — реальный трафик |
 | BT | `hciconfig` → hci0 **UP RUNNING**, Powered | **NORMAL** |
 | NFC | i2c-карта → nq-nci не пробивается | **LOW** — подтверждено |
-| Зарядка/гейдж | `power_supply` → battery 100% `Charging`, usb online | **FULL** |
+| Зарядка/гейдж | `power_supply` → battery 100% `Charging`; `bms` отдаёт SBS + gaugeinfo (Qmax/SOH, энергия, OCV, внутр. темпа) | **FULL** |
 | GPU | `/dev/dri` → renderD128; devfreq 320МГц→таблица до 1.1ГГц | **FULL** — транзишны идут |
 | Модем | `mmcli` → MPSS.HA отвечает, qrtr0+rmnet_ipa0; `failed: sim-missing` | **NORMAL** — стек жив; SIM не вставлена |
 | remoteproc | modem `running`, adsp `running` | **FULL** |
@@ -159,12 +159,13 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | Fingerprint | нет сервиса/ноды | **NOT SUPPORTED** |
 | GPIO/TLMM | 3 gpiochip, 80 линий | **FULL** |
 
-## Сводка поддержки (mainline kernel #9)
+## Сводка поддержки (mainline; boot_b обновлён 2026-10-18 — полный fuel gauge)
 
 - **FULL**: панель, тач, UFS, SD, DRAM, GPU, display-стек, Wi-Fi,
-  звук (динамик+гарнитура+джек), зарядка, fuel gauge, вибромотор,
-  кнопки, подсветка, WL2866D/EEPROM камер, базовые SoC-блоки
-  (pinctrl, SPMI, GENI, SoundWire, tsens, CCI, USB).
+  звук (динамик+гарнитура+джек), зарядка, fuel gauge (SBS +
+  gaugeinfo: SOH/энергия/OCV/внутр. темпа — см. `FUEL-GAUGE-SH366101.md`),
+  вибромотор, кнопки, подсветка, WL2866D/EEPROM камер, базовые
+  SoC-блоки (pinctrl, SPMI, GENI, SoundWire, tsens, CCI, USB).
 - **NORMAL**: SoC в целом, PMIC, камеры (нет AE/AWB), модем/LTE
   (data есть, voice/SMS частично), Bluetooth (редкий wedge),
   ADSP/LPASS (стартовый AFE-шум), IPA, CAMSS, interconnect/clk-
@@ -173,4 +174,4 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 - **LOW**: depth-камера (не проверена), SAR ADUX1050, NFC (только
   id), SIM-2, ant-check GPIO, CDSP-нода.
 - **NOT SUPPORTED**: сканер отпечатков (FPC), FUSB303, bkl-bl,
-  lcm-bias.
+  lcm-bias, fs15xx (audio smart-boost — драйвера в дереве нет).
