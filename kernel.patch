@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..a1b424984
+index 000000000..e86efee86
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1180 @@
+@@ -0,0 +1,1249 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -207,6 +207,30 @@ index 000000000..a1b424984
 +			gpios = <&pm6125_gpios 5 GPIO_ACTIVE_LOW>;
 +			linux,input-type = <EV_KEY>;
 +			linux,code = <KEY_VOLUMEUP>;
++			debounce-interval = <10>;
++		};
++
++		/*
++		 * Antenna detect (stock DT: soc/ant_check -> TLMM 107,
++		 * soc/ant_check_div -> TLMM 25; Android exposes them as the
++		 * vendor input devices ant_check-input / ant_div_check-input).
++		 * Reported as switches so the state can be read back from the
++		 * gpio debugfs / evdev; polarity follows the stock DT
++		 * (flags = 0 = active high).
++		 */
++		ant_check {
++			label = "ant_check";
++			gpios = <&tlmm 107 GPIO_ACTIVE_HIGH>;
++			linux,input-type = <EV_SW>;
++			linux,code = <SW_RFKILL_ALL>;
++			debounce-interval = <10>;
++		};
++
++		ant_div_check {
++			label = "ant_div_check";
++			gpios = <&tlmm 25 GPIO_ACTIVE_HIGH>;
++			linux,input-type = <EV_SW>;
++			linux,code = <SW_RFKILL_ALL>;
 +			debounce-interval = <10>;
 +		};
 +	};
@@ -531,8 +555,16 @@ index 000000000..a1b424984
 +
 +/*
 + * External µSD — Android sdhc2 @4784000.
-+ * CD is TLMM gpio88 (EAST, currently reserved — get_direction hang risk).
-+ * Use broken-cd while card is inserted; enable cd-gpios after unreserving 88.
++ * CD is TLMM gpio88, declared by the stock DT (cd_on/cd_off: gpio,
++ * bias-pull-up, input-enable) and already present in sm6225.dtsi as
++ * sdc2_cd_default.  The pin is un-reserved now, so use the real card
++ * detect instead of broken-cd (polling).
++ *
++ * The CD state is deliberately NOT listed in pinctrl-0: the mmc driver
++ * claims gpio88 for cd-gpios, and a state that also claims the pin makes
++ * the host probe fail with -EINVAL ("pin GPIO_88 already requested by
++ * 4784000.mmc").  The mux/bias the vendor's cd_on state sets are already
++ * applied by the bootloader, and gpiod sets the direction itself.
 + */
 +&sdhc_2 {
 +	pinctrl-names = "default", "sleep";
@@ -543,7 +575,7 @@ index 000000000..a1b424984
 +	vqmmc-supply = <&pm6125_l5a>;
 +
 +	bus-width = <4>;
-+	broken-cd;
++	cd-gpios = <&tlmm 88 GPIO_ACTIVE_HIGH>;
 +	cap-sd-highspeed;
 +	sd-uhs-sdr12;
 +	sd-uhs-sdr25;
@@ -568,6 +600,25 @@ index 000000000..a1b424984
 +			drive-strength = <8>;
 +			output-high;
 +		};
++	};
++
++	/* CSI mux between camera sensors and CSIPHYs.  Stock DT declares
++	 * cam_sensor_csi_mux_oe/sel_* on gpio66/67 as gpio outputs; sleep
++	 * states drive both low.  Drive them statically for the depth camera
++	 * path experiment (OE low = mux enabled, SEL low = one input selected).
++	 */
++	csi_mux_oe_hog: csi-mux-oe-hog {
++		gpio-hog;
++		gpios = <66 GPIO_ACTIVE_HIGH>;
++		output-low;
++		line-name = "csi-mux-oe";
++	};
++
++	csi_mux_sel_hog: csi-mux-sel-hog {
++		gpio-hog;
++		gpios = <67 GPIO_ACTIVE_HIGH>;
++		output-low;
++		line-name = "csi-mux-sel";
 +	};
 +
 +	wusb3801_int_default: wusb3801-int-default-state {
@@ -1225,7 +1276,7 @@ index 000000000..a1b424984
 +	 * Address 0x59 verified live on the bus. */
 +	camera@59 {
 +		compatible = "ovti,ov02b1b";
-+		status = "disabled";
++		status = "okay";
 +		reg = <0x59>;
 +
 +		clocks = <&gcc GCC_CAMSS_MCLK1_CLK>;
@@ -1240,10 +1291,18 @@ index 000000000..a1b424984
 +		pinctrl-names = "default";
 +		pinctrl-0 = <&mclk1_default>;
 +
-+		/* Port omitted while disabled — a dangling remote-endpoint
-+		 * makes camss's async notifier wait forever (all sensor
-+		 * links silently missing). Wire camss port@1 + both
-+		 * remote-endpoints together when enabling depth. */
++		/* 1 data lane, 332.8 MHz link (OV02B1B_DATA_LANES /
++		 * link_freq_menu_items in the driver).  Port wired together
++		 * with camss port@1 — a dangling remote-endpoint would make
++		 * camss's async notifier wait forever. */
++		port {
++			ov02b1b_ep: endpoint {
++				clock-lanes = <7>;
++				data-lanes = <0>;
++				link-frequencies = /bits/ 64 <332800000>;
++				remote-endpoint = <&csiphy1_ep>;
++			};
++		};
 +	};
 +
 +	camera@28 {
@@ -1339,6 +1398,16 @@ index 000000000..a1b424984
 +			};
 +		};
 +
++
++		port@1 {
++			reg = <1>;
++
++			csiphy1_ep: endpoint {
++				clock-lanes = <7>;
++				data-lanes = <0>;
++				remote-endpoint = <&ov02b1b_ep>;
++			};
++		};
 +
 +		port@2 {
 +			reg = <2>;
@@ -4139,46 +4208,6 @@ index d85dae4bd..07d983677 100644
  			goto err;
  		}
  	}
-diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
-index 048adfa86..da5d12354 100644
---- a/drivers/clk/clk.c
-+++ b/drivers/clk/clk.c
-@@ -3839,15 +3839,28 @@ static void clk_core_reparent_orphans_nolock(void)
- 		struct clk_core *parent = __clk_init_parent(orphan);
- 
- 		/*
--		 * We need to use __clk_set_parent_before() and _after() to
--		 * properly migrate any prepare/enable count of the orphan
--		 * clock. This is important for CLK_IS_CRITICAL clocks, which
--		 * are enabled during init but might not have a parent yet.
-+		 * An orphan has no old parent, so there is no prepare/enable
-+		 * state to migrate from one parent to another. Avoid the
-+		 * __clk_set_parent_before/after() hardware dance here: its
-+		 * "undo" step can disable/unprepare the freshly registered
-+		 * parent and emit spurious "already disabled / already
-+		 * unprepared" WARNINGs (seen with the DSI PHY PLL clocks on
-+		 * SM6225). Instead propagate the orphan's prepare/enable state
-+		 * to the new parent and just update the topology.
-+		 * (Cf. upstream f8f8f1d04494 and its follow-up fixes.)
- 		 */
- 		if (parent) {
--			/* update the clk tree topology */
--			__clk_set_parent_before(orphan, parent);
--			__clk_set_parent_after(orphan, parent, NULL);
-+			unsigned long flags;
-+
-+			if (orphan->prepare_count)
-+				clk_core_prepare(parent);
-+
-+			flags = clk_enable_lock();
-+			if (orphan->enable_count)
-+				clk_core_enable(parent);
-+			clk_reparent(orphan, parent);
-+			clk_enable_unlock(flags);
-+
- 			__clk_recalc_accuracies(orphan);
- 			__clk_recalc_rates(orphan, true, 0);
- 
 diff --git a/drivers/clk/qcom/clk-alpha-pll.c b/drivers/clk/qcom/clk-alpha-pll.c
 index f8313f9d0..faae7571d 100644
 --- a/drivers/clk/qcom/clk-alpha-pll.c
@@ -13900,10 +13929,10 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..0d27b0fc3
+index 000000000..9e31925a7
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1663 @@
+@@ -0,0 +1,1676 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15442,6 +15471,11 @@ index 000000000..0d27b0fc3
 +/*
 + * Sparse GPIO: proven-safe + Type-C gpio93 + torch gpio85.
 + * Others reserved (MMIO hang). gpio68 (flash_en strobe) stays reserved.
++ *
++ * 2026-10-18: the list is a bring-up safety net, not hardware truth - the
++ * camera/modem pins work once they are muxed properly, and re-testing
++ * showed gpio25 (ant_div_check) and gpio107 (ant_check) are readable, so
++ * they are not reserved any more.
 + */
 +static const int khaje_reserved_gpios[] = {
 +	13,
@@ -15454,7 +15488,11 @@ index 000000000..0d27b0fc3
 +	/* 20/21/27/28 camera MCLK0..3 (CAMIF_MCLK) */
 +	/* 22/23 camera CCI0 I2C (main) */
 +	/* 24 camera reset1 (CAM_RESET1, front) */
-+	/* 25/26 pm8008 IRQ + chip-en (camera PMIC) */
++	/* 25/26: stock DT puts ant_div_check on 25 and our pm8008 node claims
++	 * 25 as its IRQ (pm8008 is disabled, so no conflict).  Re-tested
++	 * 2026-10-18: 25 and 107 are readable (pinmux/pinconf dumps walk them
++	 * fine) - the reserved list is a bring-up safety net, not hardware
++	 * truth, same class as the camera/modem pins that work once muxed. */
 +
 +	/* 29/30 camera CCI1 I2C (front/depth) */
 +	31,
@@ -15492,8 +15530,9 @@ index 000000000..0d27b0fc3
 +	63,
 +	64,
 +	/* 65 camera reset2 (CAM_RESET2, depth) */
-+	66,
-+	67,
++	/* 66/67 = CSI mux OE/SEL (stock DT: cam_sensor_csi_mux_oe/sel_*).
++	 * Active states are plain gpio outputs; sleep states drive both low.
++	 * Un-reserve so we can drive the mux for the depth camera path. */
 +	68,
 +	69,
 +	70,
@@ -15510,7 +15549,10 @@ index 000000000..0d27b0fc3
 +	/* 81 TE / 82 reset — WEST, needed for FT8006S panel */
 +	83,
 +	84,
-+	88,
++	/* 88 = SD card detect: stock DT declares it (cd_on/cd_off, gpio +
++	 * bias-pull-up + input-enable) and the state already exists in
++	 * sm6225.dtsi as sdc2_cd_default - un-reserved 2026-10-18, the pin
++	 * was only parked here by the early bring-up sweep. */
 +	89,
 +	90,
 +	91,
@@ -18439,78 +18481,3 @@ index 48825756a..f514d8e0d 100644
  	if (core->fwk_version_supported)
  		kfree(core->fwk_version);
  	if (core->get_version_supported)
-diff --git a/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c b/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
-index 03838582a..eaa34d2ae 100644
---- a/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
-+++ b/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
-@@ -33,10 +33,33 @@ struct q6dsp_cc {
- 	const struct q6dsp_clk_desc *desc;
- };
- 
-+/*
-+ * The clocks registered here live only as long as the q6prm device, which is
-+ * a child of the ADSP glink edge.  When the ADSP goes down that device is
-+ * removed and its clocks unregistered, but a consumer (an LPASS macro codec
-+ * driver) may still hold a struct clk for one of them and prepare it from a
-+ * PDR notifier.  clk->dev is stale by then, so bail out instead of oopsing
-+ * the kernel in the pdr_indack workqueue.
-+ */
-+static struct q6dsp_cc *q6dsp_cc_get(struct q6dsp_clk *clk)
-+{
-+	struct q6dsp_cc *cc;
-+
-+	if (!clk->dev)
-+		return NULL;
-+	cc = dev_get_drvdata(clk->dev);
-+	if (!cc || !cc->desc)
-+		return NULL;
-+	return cc;
-+}
-+
- static int clk_q6dsp_prepare(struct clk_hw *hw)
- {
- 	struct q6dsp_clk *clk = to_q6dsp_clk(hw);
--	struct q6dsp_cc *cc = dev_get_drvdata(clk->dev);
-+	struct q6dsp_cc *cc = q6dsp_cc_get(clk);
-+
-+	if (!cc || !cc->desc->lpass_set_clk)
-+		return -ENODEV;
- 
- 	return cc->desc->lpass_set_clk(clk->dev, clk->q6dsp_clk_id, clk->attributes,
- 				     Q6DSP_LPASS_CLK_ROOT_DEFAULT, clk->rate);
-@@ -45,7 +68,10 @@ static int clk_q6dsp_prepare(struct clk_hw *hw)
- static void clk_q6dsp_unprepare(struct clk_hw *hw)
- {
- 	struct q6dsp_clk *clk = to_q6dsp_clk(hw);
--	struct q6dsp_cc *cc = dev_get_drvdata(clk->dev);
-+	struct q6dsp_cc *cc = q6dsp_cc_get(clk);
-+
-+	if (!cc || !cc->desc->lpass_set_clk)
-+		return;
- 
- 	cc->desc->lpass_set_clk(clk->dev, clk->q6dsp_clk_id, clk->attributes,
- 			      Q6DSP_LPASS_CLK_ROOT_DEFAULT, 0);
-@@ -86,7 +112,10 @@ static const struct clk_ops clk_q6dsp_ops = {
- static int clk_vote_q6dsp_block(struct clk_hw *hw)
- {
- 	struct q6dsp_clk *clk = to_q6dsp_clk(hw);
--	struct q6dsp_cc *cc = dev_get_drvdata(clk->dev);
-+	struct q6dsp_cc *cc = q6dsp_cc_get(clk);
-+
-+	if (!cc || !cc->desc->lpass_vote_clk)
-+		return -ENODEV;
- 
- 	return cc->desc->lpass_vote_clk(clk->dev, clk->q6dsp_clk_id,
- 				  clk_hw_get_name(&clk->hw), &clk->handle);
-@@ -95,7 +124,10 @@ static int clk_vote_q6dsp_block(struct clk_hw *hw)
- static void clk_unvote_q6dsp_block(struct clk_hw *hw)
- {
- 	struct q6dsp_clk *clk = to_q6dsp_clk(hw);
--	struct q6dsp_cc *cc = dev_get_drvdata(clk->dev);
-+	struct q6dsp_cc *cc = q6dsp_cc_get(clk);
-+
-+	if (!cc || !cc->desc->lpass_unvote_clk)
-+		return;
- 
- 	cc->desc->lpass_unvote_clk(clk->dev, clk->q6dsp_clk_id, clk->handle);
- }
