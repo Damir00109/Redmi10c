@@ -196,6 +196,12 @@ mount `modem_a` и его зависимости, симлинки прошив�
 - **rmtfs / tqftpserv / qrtr-ns / hexagonrpcd** — часть архитектуры Qualcomm:
   DSP/модем ходят в userspace-сервисы по QRTR. В ядре им места нет
   (in-kernel `pd-mapper` — исключение, см. P5).
+  **Проверено экспериментом (2026-10-18):** холодный бут с выключенным
+  `tqftpserv` — `wlan0` не появляется вообще, `ath10k` даже не пробуется
+  (WLAN-DSP не получил `wlanmdsp.mbn`: его отдаёт именно tqftpserv по TFTP/QRTR).
+  Перезапуск модема при остановленном tqftpserv обманчиво «работает» — прошивка
+  к тому моменту уже загружена; проверять только холодным бутом. То есть
+  `pd-mapper` из userspace ушёл, а `tqftpserv`/`rmtfs`/`qrtr-ns` — нет.
 - **UIM/QMI (uim-provision, uim-hotplug), GNSS (rain-gps-start, gnss-keepalive),
   ModemManager/NM** — протоколы модема и сетевого стека.
 - **configfs-гаджет (`usb-adb-gadget.sh`)** — configfs по определению
