@@ -4,6 +4,9 @@
 
 - Рабочий диск: `/mnt/128` (110 ГБ свободно, выделен под проект). CWD — `/mnt/128/Redmi10c`.
 - `sudo` без пароля. `gh` залогинен как `Damir00109` (ssh). Git user.name/user.email не настроены.
+- **Коммиты — только от Damir00109, без какой-либо атрибуции инструментов**: никаких
+  `Generated with …`, `Co-Authored-By:` ботов и подобных трейлеров. Коммитить с
+  `git -c user.name=Damir00109 -c user.email=internet00109@gmail.com commit`.
 - Все зависимости сборки на месте: `aarch64-linux-gnu-gcc`, `adb`, `fastboot`, `mkbootimg`, `cpio`, `zstd`, `make`, `python3`.
 - `out/` отсутствует — чистый клон, полная сборка с нуля через `./build.sh` (клонирует linux `v7.1.5`, busybox, tinyalsa, mkbootimg).
 
