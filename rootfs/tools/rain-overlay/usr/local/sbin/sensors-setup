@@ -67,7 +67,8 @@ mkdir -p /mnt/vendor
 [ -e /mnt/vendor/persist ] || ln -s "$R/mnt_persist" /mnt/vendor/persist 2>/dev/null
 [ -f /ro.boot.lcmtype ] || echo 1 > /ro.boot.lcmtype
 
-modprobe fastrpc 2>/dev/null
+# fastrpc is built-in (=y) since 2026-10-18, so /dev/fastrpc-adsp appears
+# without loading anything from userspace.
 i=0
 while [ "$i" -lt 20 ] && [ ! -e /dev/fastrpc-adsp ]; do sleep 1; i=$((i + 1)); done
 log "fastrpc device: $([ -e /dev/fastrpc-adsp ] && echo yes || echo no) (waited ${i}s)"

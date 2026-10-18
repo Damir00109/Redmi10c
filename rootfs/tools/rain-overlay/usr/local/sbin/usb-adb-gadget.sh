@@ -16,7 +16,6 @@ ffs_ready() {
 }
 
 setup_once() {
-  modprobe libcomposite 2>/dev/null || true
   mkdir -p /sys/kernel/config 2>/dev/null
   mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config 2>/dev/null
 

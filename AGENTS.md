@@ -42,7 +42,7 @@
 - `build-rootfs.sh` — проверен, работает (binfmt qemu-aarch64 с флагом F, qemu копировать не нужно).
 - `cache/` — cloudimg rootfs tarball скачан. `tools/rain-overlay` + `pivot-init` извлечены из ветки `main`.
 - `out/linux_rootfs.sparse.img` (~1.6G) — flash: `fastboot flash cust ... && fastboot continue`.
-- Модули ядра: `make ... O=<abs path> modules` + `modules_install INSTALL_MOD_PATH=out/build/linux-7.1.5` → lib/modules/`7.1.5-dirty` (O= требует АБСОЛЮТНЫЙ путь). Wi-Fi/ath10k built-in (=y); `qcom_q6v5_adsp` =m — без модулей нет ADSP/звука/сенсоров.
+- Модули ядра: `make ... O=<abs path> modules` + `modules_install INSTALL_MOD_PATH=out/build/linux-7.1.5` → lib/modules/`7.1.5-dirty` (O= требует АБСОЛЮТНЫЙ путь). Wi-Fi/ath10k/звук/сенсоры и наш ADSP — built-in (`=y`): ADSP идёт через `qcom_q6v5_pas` (`auto_boot=true`), а `QCOM_Q6V5_ADSP=m` — драйвер для других SoC и в цепочке не участвует. С 2026-10-18 `QCOM_FASTRPC=y`: в userspace не осталось ни одного `modprobe`.
 - Rootfs на systemd (как старая рабочая сборка). На устройстве сейчас OpenRC — overlay для него в git нет, восстанавливать с устройства или из релиза `v2026.09.06-final`.
 
 ## Ubuntu-образ: вылизанное состояние (2026-10-10)

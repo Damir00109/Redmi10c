@@ -270,7 +270,9 @@ sudo rm -f "$RF/etc/systemd/system/multi-user.target.wants/rain-wifi-nm.service"
 
 sudo chroot "$RF" bash -c '
 systemctl enable rain-stable-boot.service usb-adb-gadget.service adbd.service getty@tty1.service 2>/dev/null || true
-systemctl enable rain-bt.service bluetooth rain-serial-console.service 2>/dev/null || true
+# hci0 comes up by itself (hci_uart built-in + bluetoothd); PulseAudio is a
+# separate unit now — rain-bt used to be the only thing starting it.
+systemctl enable bluetooth pulseaudio.service rain-serial-console.service 2>/dev/null || true
 # pd-mapper is NOT enabled: the in-kernel QCOM_PD_MAPPER answers the
 # ADSP/modem PD lookups (verified 2026-10-18).
 systemctl enable qcom-firmware-stage.service qrtr-ns.service rmtfs.service tqftpserv.service 2>/dev/null || true

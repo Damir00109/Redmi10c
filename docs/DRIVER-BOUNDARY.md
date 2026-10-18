@@ -170,7 +170,15 @@ mount `modem_a` и его зависимости, симлинки прошив�
 - rescue-init больше не поднимает userspace `pd-mapper` (его нет и в
   initramfs-образе) — Wi-Fi-рецепт rescue проверен холодным бутом: ath10k
   пробуется на 9–12 с, `wlan0` создаётся;
-- `rain-stable-boot.sh` делает только гигиену (pkill/rmmod/маски), MMIO нет.
+- `rain-stable-boot.sh` делает только гигиену (pkill/rmmod/маски), MMIO нет;
+- **в userspace не осталось ни одного `modprobe`/`insmod`**: `fastrpc` стал
+  встроенным (`CONFIG_QCOM_FASTRPC=y`, проверено: `/dev/fastrpc-adsp` есть при
+  пустом `lsmod`), а `hci_uart`/`libcomposite` и так были `=y` — строки-пустышки
+  удалены;
+- `rain-bt` удалён (как `rain-audio`): `hci0` поднимается сам
+  (`hci_uart` built-in + bluetoothd), проверено холодным ребутом. Его побочная
+  работа — запуск PulseAudio — перенесена на сам `pulseaudio.service`
+  (был `disabled`, теперь `enabled`).
 
 ## 5. Что перенести в ядро НЕЛЬЗЯ (и почему)
 
