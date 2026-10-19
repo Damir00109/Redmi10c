@@ -206,3 +206,16 @@
   ~60с, потом `echo serial0-0 > /sys/bus/serial/drivers/hci_uart_qca/unbind`
   + bind. BT-рельсы общие с Wi-Fi и физически не роняются — пульсы 2400/115200
   единственный реальный power control.
+- **Reserved-GPIO свип (2026-10-19):** список сокращён 63→6 пинов. Метод: Android
+  sysfs gpio (`gpiochip1167`, база 1167+N, root = `/debug_ramdisk/su`) — export,
+  direction/value, `edge=both` с маркерами `try N`; потом `/dev/mem` на Ubuntu
+  (IO_STRICT_DEVMEM выкл.) — прямые чтения/записи CTL/IO/INTR_CFG/INTR_STATUS,
+  адрес `0x400000 + TILE + 0x1000*N` (WEST 0x100000, EAST 0x900000, SOUTH
+  0x500000). Итог: киллеры только **gpio14/15/16/17** (WEST, мгновенный ребут на
+  чтении), gpio66/67 припаркованы до CSI-mux. Остальные 52 доказанно живы.
+  Таблица состояний — `docs/GPIO-PIN-MAP.md`.
+- **ACM-консоль rescue**: требует DTR/RTS для ввода — `serial.Serial`, затем
+  `setDTR(True); setRTS(True)`, иначе байты не доходят до shell'а.
+- **«reboot» из rescue-initramfs = poweroff**, не перезагрузка (busybox reboot
+  без reboot-mode). Для возврата в fastboot из rescue — `reboot -f`, из Ubuntu —
+  `reboot bootloader`.

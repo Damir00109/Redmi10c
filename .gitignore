@@ -22,3 +22,4 @@ vendor-qcom/
 
 # Proprietary Snapdragon Sensor Core userspace (fetched by tools/fetch-firmware.sh)
 sensors/
+.tmp/

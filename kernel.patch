@@ -13917,10 +13917,10 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..614cd87f3
+index 000000000..1e4547de8
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1690 @@
+@@ -0,0 +1,1604 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15457,114 +15457,28 @@ index 000000000..614cd87f3
 +};
 +
 +/*
-+ * Reserved GPIOs: pins whose safe state we do not know.  Early bring-up
-+ * parked everything unproven here after a base probe poked the wrong MMIO
-+ * and rebooted the SoC.
++ * Reserved GPIOs — everything not listed here is proven safe.
 + *
-+ * 2026-10-18: the list is a safety net, not hardware truth - a pin works
-+ * once it gets its proper mode straight away (same as camera/modem).
-+ * Stock-DT-declared device pins have been moved out and verified on real
-+ * hardware: gpio19 (rear1 reset), 25 (ant_div), 68 (flash_en LED), 83,
-+ * 84 (smb1351 int), 88 (sd cd), 100, 107 (ant).  What remains is either
-+ * pins the vendor DT never declares at all, or gpio66/67 (CSI mux
-+ * OE/SEL - proven readable/writable but kept parked until a real CSI-mux
-+ * consumer exists).
++ * gpio14/15/16/17 (WEST tile) kill the SoC instantly on register
++ * access - proven by the Android sysfs export sweep (marker stopped
++ * at each of them, instant reboot).  Keep them reserved forever.
++ *
++ * gpio66/67 are the CSI mux OE/SEL lines.  They read/write fine, but
++ * there is no in-tree consumer yet and parking them preserves the
++ * bootloader state until a real CSI-mux/depth-camera driver exists.
++ *
++ * All other formerly-reserved pins were swept on Android (sysfs gpio
++ * export, direction/value/edge writes) and on Linux (/dev/mem reads
++ * and quiesce-equivalent INTR_CFG/INTR_STATUS writes) - all safe.
++ * See docs/hardware-inventory.md for the full pin table.
 + */
 +static const int khaje_reserved_gpios[] = {
-+	13,
 +	14,
 +	15,
 +	16,
 +	17,
-+	/* 18 camera reset0 (CAM_RESET0, main) */
-+	/* 19 = cam_sensor_rear1_reset (4th rear camera reset; no such module
-+	 * in our DT and no Linux consumer).  Un-reserved 2026-10-18 — pin is
-+	 * left in whatever state the bootloader applied; if it reboots the
-+	 * SoC it goes back on the list. */
-+	/* 20/21/27/28 camera MCLK0..3 (CAMIF_MCLK) */
-+	/* 22/23 camera CCI0 I2C (main) */
-+	/* 24 camera reset1 (CAM_RESET1, front) */
-+	/* 25/26: stock DT puts ant_div_check on 25 and our pm8008 node claims
-+	 * 25 as its IRQ (pm8008 is disabled, so no conflict).  Re-tested
-+	 * 2026-10-18: 25 and 107 are readable (pinmux/pinconf dumps walk them
-+	 * fine) - the reserved list is a bring-up safety net, not hardware
-+	 * truth, same class as the camera/modem pins that work once muxed. */
-+
-+	/* 29/30 camera CCI1 I2C (front/depth) */
-+	31,
-+	32,
-+	33,
-+	34,
-+	35,
-+	/* 36 vibrator enable — Android vib,en-gpio (EAST; try like valid WEST) */
-+	37,
-+	38,
-+	39,
-+	40,
-+	41,
-+	42,
-+	43,
-+	44,
-+	45,
-+	46,
-+	47,
-+	48,
-+	49,
-+	50,
-+	51,
-+	52,
-+	53,
-+	/* 54 camera IOVDD switch - wl2866d iov-gpio */
-+	55,
-+	56,
-+	57,
-+	58,
-+	59,
-+	60,
-+	61,
-+	62,
-+	63,
-+	64,
-+	/* 65 camera reset2 (CAM_RESET2, depth) */
 +	66,
 +	67,
-+	/* 68 = camera flash_en (stock DT: cam_flash_torch_*, gpio output).
-+	 * Un-reserved 2026-10-18 and exposed as a gpio-led; sleep state
-+	 * drives it low (LED off), so the default-off led node is safe. */
-+	69,
-+	70,
-+	71,
-+	72,
-+	73,
-+	74,
-+	75,
-+	76,
-+	77,
-+	78,
-+	79,
-+	/* 80 IRQ / 86 RESET — Focaltech FT8006S touch (must stay valid) */
-+	/* 81 TE / 82 reset — WEST, needed for FT8006S panel */
-+	/* 83 = msm_gpio_83 (generic vendor input, pull-down; no identified
-+	 * consumer).  Un-reserved 2026-10-18. */
-+	/* 84 = SMB1351 charger interrupt (stock DT: smb1351_int_default,
-+	 * gpio + bias-pull-up + input-enable).  Un-reserved 2026-10-18 to
-+	 * replace polling with real IRQ. */
-+	/* 88 = SD card detect: stock DT declares it (cd_on/cd_off, gpio +
-+	 * bias-pull-up + input-enable) and the state already exists in
-+	 * sm6225.dtsi as sdc2_cd_default - un-reserved 2026-10-18, the pin
-+	 * was only parked here by the early bring-up sweep. */
-+	89,
-+	90,
-+	91,
-+	94,
-+	95,
-+	96,
-+	97,
-+	/* 98/101 used by FT8006S bias */
-+	99,
-+	/* 100 = msm_gpio_100 / msm_gpio_100_output_high (generic vendor output,
-+	 * consumer unknown).  Un-reserved 2026-10-18 — left in bootloader
-+	 * state; do not drive without knowing what it enables. */
 +	-1
 +};
 +
