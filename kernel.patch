@@ -13917,10 +13917,10 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..1e4547de8
+index 000000000..2d8432986
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1604 @@
+@@ -0,0 +1,1610 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15461,7 +15461,13 @@ index 000000000..1e4547de8
 + *
 + * gpio14/15/16/17 (WEST tile) kill the SoC instantly on register
 + * access - proven by the Android sysfs export sweep (marker stopped
-+ * at each of them, instant reboot).  Keep them reserved forever.
++ * at each of them, instant reboot).  Keep them reserved FOREVER:
++ * on this SoC they are LPI pins owned by the LPASS audio island
++ * (stock DT: lpi_i2s3_* under lpi_pinctrl@ac40000, qupv3_se5_spi);
++ * Qualcomm's own downstream khaje driver reserves them too.  While
++ * an eGPIO pin is island-owned, any AP-side TLMM register access
++ * faults the fabric and resets the SoC.  They are readable only via
++ * the LPASS-side controller (a7c0000).
 + *
 + * gpio66/67 are the CSI mux OE/SEL lines.  They read/write fine, but
 + * there is no in-tree consumer yet and parking them preserves the

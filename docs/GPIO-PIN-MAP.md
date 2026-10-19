@@ -12,7 +12,7 @@ Reserved list reduced from 63 to 6 pins after hardware sweeps.
   (WEST=0x100000, EAST=0x900000, SOUTH=0x500000, REG_SIZE=0x1000),
   plus quiesce-equivalent writes (clear enable+raw_status, ack status).
 
-## Lethal pins — stay reserved forever
+## Lethal pins — reserved FOREVER, never unreserve
 
 | Pin | Tile | Evidence |
 |-----|------|----------|
@@ -20,6 +20,19 @@ Reserved list reduced from 63 to 6 pins after hardware sweeps.
 | 15  | WEST | same (isolated retest) |
 | 16  | WEST | same |
 | 17  | WEST | same |
+
+**Why they kill:** these are **LPI pins owned by the LPASS audio
+island**.  Stock DT declares them as `lpi_i2s3_*` under
+`lpi_pinctrl@ac40000` (= `lpass_tlmm` in our dtsi) and `qupv3_se5_spi`;
+`qcom,lpi-offset-tbl` maps LPI pin N → TLMM pin N, i.e. same physical
+pads, different register view.  When a pin is island-owned
+(`egpio_present`/`egpio_enable` CTL bits 11/12), any AP-side TLMM
+register access triggers a fabric/XPU fault → instant SoC reset.
+Qualcomm's own downstream pinctrl-khaje reserves `14-17` (plus `0-3`,
+`82`, `86` on some devices) via the same `reserved_gpios` mechanism.
+They remain readable through the LPASS-side controller (a7c0000,
+`gpiochip2`).  Do not remove from the reserved list under any
+circumstances — read-only access is fatal too.
 
 ## Parked — proven safe, no consumer
 

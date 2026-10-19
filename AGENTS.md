@@ -219,3 +219,8 @@
 - **«reboot» из rescue-initramfs = poweroff**, не перезагрузка (busybox reboot
   без reboot-mode). Для возврата в fastboot из rescue — `reboot -f`, из Ubuntu —
   `reboot bootloader`.
+- **gpio14–17 = LPI-пины LPASS-острова — НИКОГДА не разрезервировать** (2026-10-19):
+  в стоке это `lpi_i2s3_*`/`qupv3_se5_spi` под `lpi_pinctrl@ac40000` (lpass_tlmm);
+  island-owned eGPIO → чтение AP-TLMM регистров = fabric/XPU fault = мгновенный
+  ресет. Читаются только со стороны LPASS (gpiochip2). Вендор Qualcomm резервирует
+  их сам. Детали: `docs/GPIO-PIN-MAP.md`.
