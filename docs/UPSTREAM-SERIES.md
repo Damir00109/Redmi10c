@@ -4,24 +4,32 @@
 от наименее спорных (generic fix) к платформенным (Khaje quirks).
 Поведение не меняется — это организация для отправки наверх.
 
+> **Сверено с `kernel.patch` 2026-10-19** (92 файла). Ниже перечислены не
+> все файлы, а логические серии; состав проверялся грепом по диффу.
+
 ## Серия 1 — generic fixes (не SM6225-специфичные)
 
 1. **`ath10k/wmi.c`: guard против freq==0** — драйвер падал/логировал
    мусор, когда firmware отдаёт нулевую частоту канала. Однострочный
    guard. Готов к отправке; проверен на железе (Wi-Fi 6GHz AP
    поднимается и даёт ~1170 Mbit).
-2. **`clk`: orphan-reparent fix** (`clk.c` `clk_core_reparent_orphans`):
-   orphan не имеет старого parent — hardware dance
-   `__clk_set_parent_before/after` вызывал spurious «already
-   disabled/unprepared» WARNs (наблюдались на DSI PLL на SM6225).
-   Заменён на propagate состояния + обновление топологии.
-   Cf. upstream f8f8f1d04494 + follow-ups — возможно уже решено
-   наверху, сверить перед отправкой. **Известный пробел (2026-10-18)**:
-   пропагация состояния на нового родителя делается только при reparent'е,
-   а на unprepare/disable не зеркалится — из-за этого при перезапуске ADSP
-   приходит `WARNING ... Enabling unprepared LPASS_*_MCLK`, а счётчики
-   родителя могут остаться задранными. Правку «prepare перед enable» пробовал
-   и откатил (ручной stop/start ADSP после неё вешал систему).
+2. **`clk`: orphan-reparent fix — В ТЕКУЩЕМ ПАТЧЕ ОТСУТСТВУЕТ**
+   (сверено с `kernel.patch` 2026-10-19: диффа `drivers/clk/clk.c` нет).
+   История: правка `clk_core_reparent_orphans` (замена hardware-dance
+   `__clk_set_parent_before/after` на propagate состояния + обновление
+   топологии) была написана против spurious WARN'ов DSI PLL, но в
+   актуальное дерево не входит. Из clk-правок остался только
+   **`clk-bulk.c`** — `pr_err` → `pr_debug` для «Failed to prepare clk»,
+   потому что опциональные клоки ADSP легально отдают `-ETIMEDOUT` до
+   подъёма DSP и вызывающий всё равно уходит в deferred probe.
+   **Пробел, если возвращаться к теме**: пропагация состояния на нового
+   родителя делается только при reparent'е и не зеркалится на
+   unprepare/disable, из-за чего при перезапуске ADSP возможен
+   `WARNING ... Enabling unprepared LPASS_*_MCLK`. На текущем дереве
+   WARN **не воспроизводится** (в dmesg за бут — 0 совпадений); прежде
+   чем чинить, нужно воспроизвести рестартом ADSP. Правку «prepare перед
+   enable» пробовали и откатили — ручной stop/start ADSP после неё вешал
+   систему.
 3. **`power: freezable poll work`** (2026-10-18) — опрос зарядника
    (`smb1351_charger_bringup`) и гейджа (`sh366101_fg_bringup`) шёл на
    незамораживаемой `system_wq`, из-за чего во сне делались i2c-транзакции
@@ -30,12 +38,12 @@
 4. **`qcom_scm.c`: QSEECOM allowlist для `xiaomi,fog`** — UEFI
    secure-app трастлет на этом устройстве отвечает, efivars читаются.
    Платформенная добавка в существующую таблицу — простая.
-4. **`gpucc`: SM6375 Lucid→Zonda silicon correction** — wrong GPU CC
+5. **`gpucc`: SM6375 Lucid→Zonda silicon correction** — wrong GPU CC
    silicon variant для SM6225. Малая правка таблицы.
 
 ## Серия 2 — CAMSS SM6225 (задняя камера)
 
-5. **`camss` SM6225 CSIPHY 3-phase tables + wiring**:
+6. **`camss` SM6225 CSIPHY 3-phase tables + wiring**:
    `lane_regs_sm6225` (3ph 1.2.1, отличие от sm8250 в одном регистре
    на линию), `*_res_sm6225` таблицы ресурсов, `qcom,sm6225-camss`
    compat. Зависимость: `assigned-clocks` AXI в DTS (камера-часть DTS
@@ -48,7 +56,7 @@
 
 ## Серия 3 — pinctrl Khaje
 
-6. **`pinctrl-khaje` + `reserved_gpios`/`irq_quiesce`**:
+7. **`pinctrl-khaje` + `reserved_gpios`/`irq_quiesce`**:
    новый pinctrl-драйвер/вариант для SM6225 + два обязательных
    quirk'а: `reserved_gpios` маска (sparse TLMM-банки на Khaje
    вешают шину при доступе — gpio88/SD detect среди них) и
@@ -59,7 +67,7 @@
 
 ## Серия 4 — UFS на Khaje
 
-7. **UFS Khaje quirks + reference-clock handling + DT**:
+8. **UFS Khaje quirks + reference-clock handling + DT**:
    `qcom,vddp-ref-clk-supply` в ufs-qcom (без него PHY не линкуется),
    QMP v4 PHY support для SM6225, DT-нода `4804000.ufshc`+`4807000.phy`.
    Задокументированный fallback: `qcom,disable-runtime-pm` (ahit=0 +
@@ -72,14 +80,14 @@
 
 ## Серия 5 — IPA SM6225
 
-8. **IPA PAS memory setup / PIL sequencing**:
+9. **IPA PAS memory setup / PIL sequencing**:
    `qcom_scm_pas_shutdown` ret-обработка в ipa_main (возврат не
    затирался) + region/layout правки PAS для SM6225. Зависит от
    memory carveouts в DTS. Проверено: LTE через IPA v4.2/QMAP.
 
 ## Серия 6 — SM6225/Xiaomi DT (последней)
 
-9. **`sm6225.dtsi` + `sm6225-xiaomi-fog.dts`** — SoC-ноды + доска:
+10. **`sm6225.dtsi` + `sm6225-xiaomi-fog.dts`** — SoC-ноды + доска:
    reserved-memory carveouts (firmware regions — обязательны для
    UFS/remoteproc стабильности), pinctrl-маппинг, UFS/USB/DSI/camss/
    audio/BT-ноды, PMIC-ребёнки. Идёт последней — зависит от всех
@@ -96,7 +104,7 @@
 
 ## Серия 7 — QUPv2 I2C DMA quirk
 
-10. **`i2c-qcom-geni`: `qcom,no-dma` DT property** — новый булев
+11. **`i2c-qcom-geni`: `qcom,no-dma` DT property** — новый булев
     property, пиннит шину к FIFO-режиму (SE-DMA остаётся для
     GPI/hub-вариантов). Root cause на железе: на Khaje любой transfer
     ≥32 байта уходит в SE-DMA (`i2c_get_dma_safe_msg_buf(msg, 32)`) и
@@ -108,15 +116,15 @@
 
 ## Серия 8 — новые драйверы (написаны с нуля)
 
-11. **`power/supply/sh366101_fg_bringup.c`** — SinoWealth SH366101:
+12. **`power/supply/sh366101_fg_bringup.c`** — SinoWealth SH366101:
     SBS-свойства + gaugeinfo-блоки (Qmax→SOH, энергия, OCV, внутр. темпа),
     `system_freezable_wq`. Публикуемый драйвер, стиль upstream.
-12. **`power/supply/smb1351_charger_bringup.c`** — Summit SMB1351 (зарядник).
-13. **`gpu/drm/panel/panel-xinli-ft8006s.c`** — панель FT8006S.
-14. **`media/i2c/ov02b1b.c`** — depth-сенсор (1 линия, 1600x1200).
-15. **`misc/aw87xxx-mini.c`**, **`misc/wl2866d.c`** — PA Awinic и camera-PMIC
+13. **`power/supply/smb1351_charger_bringup.c`** — Summit SMB1351 (зарядник).
+14. **`gpu/drm/panel/panel-xinli-ft8006s.c`** — панель FT8006S.
+15. **`media/i2c/ov02b1b.c`** — depth-сенсор (1 линия, 1600x1200).
+16. **`misc/aw87xxx-mini.c`**, **`misc/wl2866d.c`** — PA Awinic и camera-PMIC
     (урезанные, «mini» — для наверх переписывать по подсистемам).
-16. **`pinctrl/qcom/pinctrl-khaje.c`** — идёт в серию 3 (pinctrl).
+17. **`pinctrl/qcom/pinctrl-khaje.c`** — идёт в серию 3 (pinctrl).
     `input/touchscreen/fts_spi/` — вендорный форк, наверх не отправлять.
 
 ## Сознательно НЕ upstreamable (платформенные quirks — держать локально)
