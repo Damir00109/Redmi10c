@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..0d190b04a
+index 000000000..287f9cf87
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1237 @@
+@@ -0,0 +1,1275 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -600,6 +600,29 @@ index 000000000..0d190b04a
 +			drive-strength = <8>;
 +			output-high;
 +		};
++	};
++
++	/*
++	 * Depth-module CSI/I2C mux (stock cam_sensor_csi_mux_oe/sel).
++	 * gpio66 is the output enable of the I2C path to the OV02B1B: with
++	 * it low only the module EEPROM at 0x59 answers on CCI1, with it
++	 * high the sensor answers at 0x3c.  gpio67 selects the CSI lane
++	 * pair and does not affect the I2C path.  Both are held here for
++	 * bring-up; a proper mux driver should take them over once the
++	 * rear/depth switch has to be modelled.
++	 */
++	csi_mux_oe_hog: csi-mux-oe-hog {
++		gpio-hog;
++		gpios = <66 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "csi-mux-oe";
++	};
++
++	csi_mux_sel_hog: csi-mux-sel-hog {
++		gpio-hog;
++		gpios = <67 GPIO_ACTIVE_HIGH>;
++		output-low;
++		line-name = "csi-mux-sel";
 +	};
 +
 +	wusb3801_int_default: wusb3801-int-default-state {
@@ -1259,13 +1282,28 @@ index 000000000..0d190b04a
 +		read-only;
 +	};
 +
++	/* Depth module EEPROM (AAC "B313", 24c02, 256 bytes) — this is the
++	 * device that used to be mistaken for the sensor. */
++	eeprom@59 {
++		compatible = "atmel,24c02";
++		reg = <0x59>;
++		pagesize = <8>;
++		read-only;
++	};
++
 +	/* Depth sensor — OmniVision OV02B1B (stock cam-sensor2: cci-master 1,
 +	 * csiphy1, MCLK1 gpio21, CAM_RESET2 gpio65, CAM_CUSTOM2 gpio66).
-+	 * Address 0x59 verified live on the bus. */
-+	camera@59 {
++	 * The module carries two I2C devices: the sensor itself at 0x3c and
++	 * a 24c02 module EEPROM at 0x59 (AAC "B313").  The sensor only
++	 * answers when the CSI-mux output-enable (gpio66) is high — the
++	 * earlier 0x59 node was the EEPROM, which is why s_stream bailed
++	 * out with "unexpected sensor id(0x4233)" ('B','3' from the EEPROM
++	 * header) and STREAMON looked like a pipeline failure.
++	 */
++	camera@3c {
 +		compatible = "ovti,ov02b1b";
 +		status = "okay";
-+		reg = <0x59>;
++		reg = <0x3c>;
 +
 +		clocks = <&gcc GCC_CAMSS_MCLK1_CLK>;
 +		assigned-clocks = <&gcc GCC_CAMSS_MCLK1_CLK>;
@@ -1487,10 +1525,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..a0d07ba6a
+index 000000000..f773a2ef7
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2496 @@
+@@ -0,0 +1,2509 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -2177,7 +2215,13 @@ index 000000000..a0d07ba6a
 +			interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>;
 +			gpio-controller;
 +			#gpio-cells = <2>;
-+			gpio-ranges = <&tlmm 0 0 102>;
++			/*
++			 * Must cover every pin that has a PINGROUP entry in
++			 * pinctrl-khaje.c (0..112).  A shorter range leaves
++			 * the tail pins without a gpiolib mapping, and
++			 * pinctrl_gpio_request() then fails for them.
++			 */
++			gpio-ranges = <&tlmm 0 0 113>;
 +			interrupt-controller;
 +			#interrupt-cells = <2>;
 +			/* wakeup-parent/PDC later — summary only for bringup */
@@ -2367,6 +2411,13 @@ index 000000000..a0d07ba6a
 +				};
 +			};
 +
++			/*
++			 * Reference-only state for the µSD card-detect pad: the mmc
++			 * driver owns gpio88 through cd-gpios, so this label must NOT
++			 * be added to sdhc_2's pinctrl-0 — doing so fails probe with
++			 * -EINVAL ("pin GPIO_88 already requested").  Kept to document
++			 * the vendor's bias/drive for the pad.
++			 */
 +			sdc2_cd_default: sdc2-cd-default-state {
 +				pins = "gpio88";
 +				function = "gpio";
@@ -13917,10 +13968,10 @@ index 84bda3ada..938079923 100644
  obj-$(CONFIG_PINCTRL_SM6350) += pinctrl-sm6350.o
 diff --git a/drivers/pinctrl/qcom/pinctrl-khaje.c b/drivers/pinctrl/qcom/pinctrl-khaje.c
 new file mode 100644
-index 000000000..2d8432986
+index 000000000..6ff48c9a2
 --- /dev/null
 +++ b/drivers/pinctrl/qcom/pinctrl-khaje.c
-@@ -0,0 +1,1610 @@
+@@ -0,0 +1,1612 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15469,9 +15520,13 @@ index 000000000..2d8432986
 + * faults the fabric and resets the SoC.  They are readable only via
 + * the LPASS-side controller (a7c0000).
 + *
-+ * gpio66/67 are the CSI mux OE/SEL lines.  They read/write fine, but
-+ * there is no in-tree consumer yet and parking them preserves the
-+ * bootloader state until a real CSI-mux/depth-camera driver exists.
++ * gpio66/67 are the CSI-mux OE/SEL lines feeding the depth module
++ * (AAC "B313", OV02B1B).  gpio66 is the I2C-path output enable: with it
++ * low the sensor is invisible on CCI1, with it high the sensor answers
++ * at 0x3c (the module EEPROM sits at 0x59).  They were parked during
++ * the first bring-up round because there was no consumer; the depth
++ * camera is that consumer now, so they are driven by gpio-hogs in the
++ * board DT instead of being reserved.
 + *
 + * All other formerly-reserved pins were swept on Android (sysfs gpio
 + * export, direction/value/edge writes) and on Linux (/dev/mem reads
@@ -15483,8 +15538,6 @@ index 000000000..2d8432986
 +	15,
 +	16,
 +	17,
-+	66,
-+	67,
 +	-1
 +};
 +

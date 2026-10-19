@@ -47,12 +47,41 @@ circumstances — read-only access is fatal too.
 write on Android, but on Linux they now expose fine (read in pin dump,
 no crash). Consumers unknown — likely sensors/peripheral enables.
 
+**Where the claim comes from (checked 2026-10-19):** not from DT. These
+pins appear in none of the device trees we can inspect:
+
+- base DT `pinctrl@400000` node (the `pins = "gpioNN"` strings),
+- the device-specific overlay `dtbo_a` entry 59 (`RAIN KHAJE IDP nopmi`),
+- all 61 overlays in the `dtbo_a` partition (scanned for `"gpio31"`,
+  `"gpio56"`, `"gpio70"`, `"gpio71"`, `"gpio90"` — zero hits),
+- the stock pinctrl-state dump (`docs/stock-pinmap-full-raw.txt`) —
+  only 83 and 100 show up there, as the unnamed states `msm_gpio_83`
+  and `msm_gpio_100` / `msm_gpio_100_output_high`.
+
+So the Android claimers are vendor kernel drivers requesting raw GPIO
+numbers, not pinctrl states. Identifying them needs the vendor kernel
+sources or a `debugfs/gpio` dump from a booted Android — both out of
+reach from the mainline side. On Linux they are free, readable and
+write-safe, so nothing is blocked by this.
+
+## gpio90 — not a stray GPIO, it is a modem line
+
+`ctl=0x207` decodes as `mux=(ctl>>2)&7 = 1`, `oe=1`, `io=1`. Function 1
+on this pin is **`mss_lte`** (`PINGROUP(90, EAST, mss_lte, pbs12,
+qdss_gpio12, …)`), i.e. the pad is muxed to a modem/LTE subsystem
+signal and driven by it — the bootloader leaves it that way and the
+mainline pin is `UNCLAIMED`, so nothing re-muxes it.
+
+That explains both the Android "out, val=1" reading and the earlier
+confusion about "something actively driven": it is the modem function,
+not a GPIO consumer. Do not re-mux it to GPIO or force it low.
+
 ## Unreserved and proven working (Android sysfs + Linux /dev/mem)
 
 | Pins | Observed state |
 |------|----------------|
 | 34,35,53,75,79,91,96 | input, held **high** |
-| 90 | output **high** (ctl=0x207) — something actively driven; do NOT force low |
+| 90 | `mss_lte` mux + OE, driven high (see below) — do NOT force low |
 | 63,72,73,74,76,77,78 | output low |
 | 13,32,33,37–52,55,57–62,64,69,89,94,95,97,99 | input low / quiet |
 | 99 | ctl=0x801 — function muxed (func in ctl bits 5:2 = 2) |
@@ -65,5 +94,9 @@ large subsets were flaky (the full 52-pin set boots fine).
 
 - `icfg=0xE2` reset state on all pins: intr disabled, raw_status off.
 - `istat=0x0` everywhere — no pending interrupts.
-- gpio-ranges in DT maps only 102 lines (`<&tlmm 0 0 102>`); the
-  TLMM has 113 groups. Pins ≥102 are outside the gpiochip range.
+- `gpio-ranges`: the base `sm6225.dtsi` mapped only `0..101` while
+  `pinctrl-khaje.c` has **113** PINGROUP entries (0..112); the fog board
+  DTS overrides it with `0..121` anyway, so nothing was broken on this
+  device, but the dtsi default was aligned to 113 (2026-10-19).
+  Pins 113–120 (`SDC1_*`, `SDC2_*`, `UFS_RESET`) are function-only pads
+  with no PINGROUP entry.

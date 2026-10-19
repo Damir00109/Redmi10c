@@ -1,6 +1,6 @@
 # Статус bring-up
 
-Последнее обновление: **2026-10-17**  
+Последнее обновление: **2026-10-19**  
 Устройство: **Xiaomi Redmi 10C `fog`/`rain`**, Qualcomm **SM6225/Khaje**.  
 Загрузка: постоянно со **слота B**; Android сохранён на слоте A; rootfs — Ubuntu 26.04 на разделе `cust` (сборка — `rootfs/`).
 
@@ -32,7 +32,8 @@
 | CPU | cpufreq-hw + schedutil (A53 1.9008 / A73 2.4 ГГц), cpuidle |
 | **Suspend / resume** | `s2idle`, сон/пробуждение кнопкой Power (см. ограничения) |
 | GPU | Adreno 610: DRM/SMMU/GMU/ZAP, devfreq, Zonda PLL |
-| Мелочи | вибратор (FF_RUMBLE), фонарик `white:torch`, RTC (1970 by design + chrony), подсветка |
+| **GPIO / pinctrl** | Основной TLMM: **115 из 121** линий открыты в `gpiochip0`; в резерве только 14–17 (LPI/LPASS-остров, навсегда) и 66/67 (припаркованный CSI-mux). Полный свип всех пинов: чтение/запись CTL+IO, `INTR_CFG`, quiesce-последовательность — крашей нет. Карта: `docs/GPIO-PIN-MAP.md` |
+| Мелочи | вибратор (FF_RUMBLE), фонарик `white:torch` + вспышка, RTC (1970 by design + chrony), подсветка |
 
 ### В разработке (частично)
 
@@ -50,6 +51,7 @@
 | I2C во время сна | **Исправлено (2026-10-18)**: опрос зарядника/гейджа шёл на незамораживаемой `system_wq` → `i2c-3: Transfer while suspended` WARNING. Оба драйвера переведены на `system_freezable_wq` |
 | Сенсоры в приложения | **Сделано (2026-10-18)**: ядерных IIO у нас нет (сенсоры на шине ADSP), поэтому `rain-sensor-bridge.py` публикует акселерометр и ALS на system-bus в интерфейсе `net.hadess.SensorProxy` (тот, что даёт iio-sensor-proxy и ждут GNOME/Plasma/phosh): `AccelerometerOrientation`, `LightLevel`, `Claim*`. Проверено: свойства читаются, значения живые (свет 120 лк, ориентация считается) |
 | ModemManager | Падает с SIGSEGV на неудачных connect (quirk 1.25.95); смягчено перезапуском |
+| **Камера depth OV02B1B** | **Разгадано (2026-10-19)**: у модуля два i2c-устройства — сенсор на `0x3c`, EEPROM 24c02 на `0x59`; DT указывал `0x59`, поэтому драйвер читал EEPROM (`unexpected sensor id(0x4233)` = ASCII «B3» из заголовка «B313») и STREAMON падал EPIPE/EINVAL. Плюс сенсор виден на CCI1 только при `gpio66=1` (CSI-mux OE, ранее припаркован). После правки (reg 0x3c, gpio-hog 66 high / 67 low, at24@0x59) ID-проверка проходит и пайплайн `csiphy1→csid1→vfe1_rdi0` стартует штатно, но **кадры не приходят** — остаётся разобраться с lane/PHY и уровнем SEL мультиплексора. Задняя и передняя камеры при этом работают |
 | Голос/SMS через модем | Не тестировалось |
 | HFP (звонки) через BT-гарнитуру | Не тестировалось (A2DP проверен) |
 
