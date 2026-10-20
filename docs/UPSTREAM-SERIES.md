@@ -145,10 +145,10 @@
 
 ## Серия 8 — новые драйверы (написаны с нуля)
 
-14. **`power/supply/sh366101_fg_bringup.c`** — SinoWealth SH366101:
+14. **`power/supply/sh366101_fg.c`** — SinoWealth SH366101:
     SBS-свойства + gaugeinfo-блоки (Qmax→SOH, энергия, OCV, внутр. темпа),
     `system_freezable_wq`. Публикуемый драйвер, стиль upstream.
-15. **`power/supply/smb1351_charger_bringup.c`** — Summit SMB1351 (зарядник).
+15. **`power/supply/smb1351_charger.c`** — Summit SMB1351 (зарядник).
 16. **`gpu/drm/panel/panel-xinli-ft8006s.c`** — панель FT8006S.
 17. **`media/i2c/ov02b1b.c`** — depth-сенсор (1 линия, 1600x1200).
 18. **`misc/aw87xxx-mini.c`**, **`misc/wl2866d.c`** — PA Awinic и camera-PMIC

@@ -16,8 +16,8 @@
 
 | Файл | Строк | Что | Стиль |
 |---|---|---|---|
-| `drivers/power/supply/sh366101_fg_bringup.c` | 535 | fuel gauge SH366101: SBS + gaugeinfo-блоки | upstream-style |
-| `drivers/power/supply/smb1351_charger_bringup.c` | 764 | зарядник SMB1351 | upstream-style |
+| `drivers/power/supply/sh366101_fg.c` | 535 | fuel gauge SH366101: SBS + gaugeinfo-блоки | upstream-style |
+| `drivers/power/supply/smb1351_charger.c` | 764 | зарядник SMB1351 | upstream-style |
 | `drivers/pinctrl/qcom/pinctrl-khaje.c` | 1663 | pinctrl SM6225 (+`reserved_gpios`) | upstream-style |
 | `drivers/media/i2c/ov02b1b.c` | 975 | depth-камера OV02B1B | upstream-style |
 | `drivers/gpu/drm/panel/panel-xinli-ft8006s.c` | 340 | панель FT8006S | upstream-style |

@@ -15,7 +15,7 @@
 | A4 | там же, строка 200 | «терпим и 0..100, и 0..10000» — эвристика по значению | определять формат один раз при probe (по блоку gaugeinfo) и хранить флаг |
 | A5 | `drivers/power/supply/smb1351_charger_bringup.c:686-717` | читает 10 свойств, но под **нестандартными** именами `qcom,float-voltage-mv`, `qcom,iterm-ma`, `qcom,batt-*-decidegc/-ma/-mv`, и держит дефолты (4200 мВ, 350 мА, JEITA-точки) в C | перейти на стандартные `float-voltage-microvolt`, `charge-term-current-microamp`, `constant-charge-current-max-microamp`, `monitored-battery` + `thermal`-зоны; `qcom,*`-имена оставить как legacy-алиасы |
 | A6 | `drivers/usb/typec/wusb3801.c` | из DT берётся только IRQ; роли/токи зашиты | `role-switch-default-mode`, `power-role`, `try-power-role` (частично уже есть в DT у `usb-c-connector`) |
-| A7 | `drivers/misc/aw87xxx-mini.c` | профили `aw87xx_prof_off/rcv` — таблицы регистров в C | как data это нормально, но выбор профиля стоит привязать к DT (`awinic,profile = "rcv"`) |
+| ~~A7~~ ✅ (мелочь) | `aw87xxx-mini.c` | профиль выбирается через sysfs (это ок), таблицы — данные; заменил магический `0x00` на `AW87XX_REG_CHIPID` |
 
 ## B. Магические числа без имён
 
@@ -42,16 +42,16 @@
 |---|---|---|
 | ~~D1~~ ✅ | `sm6225-xiaomi-rain.dts` | **исправлено 2026-10-20**: вариант `rain` описан в README как поддерживаемый, но в `Makefile` его не было. Добавлен `dtb-` строкой — собирается без ошибок и предупреждений |
 | ~~D2~~ ✅ | `sm6225-xiaomi-fog-sm6115.dts` | то же: добавлен в `Makefile`, собирается чисто |
-| D3 | имена `*_bringup.c` (`sh366101_fg_bringup`, `smb1351_charger_bringup`) | «bringup» в имени драйвера — маркер временности; для upstream переименовать в `sh366101_fg.c` / `smb1351_charger.c` и убрать из имён `_bringup` |
+| ~~D3~~ ✅ | переименовано: `sh366101_fg.c` / `smb1351_charger.c`, драйверы `sh366101-fg` / `smb1351-charger`, Kconfig-символы `FUEL_GAUGE_SH366101` / `CHARGER_SMB1351`, compatible `sh,sh366101` / `summit,smb1351` (старый `qcom,smb1351-charger-bringup` оставлен как legacy) | проверено: оба пробуются |
 | ~~D4~~ ✅ | `pinctrl-msm.c` | комментарий переписан: речь о `soc->reserved_gpios`, а не о тайлах |
 
 ## E. DT-мелочи
 
 | # | Что | Комментарий |
 |---|---|---|
-| E1 | `assigned-clock-rates = <19200000>` в трёх камерах | можно `#define CAM_MCLK_HZ 19200000` в dtsi для читаемости |
+| E1 | `assigned-clock-rates = <19200000>` в трёх камерах | **оставить как есть**: в DT нет макросов (только через `#include` заголовка), ради трёх чисел заводить его не стоит |
 | E2 | напряжения регуляторов повторяются (`2800000` ×5, `1800000` ×8) | нормально для DT, но при желании — макросы |
-| E3 | `wl2866d` `inits = /bits/ 8 <0x03 0x64 0x04 0x4b ...>` | значения — «магия» без пояснения; в комментарии уже расшифрован только `0x0e` |
+| ~~E3~~ ✅ | `wl2866d` | блок `inits` расшифрован построчно в комментарии DT |
 
 ## Что НЕ является хардкодом (проверено, трогать не надо)
 

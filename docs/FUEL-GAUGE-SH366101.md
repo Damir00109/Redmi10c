@@ -2,8 +2,8 @@
 
 Дата: 2026-10-18. **Статус: работает полностью (SBS + расширенные gaugeinfo-блоки).**
 
-Драйвер: `drivers/power/supply/sh366101_fg_bringup.c`
-(Kconfig `CONFIG_FUEL_GAUGE_SH366101_BRINGUP`), DT-нода `sh366101@55` на `&i2c1`,
+Драйвер: `drivers/power/supply/sh366101_fg.c`
+(Kconfig `CONFIG_FUEL_GAUGE_SH366101`), DT-нода `sh366101@55` на `&i2c1`,
 регистрирует power_supply `bms`. Зарядник SMB1351 — отдельный `battery`.
 
 ## Что отдаётся в sysfs (`/sys/class/power_supply/bms/uevent`)

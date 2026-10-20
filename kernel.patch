@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..6224cca95
+index 000000000..770d7cc9e
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1333 @@
+@@ -0,0 +1,1341 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -890,7 +890,7 @@ index 000000000..6224cca95
 +	clock-frequency = <400000>;
 +
 +	smb1351@55 {
-+		compatible = "qcom,smb1351-charger-bringup";
++		compatible = "summit,smb1351";
 +		reg = <0x55>;
 +
 +		/* INT is TLMM gpio84, open-drain active-low, stock DT declares
@@ -1235,6 +1235,14 @@ index 000000000..6224cca95
 +		en-gpios = <&tlmm 26 GPIO_ACTIVE_HIGH>;
 +		iov-gpios = <&tlmm 54 GPIO_ACTIVE_HIGH>;
 +
++		/*
++		 * Register/value pairs applied once at probe:
++		 *   0x03 <- 0x64  chip id (checked by the driver)
++		 *   0x04 <- 0x4b  LDO1/2 control
++		 *   0x05 <- 0x80  LDO3 control
++		 *   0x06 <- 0x80  LDO4 control
++		 *   0x0e <- 0x0f  output enable mask: DVDD1|DVDD2|AVDD1|AVDD2
++		 */
 +		inits = /bits/ 8 <0x03 0x64 0x04 0x4b 0x05 0x80 0x06 0x80
 +				  0x0e 0x0f>;
 +	};
@@ -13268,10 +13276,10 @@ index b32a2597d..e54721153 100644
 +obj-$(CONFIG_WL2866D)		+= wl2866d.o
 diff --git a/drivers/misc/aw87xxx-mini.c b/drivers/misc/aw87xxx-mini.c
 new file mode 100644
-index 000000000..2ffb1dbb0
+index 000000000..06e3e3500
 --- /dev/null
 +++ b/drivers/misc/aw87xxx-mini.c
-@@ -0,0 +1,192 @@
+@@ -0,0 +1,194 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Minimal Awinic AW87xxx speaker PA driver for Redmi 10C bring-up.
@@ -13294,6 +13302,8 @@ index 000000000..2ffb1dbb0
 +struct aw87xx_reg {
 +	u8 reg, val;
 +};
++
++#define AW87XX_REG_CHIPID	0x00
 +
 +/* {0x01, 0x00} powers the PA down; 0x79/0x7a are shadow regs never written */
 +static const struct aw87xx_reg aw87xx_prof_off[] = {
@@ -13429,7 +13439,7 @@ index 000000000..2ffb1dbb0
 +	struct aw87xx *pa;
 +	int chipid;
 +
-+	chipid = i2c_smbus_read_byte_data(client, 0x00);
++	chipid = i2c_smbus_read_byte_data(client, AW87XX_REG_CHIPID);
 +	if (chipid < 0) {
 +		dev_err(&client->dev, "chipid read failed: %d\n", chipid);
 +		return chipid;
@@ -15851,45 +15861,47 @@ index 45b3a2763..aef68b68b 100644
  	gpio_irq_chip_set_chip(girq, &msm_gpio_irq_chip);
  	girq->parent_handler = msm_gpio_irq_handler;
 diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
-index 83392ed6a..d47ffed64 100644
+index 83392ed6a..b8cb998a3 100644
 --- a/drivers/power/supply/Kconfig
 +++ b/drivers/power/supply/Kconfig
-@@ -1165,4 +1165,19 @@ config MACSMC_POWER
+@@ -1165,4 +1165,21 @@ config MACSMC_POWER
  
  	  Say Y or M here if you have an Apple Silicon based Mac.
  
-+config CHARGER_SMB1351_BRINGUP
-+	tristate "Qualcomm SMB1351 charger bringup (minimal)"
++config CHARGER_SMB1351
++	tristate "Summit SMB1351 USB charger"
 +	depends on I2C
 +	help
-+	  Minimal SMB1351 USB charger bringup driver for Xiaomi rain/fog
-+	  (SM6225). Enables charging via I2C commands, software Jeita,
-+	  and exposes "battery" + "usb" power supplies.
++	  SMB1351 switch-mode battery charger driver.  Programs the charge
++	  current/float voltage over I2C, runs a software JEITA loop and
++	  exposes the "battery" and "usb" power supplies.  Used on the
++	  Xiaomi Redmi 10C (rain/fog, SM6225).
 +
-+config FUEL_GAUGE_SH366101_BRINGUP
-+	tristate "SinoWealth SH366101 fuel gauge bringup (minimal)"
++config FUEL_GAUGE_SH366101
++	tristate "SinoWealth SH366101 fuel gauge"
 +	depends on I2C
 +	help
-+	  Minimal SH366101 fuel gauge bringup driver for Xiaomi rain/fog
-+	  (SM6225). Registers the "bms" power supply.
++	  SH366101 battery fuel gauge.  Registers the "bms" power supply
++	  with SBS telemetry plus the extended gaugeinfo blocks.  Used on
++	  the Xiaomi Redmi 10C (rain/fog, SM6225).
 +
  endif # POWER_SUPPLY
 diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
-index 7ee839dca..d35fb4fca 100644
+index 7ee839dca..dbc0a5884 100644
 --- a/drivers/power/supply/Makefile
 +++ b/drivers/power/supply/Makefile
 @@ -131,3 +131,5 @@ obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_smbx.o
  obj-$(CONFIG_FUEL_GAUGE_MM8013)	+= mm8013.o
  obj-$(CONFIG_MACSMC_POWER)	+= macsmc-power.o
  obj-$(CONFIG_CHARGER_MAX77759)	+= max77759_charger.o
-+obj-$(CONFIG_CHARGER_SMB1351_BRINGUP)	+= smb1351_charger_bringup.o
-+obj-$(CONFIG_FUEL_GAUGE_SH366101_BRINGUP)	+= sh366101_fg_bringup.o
-diff --git a/drivers/power/supply/sh366101_fg_bringup.c b/drivers/power/supply/sh366101_fg_bringup.c
++obj-$(CONFIG_CHARGER_SMB1351)		+= smb1351_charger.o
++obj-$(CONFIG_FUEL_GAUGE_SH366101)		+= sh366101_fg.o
+diff --git a/drivers/power/supply/sh366101_fg.c b/drivers/power/supply/sh366101_fg.c
 new file mode 100644
-index 000000000..420be8dd0
+index 000000000..3f9211fde
 --- /dev/null
-+++ b/drivers/power/supply/sh366101_fg_bringup.c
-@@ -0,0 +1,606 @@
++++ b/drivers/power/supply/sh366101_fg.c
+@@ -0,0 +1,605 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15975,7 +15987,7 @@ index 000000000..420be8dd0
 +#define U32_LE(p)	get_unaligned_le32(p)
 +#define U32_BE(p)	get_unaligned_be32(p)
 +
-+struct sh366101_bringup {
++struct sh366101_fg {
 +	struct i2c_client	*client;
 +	struct mutex		lock;
 +	struct power_supply	*bms_psy;
@@ -16012,7 +16024,7 @@ index 000000000..420be8dd0
 +	return val * 1000;
 +}
 +
-+static int sh_read_word(struct sh366101_bringup *fg, u8 reg, u16 *val)
++static int sh_read_word(struct sh366101_fg *fg, u8 reg, u16 *val)
 +{
 +	int rc = i2c_smbus_read_word_data(fg->client, reg);
 +
@@ -16033,7 +16045,7 @@ index 000000000..420be8dd0
 +}
 +
 +/* Caller holds fg->lock. */
-+static int sh_read_block(struct sh366101_bringup *fg, u16 cmd, u8 *buf)
++static int sh_read_block(struct sh366101_fg *fg, u16 cmd, u8 *buf)
 +{
 +	u16 chk;
 +	u8 sum;
@@ -16065,7 +16077,7 @@ index 000000000..420be8dd0
 +}
 +
 +/* Caller holds fg->lock. Reads the useful subset of gaugeinfo blocks. */
-+static void sh_refresh_ext(struct sh366101_bringup *fg)
++static void sh_refresh_ext(struct sh366101_fg *fg)
 +{
 +	u8 buf[SH_BLOCK_LEN];
 +
@@ -16104,7 +16116,7 @@ index 000000000..420be8dd0
 +	fg->ext_stamp = jiffies;
 +}
 +
-+static void sh_refresh(struct sh366101_bringup *fg)
++static void sh_refresh(struct sh366101_fg *fg)
 +{
 +	u16 data;
 +	int soc_raw;
@@ -16160,8 +16172,8 @@ index 000000000..420be8dd0
 +
 +static void sh_poll_work(struct work_struct *work)
 +{
-+	struct sh366101_bringup *fg = container_of(to_delayed_work(work),
-+						   struct sh366101_bringup,
++	struct sh366101_fg *fg = container_of(to_delayed_work(work),
++						   struct sh366101_fg,
 +						   poll_work);
 +
 +	sh_refresh(fg);
@@ -16184,7 +16196,7 @@ index 000000000..420be8dd0
 +			   enum power_supply_property psp,
 +			   union power_supply_propval *val)
 +{
-+	struct sh366101_bringup *fg = power_supply_get_drvdata(psy);
++	struct sh366101_fg *fg = power_supply_get_drvdata(psy);
 +
 +	mutex_lock(&fg->lock);
 +	switch (psp) {
@@ -16308,7 +16320,7 @@ index 000000000..420be8dd0
 +/* Full gaugeinfo dump — field layout from downstream sh366101_fg.c. */
 +static int sh_dump_show(struct seq_file *s, void *unused)
 +{
-+	struct sh366101_bringup *fg = s->private;
++	struct sh366101_fg *fg = s->private;
 +	u8 b[SH_BLOCK_LEN];
 +
 +	mutex_lock(&fg->lock);
@@ -16396,7 +16408,7 @@ index 000000000..420be8dd0
 + * Board tuning lives in DT so the driver carries no pack-specific values:
 + * the defaults above match rain, everything can be overridden per board.
 + */
-+static void sh366101_read_dt_config(struct sh366101_bringup *fg)
++static void sh366101_read_dt_config(struct sh366101_fg *fg)
 +{
 +	struct device *dev = &fg->client->dev;
 +	u32 val;
@@ -16411,9 +16423,9 @@ index 000000000..420be8dd0
 +		fg->temper_offset_dc = val / 100;
 +}
 +
-+static int sh366101_bringup_probe(struct i2c_client *client)
++static int sh366101_probe(struct i2c_client *client)
 +{
-+	struct sh366101_bringup *fg;
++	struct sh366101_fg *fg;
 +	struct power_supply_config psy_cfg = {};
 +	u16 id;
 +	int rc;
@@ -16464,44 +16476,43 @@ index 000000000..420be8dd0
 +	fg->dbgfs = debugfs_create_dir("sh366101", NULL);
 +	debugfs_create_file("dump", 0444, fg->dbgfs, fg, &sh_dump_fops);
 +
-+	dev_info(&client->dev, "sh366101 FG bringup probed @0x%02x (soc=%d%%)\n",
++	dev_info(&client->dev, "sh366101 probed @0x%02x (soc=%d%%)\n",
 +		 client->addr, fg->soc);
 +	return 0;
 +}
 +
-+static void sh366101_bringup_remove(struct i2c_client *client)
++static void sh366101_remove(struct i2c_client *client)
 +{
-+	struct sh366101_bringup *fg = i2c_get_clientdata(client);
++	struct sh366101_fg *fg = i2c_get_clientdata(client);
 +
 +	cancel_delayed_work_sync(&fg->poll_work);
 +	debugfs_remove_recursive(fg->dbgfs);
 +}
 +
-+static const struct of_device_id sh366101_bringup_of_match[] = {
-+	{ .compatible = "sh,sh366101-bringup" },
++static const struct of_device_id sh366101_of_match[] = {
 +	{ .compatible = "sh,sh366101" },
 +	{ }
 +};
-+MODULE_DEVICE_TABLE(of, sh366101_bringup_of_match);
++MODULE_DEVICE_TABLE(of, sh366101_of_match);
 +
-+static struct i2c_driver sh366101_bringup_driver = {
++static struct i2c_driver sh366101_driver = {
 +	.driver = {
-+		.name = "sh366101-fg-bringup",
-+		.of_match_table = sh366101_bringup_of_match,
++		.name = "sh366101-fg",
++		.of_match_table = sh366101_of_match,
 +	},
-+	.probe = sh366101_bringup_probe,
-+	.remove = sh366101_bringup_remove,
++	.probe = sh366101_probe,
++	.remove = sh366101_remove,
 +};
-+module_i2c_driver(sh366101_bringup_driver);
++module_i2c_driver(sh366101_driver);
 +
 +MODULE_DESCRIPTION("SinoWealth sh366101 fuel gauge");
 +MODULE_LICENSE("GPL");
-diff --git a/drivers/power/supply/smb1351_charger_bringup.c b/drivers/power/supply/smb1351_charger_bringup.c
+diff --git a/drivers/power/supply/smb1351_charger.c b/drivers/power/supply/smb1351_charger.c
 new file mode 100644
-index 000000000..44868f9b4
+index 000000000..8190c1fcb
 --- /dev/null
-+++ b/drivers/power/supply/smb1351_charger_bringup.c
-@@ -0,0 +1,801 @@
++++ b/drivers/power/supply/smb1351_charger.c
+@@ -0,0 +1,803 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -16609,7 +16620,7 @@ index 000000000..44868f9b4
 +
 +#define POLL_MS				2000
 +
-+struct smb1351_bringup {
++struct smb1351 {
 +	struct i2c_client	*client;
 +	struct mutex		lock;
 +	struct power_supply	*batt_psy;
@@ -16637,13 +16648,13 @@ index 000000000..44868f9b4
 +	const char		*jeita_zone;
 +};
 +
-+static void smb1351_check_bms(struct smb1351_bringup *chip)
++static void smb1351_check_bms(struct smb1351 *chip)
 +{
 +	if (!chip->bms_psy)
 +		chip->bms_psy = power_supply_get_by_name("bms");
 +}
 +
-+static int smb1351_from_bms(struct smb1351_bringup *chip,
++static int smb1351_from_bms(struct smb1351 *chip,
 +			    enum power_supply_property psp,
 +			    union power_supply_propval *val)
 +{
@@ -16653,7 +16664,7 @@ index 000000000..44868f9b4
 +	return power_supply_get_property(chip->bms_psy, psp, val);
 +}
 +
-+static int smb1351_read(struct smb1351_bringup *chip, u8 reg, u8 *val)
++static int smb1351_read(struct smb1351 *chip, u8 reg, u8 *val)
 +{
 +	int rc = i2c_smbus_read_byte_data(chip->client, reg);
 +
@@ -16663,12 +16674,12 @@ index 000000000..44868f9b4
 +	return 0;
 +}
 +
-+static int smb1351_write(struct smb1351_bringup *chip, u8 reg, u8 val)
++static int smb1351_write(struct smb1351 *chip, u8 reg, u8 val)
 +{
 +	return i2c_smbus_write_byte_data(chip->client, reg, val);
 +}
 +
-+static int smb1351_masked_write(struct smb1351_bringup *chip, u8 reg,
++static int smb1351_masked_write(struct smb1351 *chip, u8 reg,
 +				u8 mask, u8 val)
 +{
 +	u8 tmp;
@@ -16681,13 +16692,13 @@ index 000000000..44868f9b4
 +	return smb1351_write(chip, reg, tmp);
 +}
 +
-+static int smb1351_enable_volatile(struct smb1351_bringup *chip)
++static int smb1351_enable_volatile(struct smb1351 *chip)
 +{
 +	return smb1351_masked_write(chip, CMD_I2C_REG, CMD_BQ_CFG_ACCESS_BIT,
 +				    CMD_BQ_CFG_ACCESS_BIT);
 +}
 +
-+static int smb1351_set_float(struct smb1351_bringup *chip, int mv)
++static int smb1351_set_float(struct smb1351 *chip, int mv)
 +{
 +	u8 code;
 +
@@ -16697,7 +16708,7 @@ index 000000000..44868f9b4
 +	return smb1351_masked_write(chip, VFLOAT_REG, VFLOAT_MASK, code);
 +}
 +
-+static int smb1351_set_fcc(struct smb1351_bringup *chip, int ma)
++static int smb1351_set_fcc(struct smb1351 *chip, int ma)
 +{
 +	/* fast_chg_current table index for 1000mA = 2 (see downstream) */
 +	static const int fcc_ma[] = {
@@ -16718,7 +16729,7 @@ index 000000000..44868f9b4
 +				    i << FAST_CHG_CURRENT_SHIFT);
 +}
 +
-+static int smb1351_hw_init(struct smb1351_bringup *chip)
++static int smb1351_hw_init(struct smb1351 *chip)
 +{
 +	int rc;
 +	u8 reg;
@@ -16803,12 +16814,12 @@ index 000000000..44868f9b4
 +	rc = smb1351_read(chip, STATUS_4_REG, &reg);
 +	if (!rc)
 +		dev_info(&chip->client->dev,
-+			 "smb1351 bringup init ok (status4=0x%02x float=%dmV)\n",
++			 "smb1351 init ok (status4=0x%02x float=%dmV)\n",
 +			 reg, chip->vfloat_mv);
 +	return 0;
 +}
 +
-+static void smb1351_apply_icl(struct smb1351_bringup *chip)
++static void smb1351_apply_icl(struct smb1351 *chip)
 +{
 +	u8 cmd;
 +	int fcc;
@@ -16849,7 +16860,7 @@ index 000000000..44868f9b4
 + * Software Jeita from BMS temp (Android rain thresholds).
 + * Zones: cold / cool / normal / warm / hot.
 + */
-+static void smb1351_apply_jeita(struct smb1351_bringup *chip)
++static void smb1351_apply_jeita(struct smb1351 *chip)
 +{
 +	union power_supply_propval val = {};
 +	int temp_dC;
@@ -16894,7 +16905,7 @@ index 000000000..44868f9b4
 +	chip->jeita_chg_disable = disable;
 +}
 +
-+static void smb1351_update_status(struct smb1351_bringup *chip)
++static void smb1351_update_status(struct smb1351 *chip)
 +{
 +	u8 s1 = 0, s3 = 0, s4 = 0, s5 = 0;
 +	bool online, charging, adapter;
@@ -16931,8 +16942,8 @@ index 000000000..44868f9b4
 +
 +static void smb1351_poll_work(struct work_struct *work)
 +{
-+	struct smb1351_bringup *chip = container_of(to_delayed_work(work),
-+						    struct smb1351_bringup,
++	struct smb1351 *chip = container_of(to_delayed_work(work),
++						    struct smb1351,
 +						    poll_work);
 +
 +	/* Jeita reads BMS — must not hold chip->lock */
@@ -16962,7 +16973,7 @@ index 000000000..44868f9b4
 +
 +static irqreturn_t smb1351_irq_handler(int irq, void *data)
 +{
-+	struct smb1351_bringup *chip = data;
++	struct smb1351 *chip = data;
 +
 +	/* INT asserts on charge/VBUS events — re-run the poll path now
 +	 * instead of waiting out the 2 s period. */
@@ -16974,7 +16985,7 @@ index 000000000..44868f9b4
 +				 enum power_supply_property psp,
 +				 union power_supply_propval *val)
 +{
-+	struct smb1351_bringup *chip = power_supply_get_drvdata(psy);
++	struct smb1351 *chip = power_supply_get_drvdata(psy);
 +	u8 s2 = 0, s4 = 0;
 +	int chg;
 +	bool online, charging, adapter;
@@ -17092,7 +17103,7 @@ index 000000000..44868f9b4
 +				enum power_supply_property psp,
 +				union power_supply_propval *val)
 +{
-+	struct smb1351_bringup *chip = power_supply_get_drvdata(psy);
++	struct smb1351 *chip = power_supply_get_drvdata(psy);
 +
 +	switch (psp) {
 +	case POWER_SUPPLY_PROP_ONLINE:
@@ -17158,9 +17169,9 @@ index 000000000..44868f9b4
 +				  BIT(POWER_SUPPLY_USB_TYPE_UNKNOWN),
 +};
 +
-+static int smb1351_bringup_probe(struct i2c_client *client)
++static int smb1351_probe(struct i2c_client *client)
 +{
-+	struct smb1351_bringup *chip;
++	struct smb1351 *chip;
 +	struct power_supply_config psy_cfg = {};
 +	u8 id = 0;
 +	int rc;
@@ -17272,36 +17283,38 @@ index 000000000..44868f9b4
 +			dev_info(&client->dev, "smb1351 IRQ %d\n", client->irq);
 +	}
 +
-+	dev_info(&client->dev, "smb1351 bringup probed @0x%02x\n", client->addr);
++	dev_info(&client->dev, "smb1351 probed @0x%02x\n", client->addr);
 +	return 0;
 +}
 +
-+static void smb1351_bringup_remove(struct i2c_client *client)
++static void smb1351_remove(struct i2c_client *client)
 +{
-+	struct smb1351_bringup *chip = i2c_get_clientdata(client);
++	struct smb1351 *chip = i2c_get_clientdata(client);
 +
 +	cancel_delayed_work_sync(&chip->poll_work);
 +	if (chip->bms_psy)
 +		power_supply_put(chip->bms_psy);
 +}
 +
-+static const struct of_device_id smb1351_bringup_of_match[] = {
++static const struct of_device_id smb1351_of_match[] = {
++	{ .compatible = "summit,smb1351" },
++	/* legacy board-DT name, kept so old trees still bind */
 +	{ .compatible = "qcom,smb1351-charger-bringup" },
 +	{ }
 +};
-+MODULE_DEVICE_TABLE(of, smb1351_bringup_of_match);
++MODULE_DEVICE_TABLE(of, smb1351_of_match);
 +
-+static struct i2c_driver smb1351_bringup_driver = {
++static struct i2c_driver smb1351_driver = {
 +	.driver = {
-+		.name = "smb1351-charger-bringup",
-+		.of_match_table = smb1351_bringup_of_match,
++		.name = "smb1351-charger",
++		.of_match_table = smb1351_of_match,
 +	},
-+	.probe = smb1351_bringup_probe,
-+	.remove = smb1351_bringup_remove,
++	.probe = smb1351_probe,
++	.remove = smb1351_remove,
 +};
-+module_i2c_driver(smb1351_bringup_driver);
++module_i2c_driver(smb1351_driver);
 +
-+MODULE_DESCRIPTION("Qualcomm smb1351 charger bringup (minimal)");
++MODULE_DESCRIPTION("Summit SMB1351 USB charger");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/regulator/core.c b/drivers/regulator/core.c
 index 1797929df..09b7eb8d0 100644
