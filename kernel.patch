@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..29f980c9a
+index 000000000..6224cca95
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1315 @@
+@@ -0,0 +1,1333 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -902,6 +902,24 @@ index 000000000..29f980c9a
 +		 */
 +		pinctrl-names = "default";
 +		pinctrl-0 = <&smb1351_int_default>;
++
++		/*
++		 * Charge tuning (values the driver used to hardcode).  The two
++		 * standard names are the power_supply ones; the JEITA knobs use
++		 * an 'sh' prefix because upstream models them with thermal
++		 * zones rather than properties.
++		 */
++		float-voltage-microvolt = <4460000>;
++		charge-term-current-microamp = <200000>;
++		sh,input-current-limit-microamp = <500000>;
++		sh,jeita-cold-decicelsius = <0>;
++		sh,jeita-cool-decicelsius = <50>;
++		sh,jeita-warm-decicelsius = <500>;
++		sh,jeita-hot-decicelsius = <550>;
++		sh,jeita-cool-current-microamp = <350000>;
++		sh,jeita-warm-current-microamp = <350000>;
++		sh,jeita-cool-voltage-microvolt = <4200000>;
++		sh,jeita-warm-voltage-microvolt = <4200000>;
 +		interrupt-parent = <&tlmm>;
 +		interrupts = <84 IRQ_TYPE_EDGE_FALLING>;
 +	};
@@ -16461,10 +16479,10 @@ index 000000000..420be8dd0
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/power/supply/smb1351_charger_bringup.c b/drivers/power/supply/smb1351_charger_bringup.c
 new file mode 100644
-index 000000000..a955728c3
+index 000000000..44868f9b4
 --- /dev/null
 +++ b/drivers/power/supply/smb1351_charger_bringup.c
-@@ -0,0 +1,792 @@
+@@ -0,0 +1,801 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -17150,36 +17168,45 @@ index 000000000..a955728c3
 +		chip->jeita_warm_ma = 350;
 +		chip->jeita_cool_mv = 4200;
 +		chip->jeita_warm_mv = 4200;
++		/*
++		 * Standard power_supply property names where one exists, and
++		 * an 'sh' prefix for the JEITA knobs that upstream models with
++		 * thermal zones instead.  The old 'qcom,' names are wrong for a
++		 * Summit part and are not read any more.
++		 */
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,float-voltage-mv", &tmp))
-+			chip->vfloat_mv = tmp;
++					 "float-voltage-microvolt", &tmp))
++			chip->vfloat_mv = tmp / 1000;
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,iterm-ma", &tmp))
-+			chip->iterm_ma = tmp;
++					 "charge-term-current-microamp", &tmp))
++			chip->iterm_ma = tmp / 1000;
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,batt-cold-decidegc", &tmp))
++					 "sh,jeita-cold-decicelsius", &tmp))
 +			chip->jeita_cold_dC = (int)tmp;
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,batt-cool-decidegc", &tmp))
++					 "sh,jeita-cool-decicelsius", &tmp))
 +			chip->jeita_cool_dC = (int)tmp;
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,batt-warm-decidegc", &tmp))
++					 "sh,jeita-warm-decicelsius", &tmp))
 +			chip->jeita_warm_dC = (int)tmp;
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,batt-hot-decidegc", &tmp))
++					 "sh,jeita-hot-decicelsius", &tmp))
 +			chip->jeita_hot_dC = (int)tmp;
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,batt-cool-ma", &tmp))
-+			chip->jeita_cool_ma = (int)tmp;
++					 "sh,jeita-cool-current-microamp", &tmp))
++			chip->jeita_cool_ma = tmp / 1000;
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,batt-warm-ma", &tmp))
-+			chip->jeita_warm_ma = (int)tmp;
++					 "sh,jeita-warm-current-microamp", &tmp))
++			chip->jeita_warm_ma = tmp / 1000;
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,batt-cool-mv", &tmp))
-+			chip->jeita_cool_mv = (int)tmp;
++					 "sh,jeita-cool-voltage-microvolt", &tmp))
++			chip->jeita_cool_mv = tmp / 1000;
 +		if (!of_property_read_u32(client->dev.of_node,
-+					 "qcom,batt-warm-mv", &tmp))
-+			chip->jeita_warm_mv = (int)tmp;
++					 "sh,jeita-warm-voltage-microvolt", &tmp))
++			chip->jeita_warm_mv = tmp / 1000;
++		if (!of_property_read_u32(client->dev.of_node,
++					 "sh,input-current-limit-microamp", &tmp))
++			chip->icl_ua = tmp;
 +	}
 +
 +	rc = smb1351_read(chip, STATUS_4_REG, &id);
