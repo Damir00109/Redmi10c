@@ -24,6 +24,16 @@
    каждым рестартом ADSP (unregister клоков q6afe). Фикс: при `parent == NULL`
    делать только `clk_reparent()`. Проверено на fog: два цикла stop/start
    ADSP — ноль WARN/Oops.
+3. **`clk`: spurious WARN'ы при reparent orphan'ов** (2026-10-20) —
+   `clk_core_reparent_orphans_nolock()` гонял enable/disable-танец даже для
+   только что зарегистрированного orphan'а (`prepare_count == 0`), которому
+   мигрировать нечего. `__clk_set_parent_before()` при этом пытался
+   prepare'нуть нового родителя, у DSI PHY PLL-выходов это возвращает ошибку,
+   её никто не проверял — и `__clk_set_parent_after()` затем делал
+   disable/unprepare уже «выключенного» клока: `dsi0_phy_pll_out_dsiclk
+   already disabled` + `clk.c:1188/1047` с call trace на каждом буте.
+   Фикс: при `prepare_count == 0` только `clk_reparent()`. Проверено: на
+   fog число WARN за бут стало 0, экран/DSI и рестарт ADSP не затронуты.
 3. **`q6dsp-lpass-clocks`: Oops при рестарте ADSP** (2026-10-20) —
    `q6dsp_clock_dev_probe()` выставлял `dev_set_drvdata()` **после** цикла
    `devm_clk_hw_register()`, а регистрация клока запускает
