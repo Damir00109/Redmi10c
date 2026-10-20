@@ -1,0 +1,76 @@
+# Аудит хардкода (2026-10-20)
+
+Что искали: board-специфичные данные, зашитые в C вместо DT; числа без имён;
+хрупкие ссылки по индексам; мёртвый код; временные имена. Проверялись только
+файлы, которые добавлены или изменены нашим `kernel.patch` (94 файла), плюс
+`rootfs/`, `initramfs/`, `tools/`.
+
+## A. Board-данные в C вместо DT — самый большой пласт
+
+| # | Файл | Что зашито | Как правильно |
+|---|---|---|---|
+| A1 | `drivers/power/supply/sh366101_fg_bringup.c` | драйвер **не читает из DT ничего**: `POLL_MS 5000`, `EXT_REFRESH_MS 30000`, `SH_CMD_DELAY_MS 3`, `TEMPER_OFFSET 2731`, все `SH_BLOCK_*` | `poll-interval-ms`, `ext-refresh-ms`, `temp-offset-millicelsius` как DT-свойства с текущими значениями по умолчанию |
+| A2 | там же, строки 159/163/169/170/171/177 | смещения внутри 32-байтных блоков — «магия»: `buf[2]`, `buf[11]`, `buf[18]`, `buf[19]`, `buf[21]`, `buf[24]` | именованные смещения (`SH_GAUGEINFO_QMAX_OFF` и т.п.) или `struct` с `__be16`-полями |
+| A3 | там же, строки 163–177 | масштаб `* 1000` в каждой строке | один хелпер `sh_scale_uah()/sh_scale_uv()` с комментарием о единицах |
+| A4 | там же, строка 200 | «терпим и 0..100, и 0..10000» — эвристика по значению | определять формат один раз при probe (по блоку gaugeinfo) и хранить флаг |
+| A5 | `drivers/power/supply/smb1351_charger_bringup.c:686-717` | читает 10 свойств, но под **нестандартными** именами `qcom,float-voltage-mv`, `qcom,iterm-ma`, `qcom,batt-*-decidegc/-ma/-mv`, и держит дефолты (4200 мВ, 350 мА, JEITA-точки) в C | перейти на стандартные `float-voltage-microvolt`, `charge-term-current-microamp`, `constant-charge-current-max-microamp`, `monitored-battery` + `thermal`-зоны; `qcom,*`-имена оставить как legacy-алиасы |
+| A6 | `drivers/usb/typec/wusb3801.c` | из DT берётся только IRQ; роли/токи зашиты | `role-switch-default-mode`, `power-role`, `try-power-role` (частично уже есть в DT у `usb-c-connector`) |
+| A7 | `drivers/misc/aw87xxx-mini.c` | профили `aw87xx_prof_off/rcv` — таблицы регистров в C | как data это нормально, но выбор профиля стоит привязать к DT (`awinic,profile = "rcv"`) |
+
+## B. Магические числа без имён
+
+| # | Файл:строка | Что | Предложение |
+|---|---|---|---|
+| B1 | `panel-xinli-ft8006s.c:62,66,85,87` | `usleep_range(5000, 6000)` — задержки вендорской последовательности | `#define FT8006S_PWR_DELAY_US 5000` + комментарий, откуда число |
+| B2 | `panel-xinli-ft8006s.c:89` | `msleep(35)` после reset | то же, с пояснением «из стоковой последовательности» |
+| B3 | `panel-xinli-ft8006s.c:54-55` | `(val & 0xff00) \| ((val & 0xe0) >> 4)` — конверсия RGB565 без имени | назвать функцию `ft8006s_rgb565_swap()` и задокументировать порядок байт |
+| B4 | `initramfs`/`rootfs/tools/pivot-init:34-37` | USB gadget: `0x1d6b`/`0x0104`, serial `rain`, manufacturer `Xiaomi` | вынести в переменные сверху файла (сейчас это «магия» в середине скрипта) |
+
+## C. Хрупкие ссылки по индексам (скрипты overlay)
+
+| # | Файл:строка | Проблема | Предложение |
+|---|---|---|---|
+| C1 | `rain-overlay/usr/local/sbin/qcom-modem-start.sh:8` | `RP=/sys/class/remoteproc/remoteproc0` — индекс | искать по `name`: `grep -l modem /sys/class/remoteproc/*/name` |
+| C2 | `rain-overlay/usr/local/sbin/rain-sensor-resume.sh:17,21` | `remoteproc1` — индекс ADSP | то же, по имени `adsp` |
+| C3 | `rain-overlay/usr/local/sbin/uim-hotplug.sh:8`, `uim-provision.sh:21` | `qrtr://0` — номер ноды | брать из `qrtr-lookup`/`qmicli --qrtr` или переменной окружения |
+| C4 | `rain-overlay/usr/local/sbin/sensors-setup:30` | `find_part persist \|\| echo /dev/sda2` — запасной путь по имени диска | `find_part` уже есть; fallback лучше убрать или искать по PARTLABEL |
+| C5 | `rootfs/tools/pack-boot-linux.sh:11` | `REDMI="${REDMI:-/mnt/128/Redmi10c}"` | дефолт от расположения скрипта (`$(dirname $0)/../..`), env-override оставить |
+
+## D. Мёртвый код и временные имена
+
+| # | Что | Детали |
+|---|---|---|
+| D1 | `arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts` (71 строка) | **не собирается**: в `Makefile` только `sm6225-xiaomi-fog.dtb`, нигде не `#include`-ится. Либо удалить, либо завести `dtb-` строку |
+| D2 | `arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog-sm6115.dts` (149 строк) | то же — не собирается и не используется |
+| D3 | имена `*_bringup.c` (`sh366101_fg_bringup`, `smb1351_charger_bringup`) | «bringup» в имени драйвера — маркер временности; для upstream переименовать в `sh366101_fg.c` / `smb1351_charger.c` и убрать из имён `_bringup` |
+| D4 | `drivers/pinctrl/qcom/pinctrl-msm.c` (наш дифф) | комментарий «Khaje: skip EAST/SOUTH reserved lines» описывает *тайлы*, а код проверяет `reserved_gpios` — комментарий вводит в заблуждение |
+
+## E. DT-мелочи
+
+| # | Что | Комментарий |
+|---|---|---|
+| E1 | `assigned-clock-rates = <19200000>` в трёх камерах | можно `#define CAM_MCLK_HZ 19200000` в dtsi для читаемости |
+| E2 | напряжения регуляторов повторяются (`2800000` ×5, `1800000` ×8) | нормально для DT, но при желании — макросы |
+| E3 | `wl2866d` `inits = /bits/ 8 <0x03 0x64 0x04 0x4b ...>` | значения — «магия» без пояснения; в комментарии уже расшифрован только `0x0e` |
+
+## Что НЕ является хардкодом (проверено, трогать не надо)
+
+- `pinctrl-khaje.c`: `khaje_reserved_gpios` — это данные, намеренно зашитые и
+  подробно задокументированные (14–17 навсегда).
+- `gcc-sm6115.c`, `camss-csiphy-3ph-1-0.c`, `fts_spi/*`: таблицы частот,
+  lane-регистров и жестов — это данные, а не логика.
+- `aw87xxx-mini.c`, `wusb3801.c`, `smb1351`: регистры уже в именованных
+  `#define`, магии в коде нет.
+- В нашем диффе почти нет зашитых строк/путей: единственные — `"xiaomi,fog"`
+  в `qcom_scm` allowlist (это его смысл) и сообщение об ошибке.
+
+## Приоритеты
+
+1. **A1/A2** (sh366101) — самый «жёсткий» файл, и он же самый полезный для
+   upstream: без DT-свойств и именованных смещений его не примут.
+2. **A5** (smb1351) — стандартные power_supply-свойства дадут управление
+   зарядкой из userspace.
+3. **C1/C2** (remoteproc по индексам) — реальный риск поломки при смене
+   порядка probe.
+4. **D1/D2** (мёртвые DTS) — просто убрать.
+5. Остальное — косметика.
