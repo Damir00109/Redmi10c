@@ -21,10 +21,10 @@
 
 | # | Файл:строка | Что | Предложение |
 |---|---|---|---|
-| B1 | `panel-xinli-ft8006s.c:62,66,85,87` | `usleep_range(5000, 6000)` — задержки вендорской последовательности | `#define FT8006S_PWR_DELAY_US 5000` + комментарий, откуда число |
-| B2 | `panel-xinli-ft8006s.c:89` | `msleep(35)` после reset | то же, с пояснением «из стоковой последовательности» |
-| B3 | `panel-xinli-ft8006s.c:54-55` | `(val & 0xff00) \| ((val & 0xe0) >> 4)` — конверсия RGB565 без имени | назвать функцию `ft8006s_rgb565_swap()` и задокументировать порядок байт |
-| B4 | `initramfs`/`rootfs/tools/pivot-init:34-37` | USB gadget: `0x1d6b`/`0x0104`, serial `rain`, manufacturer `Xiaomi` | вынести в переменные сверху файла (сейчас это «магия» в середине скрипта) |
+| ~~B1~~ ✅ | `panel-xinli-ft8006s.c` | задержки вынесены в `FT8006S_PWR_DELAY_US` / `FT8006S_PWR_DELAY_RANGE` |
+| ~~B2~~ ✅ | `panel-xinli-ft8006s.c` | `msleep(FT8006S_RESET_DELAY_MS)` с комментарием про стоковую последовательность `<1 5 0 5 1 35>` |
+| ~~B3~~ ✅ (не требовалось) | `panel-xinli-ft8006s.c` | уже названо `xinli_ft8006s_bl_pack()` и задокументировано («bl_move_high_8b + bl_inverted_dbv», `0x7ff → 51 ff 0e`) |
+| ~~B4~~ ✅ | `rootfs/tools/pivot-init` | идентичность гаджета вынесена в `GADGET_VID/PID/SERIAL/MANUFACTURER/PRODUCT` |
 
 ## C. Хрупкие ссылки по индексам (скрипты overlay)
 
@@ -32,9 +32,9 @@
 |---|---|---|---|
 | ~~C1~~ ✅ | `qcom-modem-start.sh` | **исправлено 2026-10-20**: ADSP/модем теперь ищутся по `name` |
 | ~~C2~~ ✅ | `rain-sensor-resume.sh` | **исправлено 2026-10-20**: то же, по имени `adsp` |
-| C3 | `rain-overlay/usr/local/sbin/uim-hotplug.sh:8`, `uim-provision.sh:21` | `qrtr://0` — номер ноды | брать из `qrtr-lookup`/`qmicli --qrtr` или переменной окружения |
-| C4 | `rain-overlay/usr/local/sbin/sensors-setup:30` | `find_part persist \|\| echo /dev/sda2` — запасной путь по имени диска | `find_part` уже есть; fallback лучше убрать или искать по PARTLABEL |
-| C5 | `rootfs/tools/pack-boot-linux.sh:11` | `REDMI="${REDMI:-/mnt/128/Redmi10c}"` | дефолт от расположения скрипта (`$(dirname $0)/../..`), env-override оставить |
+| ~~C3~~ ✅ | `uim-hotplug.sh`, `uim-provision.sh` | `QRTR_NODE=${QRTR_NODE:-0}` |
+| ~~C4~~ ✅ | `sensors-setup` | fallback `/dev/sda2` убран, добавлена явная ветка «persist не найден» |
+| ~~C5~~ ✅ | `pack-boot-linux.sh` | дефолт считается от расположения скрипта (`$ROOT/..`), env-override сохранён |
 
 ## D. Мёртвый код и временные имена
 
@@ -43,7 +43,7 @@
 | ~~D1~~ ✅ | `sm6225-xiaomi-rain.dts` | **исправлено 2026-10-20**: вариант `rain` описан в README как поддерживаемый, но в `Makefile` его не было. Добавлен `dtb-` строкой — собирается без ошибок и предупреждений |
 | ~~D2~~ ✅ | `sm6225-xiaomi-fog-sm6115.dts` | то же: добавлен в `Makefile`, собирается чисто |
 | D3 | имена `*_bringup.c` (`sh366101_fg_bringup`, `smb1351_charger_bringup`) | «bringup» в имени драйвера — маркер временности; для upstream переименовать в `sh366101_fg.c` / `smb1351_charger.c` и убрать из имён `_bringup` |
-| D4 | `drivers/pinctrl/qcom/pinctrl-msm.c` (наш дифф) | комментарий «Khaje: skip EAST/SOUTH reserved lines» описывает *тайлы*, а код проверяет `reserved_gpios` — комментарий вводит в заблуждение |
+| ~~D4~~ ✅ | `pinctrl-msm.c` | комментарий переписан: речь о `soc->reserved_gpios`, а не о тайлах |
 
 ## E. DT-мелочи
 

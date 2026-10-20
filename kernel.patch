@@ -5206,10 +5206,10 @@ index a4291dc39..09488480d 100644
  obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
 diff --git a/drivers/gpu/drm/panel/panel-xinli-ft8006s.c b/drivers/gpu/drm/panel/panel-xinli-ft8006s.c
 new file mode 100644
-index 000000000..b97eb092a
+index 000000000..46ea23cb0
 --- /dev/null
 +++ b/drivers/gpu/drm/panel/panel-xinli-ft8006s.c
-@@ -0,0 +1,340 @@
+@@ -0,0 +1,352 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -5256,6 +5256,14 @@ index 000000000..b97eb092a
 +}
 +
 +/*
++ * Power/reset timings, taken from the stock Android sequence
++ * <reset 1> <5 ms> <reset 0> <5 ms> <reset 1> <35 ms>.
++ */
++#define FT8006S_PWR_DELAY_US	5000
++#define FT8006S_PWR_DELAY_RANGE	1000	/* usleep_range slack */
++#define FT8006S_RESET_DELAY_MS	35
++
++/*
 + * Android bl_ctrl_dcs: bl_move_high_8b + bl_inverted_dbv.
 + * 0x7ff → wire "51 ff 0e".
 + */
@@ -5271,11 +5279,13 @@ index 000000000..b97eb092a
 +{
 +	if (ctx->enp_gpio) {
 +		gpiod_set_value_cansleep(ctx->enp_gpio, 1);
-+		usleep_range(5000, 6000);
++		usleep_range(FT8006S_PWR_DELAY_US,
++			     FT8006S_PWR_DELAY_US + FT8006S_PWR_DELAY_RANGE);
 +	}
 +	if (ctx->enn_gpio) {
 +		gpiod_set_value_cansleep(ctx->enn_gpio, 1);
-+		usleep_range(5000, 6000);
++		usleep_range(FT8006S_PWR_DELAY_US,
++			     FT8006S_PWR_DELAY_US + FT8006S_PWR_DELAY_RANGE);
 +	}
 +}
 +
@@ -5294,11 +5304,13 @@ index 000000000..b97eb092a
 +		return;
 +
 +	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-+	usleep_range(5000, 6000);
++	usleep_range(FT8006S_PWR_DELAY_US,
++			     FT8006S_PWR_DELAY_US + FT8006S_PWR_DELAY_RANGE);
 +	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
-+	usleep_range(5000, 6000);
++	usleep_range(FT8006S_PWR_DELAY_US,
++			     FT8006S_PWR_DELAY_US + FT8006S_PWR_DELAY_RANGE);
 +	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-+	msleep(35);
++	msleep(FT8006S_RESET_DELAY_MS);
 +}
 +
 +static int xinli_ft8006s_on(struct xinli_ft8006s *ctx)
@@ -15758,20 +15770,25 @@ index 76aed3296..123ed66ff 100644
  	pctrl->desc.pctlops = &lpi_gpio_pinctrl_ops;
  	pctrl->desc.pmxops = &lpi_gpio_pinmux_ops;
 diff --git a/drivers/pinctrl/qcom/pinctrl-msm.c b/drivers/pinctrl/qcom/pinctrl-msm.c
-index 45b3a2763..5fab0a125 100644
+index 45b3a2763..aef68b68b 100644
 --- a/drivers/pinctrl/qcom/pinctrl-msm.c
 +++ b/drivers/pinctrl/qcom/pinctrl-msm.c
-@@ -1045,6 +1045,9 @@ static void msm_gpio_irq_init_valid_mask(struct gpio_chip *gc,
+@@ -1045,6 +1045,14 @@ static void msm_gpio_irq_init_valid_mask(struct gpio_chip *gc,
  		if (g->intr_detection_width != 1 &&
  		    g->intr_detection_width != 2)
  			clear_bit(i, valid_mask);
-+		/* Khaje: skip EAST/SOUTH reserved lines (MMIO hang). */
++		/*
++		 * Drop the lines the SoC data marks reserved (khaje: the
++		 * island-owned pins whose MMIO access resets the SoC).  The
++		 * test is the generic gpiolib validity mask, so this stays
++		 * driven by soc->reserved_gpios rather than by any tile.
++		 */
 +		if (!gpiochip_line_is_valid(gc, i))
 +			clear_bit(i, valid_mask);
  	}
  }
  
-@@ -1400,6 +1403,52 @@ static const struct irq_chip msm_gpio_irq_chip = {
+@@ -1400,6 +1408,52 @@ static const struct irq_chip msm_gpio_irq_chip = {
  				   IRQCHIP_IMMUTABLE),
  };
  
@@ -15824,7 +15841,7 @@ index 45b3a2763..5fab0a125 100644
  static int msm_gpio_init(struct msm_pinctrl *pctrl)
  {
  	struct gpio_chip *chip;
-@@ -1440,6 +1489,8 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
+@@ -1440,6 +1494,8 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
  		}
  	}
  

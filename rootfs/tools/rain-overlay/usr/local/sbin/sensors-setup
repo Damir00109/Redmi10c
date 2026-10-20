@@ -27,9 +27,13 @@ find_part() {
 # The SNS registry lives on the persist partition.
 mkdir -p "$PERSIST_MP"
 if ! mountpoint -q "$PERSIST_MP"; then
-	PERSIST=$(find_part persist || echo /dev/sda2)
-	mount -o ro "$PERSIST" "$PERSIST_MP" 2>/dev/null
-	log "persist mounted from $PERSIST"
+	PERSIST=$(find_part persist)
+	if [ -n "$PERSIST" ]; then
+		mount -o ro "$PERSIST" "$PERSIST_MP" 2>/dev/null
+		log "persist mounted from $PERSIST"
+	else
+		log "persist partition not found — sensors registry stays empty"
+	fi
 fi
 
 if [ -d "$PERSIST_MP/sensors/registry/registry" ]; then

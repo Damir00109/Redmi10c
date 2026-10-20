@@ -5,7 +5,8 @@
 # daemon watches them and re-runs the provisioning (uim-provision.sh), then
 # nudges ModemManager to re-probe.  Without it a hot-swapped SIM stays
 # unprovisioned until the next boot.
-QRTR=qrtr://0
+QRTR_NODE=${QRTR_NODE:-0}
+QRTR=qrtr://$QRTR_NODE
 log() { echo "[uim-hotplug] $*" >&2; }
 
 while :; do

@@ -7,6 +7,13 @@
 export PATH=/bin:/sbin
 BB=busybox
 
+# Rescue-gadget identity (USB-IF Linux Foundation vendor id + a local PID).
+GADGET_VID=0x1d6b
+GADGET_PID=0x0104
+GADGET_SERIAL=rain
+GADGET_MANUFACTURER=Xiaomi
+GADGET_PRODUCT=rain-ubuntu
+
 $BB mount -t proc proc /proc
 $BB mount -t sysfs sysfs /sys
 $BB mount -t devtmpfs devtmpfs /dev 2>/dev/null || $BB mdev -s
@@ -31,11 +38,11 @@ setup_gadget() {
   [ -n "$UDC" ] || return 1
   $BB mkdir -p "$G/strings/0x409" "$G/configs/c.1/strings/0x409" 2>/dev/null
   $BB mkdir -p "$G/functions/acm.usb0" 2>/dev/null
-  echo 0x1d6b >"$G/idVendor" 2>/dev/null
-  echo 0x0104 >"$G/idProduct" 2>/dev/null
-  echo rain >"$G/strings/0x409/serialnumber" 2>/dev/null
-  echo Xiaomi >"$G/strings/0x409/manufacturer" 2>/dev/null
-  echo rain-ubuntu >"$G/strings/0x409/product" 2>/dev/null
+  echo "$GADGET_VID" >"$G/idVendor" 2>/dev/null
+  echo "$GADGET_PID" >"$G/idProduct" 2>/dev/null
+  echo "$GADGET_SERIAL" >"$G/strings/0x409/serialnumber" 2>/dev/null
+  echo "$GADGET_MANUFACTURER" >"$G/strings/0x409/manufacturer" 2>/dev/null
+  echo "$GADGET_PRODUCT" >"$G/strings/0x409/product" 2>/dev/null
   echo ACM >"$G/configs/c.1/strings/0x409/configuration" 2>/dev/null
   echo 0xA0 >"$G/configs/c.1/bmAttributes" 2>/dev/null
   $BB rm -f "$G/configs/c.1/rndis.usb0" 2>/dev/null

@@ -18,7 +18,8 @@
 #     --pdc-load-config), so the modem keeps answering "no-service".
 #
 # Therefore physical slot 2 is powered off at boot and never provisioned.
-QRTR=qrtr://0
+QRTR_NODE=${QRTR_NODE:-0}
+QRTR=qrtr://$QRTR_NODE
 log() { echo "[uim-provision] $*" >&2; }
 
 card_status() { qmicli -d "$QRTR" --uim-get-card-status 2>/dev/null; }

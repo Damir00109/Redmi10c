@@ -8,7 +8,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-REDMI="${REDMI:-/mnt/128/Redmi10c}"
+REDMI="${REDMI:-$(cd "$ROOT/.." && pwd)}"
 OUT="$ROOT/out"
 IR="$OUT/pivot-initramfs"
 KERN="$REDMI/out/build/linux-7.1.5"
