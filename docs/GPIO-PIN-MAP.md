@@ -47,8 +47,24 @@ circumstances — read-only access is fatal too.
 write on Android, but on Linux they now expose fine (read in pin dump,
 no crash). Consumers unknown — likely sensors/peripheral enables.
 
-**Where the claim comes from (checked 2026-10-19):** not from DT. These
-pins appear in none of the device trees we can inspect:
+**SOLVED (2026-10-20): these are the NFC lines.** The stock rain overlay
+has `nq@2a` (NXP PN80T-class NFC on i2c1-002a) with:
+
+| Pin | Role in `nq@2a` |
+|---|---|
+| 31 | `qcom,nq-firm` (firmware download) |
+| 56 | `qcom,nq-ven` (enable) |
+| 70 | `qcom,nq-irq` + `interrupts` |
+| 71 | `qcom,nq-clkreq` |
+
+That is why Android reported them as claimed: the vendor NFC driver holds
+them. They are not needed by mainline yet (no NFC stack), so they stay
+free and unused.
+
+**Where the claim comes from (checked 2026-10-19):** not from the base DT
+or the overlays we had scanned at the time — the `nq@2a` node lives in the
+rain overlay, which was re-extracted on 2026-10-20 and is now kept in
+`docs/stock-dt/rain-overlay.dts`. Earlier notes on this are below.
 
 - base DT `pinctrl@400000` node (the `pins = "gpioNN"` strings),
 - the device-specific overlay `dtbo_a` entry 59 (`RAIN KHAJE IDP nopmi`),
