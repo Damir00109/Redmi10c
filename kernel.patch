@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..287f9cf87
+index 000000000..49b7bc3c7
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1275 @@
+@@ -0,0 +1,1305 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -625,6 +625,14 @@ index 000000000..287f9cf87
 +		line-name = "csi-mux-sel";
 +	};
 +
++	/* NFC IRQ (stock nq@2a qcom,nq-irq = gpio70) */
++	nfc_int_default: nfc-int-default-state {
++		pins = "gpio70";
++		function = "gpio";
++		input-enable;
++		bias-pull-up;
++	};
++
 +	wusb3801_int_default: wusb3801-int-default-state {
 +		pins = "gpio93";
 +		function = "gpio";
@@ -886,6 +894,28 @@ index 000000000..287f9cf87
 +		pinctrl-0 = <&smb1351_int_default>;
 +		interrupt-parent = <&tlmm>;
 +		interrupts = <84 IRQ_TYPE_EDGE_FALLING>;
++	};
++
++	/*
++	 * NXP PN80T-class NFC (stock: qcom,nq-nci on qupv3_se2_i2c @0x2a).
++	 * Control lines are exactly the pins Android reported as claimed:
++	 * FIRM=gpio31, VEN=gpio56, IRQ=gpio70, CLKREQ=gpio71.
++	 * The vendor driver also toggles CLKREQ to get the NFC clock out of
++	 * the PMIC; mainline has no such clock yet, so that pin is left to
++	 * the bootloader for now and only the upstream binding's lines are
++	 * modelled.
++	 */
++	nfc@2a {
++		compatible = "nxp,nxp-nci-i2c";
++		reg = <0x2a>;
++
++		interrupt-parent = <&tlmm>;
++		interrupts = <70 IRQ_TYPE_EDGE_RISING>;
++		enable-gpios = <&tlmm 56 GPIO_ACTIVE_HIGH>;
++		firmware-gpios = <&tlmm 31 GPIO_ACTIVE_HIGH>;
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&nfc_int_default>;
 +	};
 +
 +	wusb3801@60 {
