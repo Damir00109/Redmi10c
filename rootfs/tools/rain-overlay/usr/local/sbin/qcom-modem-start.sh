@@ -5,8 +5,13 @@
 set +e
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-RP=/sys/class/remoteproc/remoteproc0
-[ -d "$RP" ] || { echo "FATAL: no modem remoteproc" >&2; exit 1; }
+# Resolve by name: the remoteproc index depends on probe order.
+RP=
+for d in /sys/class/remoteproc/remoteproc*; do
+  [ -r "$d/name" ] || continue
+  [ "$(cat "$d/name")" = modem ] && { RP=$d; break; }
+done
+[ -n "$RP" ] || { echo "FATAL: no modem remoteproc" >&2; exit 1; }
 
 # Already running? Idempotent.
 st=$(cat "$RP/state" 2>/dev/null)

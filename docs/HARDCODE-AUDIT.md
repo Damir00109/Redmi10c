@@ -30,8 +30,8 @@
 
 | # | Файл:строка | Проблема | Предложение |
 |---|---|---|---|
-| C1 | `rain-overlay/usr/local/sbin/qcom-modem-start.sh:8` | `RP=/sys/class/remoteproc/remoteproc0` — индекс | искать по `name`: `grep -l modem /sys/class/remoteproc/*/name` |
-| C2 | `rain-overlay/usr/local/sbin/rain-sensor-resume.sh:17,21` | `remoteproc1` — индекс ADSP | то же, по имени `adsp` |
+| ~~C1~~ ✅ | `qcom-modem-start.sh` | **исправлено 2026-10-20**: ADSP/модем теперь ищутся по `name` |
+| ~~C2~~ ✅ | `rain-sensor-resume.sh` | **исправлено 2026-10-20**: то же, по имени `adsp` |
 | C3 | `rain-overlay/usr/local/sbin/uim-hotplug.sh:8`, `uim-provision.sh:21` | `qrtr://0` — номер ноды | брать из `qrtr-lookup`/`qmicli --qrtr` или переменной окружения |
 | C4 | `rain-overlay/usr/local/sbin/sensors-setup:30` | `find_part persist \|\| echo /dev/sda2` — запасной путь по имени диска | `find_part` уже есть; fallback лучше убрать или искать по PARTLABEL |
 | C5 | `rootfs/tools/pack-boot-linux.sh:11` | `REDMI="${REDMI:-/mnt/128/Redmi10c}"` | дефолт от расположения скрипта (`$(dirname $0)/../..`), env-override оставить |
@@ -40,8 +40,8 @@
 
 | # | Что | Детали |
 |---|---|---|
-| D1 | `arch/arm64/boot/dts/qcom/sm6225-xiaomi-rain.dts` (71 строка) | **не собирается**: в `Makefile` только `sm6225-xiaomi-fog.dtb`, нигде не `#include`-ится. Либо удалить, либо завести `dtb-` строку |
-| D2 | `arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog-sm6115.dts` (149 строк) | то же — не собирается и не используется |
+| ~~D1~~ ✅ | `sm6225-xiaomi-rain.dts` | **исправлено 2026-10-20**: вариант `rain` описан в README как поддерживаемый, но в `Makefile` его не было. Добавлен `dtb-` строкой — собирается без ошибок и предупреждений |
+| ~~D2~~ ✅ | `sm6225-xiaomi-fog-sm6115.dts` | то же: добавлен в `Makefile`, собирается чисто |
 | D3 | имена `*_bringup.c` (`sh366101_fg_bringup`, `smb1351_charger_bringup`) | «bringup» в имени драйвера — маркер временности; для upstream переименовать в `sh366101_fg.c` / `smb1351_charger.c` и убрать из имён `_bringup` |
 | D4 | `drivers/pinctrl/qcom/pinctrl-msm.c` (наш дифф) | комментарий «Khaje: skip EAST/SOUTH reserved lines» описывает *тайлы*, а код проверяет `reserved_gpios` — комментарий вводит в заблуждение |
 
@@ -70,7 +70,7 @@
    upstream: без DT-свойств и именованных смещений его не примут.
 2. **A5** (smb1351) — стандартные power_supply-свойства дадут управление
    зарядкой из userspace.
-3. **C1/C2** (remoteproc по индексам) — реальный риск поломки при смене
-   порядка probe.
-4. **D1/D2** (мёртвые DTS) — просто убрать.
+3. ~~**C1/C2**~~ ✅ — сделано: поиск remoteproc по имени.
+4. ~~**D1/D2**~~ ✅ — сделано: варианты `rain` и `fog-sm6115` добавлены в
+   `Makefile` и собираются (удалять было бы неправильно, они описаны в README).
 5. Остальное — косметика.
