@@ -167,10 +167,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..49b7bc3c7
+index 000000000..29f980c9a
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1305 @@
+@@ -0,0 +1,1315 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -847,6 +847,16 @@ index 000000000..49b7bc3c7
 +	sh366101@55 {
 +		compatible = "sh,sh366101";
 +		reg = <0x55>;
++
++		/*
++		 * Gauge tuning.  These are the values the driver used to
++		 * carry in C; kept here so the board can change them without
++		 * touching the driver (and so upstream sees them documented).
++		 */
++		sh,poll-interval-ms = <5000>;
++		sh,ext-refresh-ms = <30000>;
++		sh,cmd-delay-ms = <3>;
++		sh,temp-offset-millicelsius = <273100>;
 +	};
 +
 +	/* Smart-boost for the speaker amplifier PVDD (foursemi FS1599) */
@@ -15839,10 +15849,10 @@ index 7ee839dca..d35fb4fca 100644
 +obj-$(CONFIG_FUEL_GAUGE_SH366101_BRINGUP)	+= sh366101_fg_bringup.o
 diff --git a/drivers/power/supply/sh366101_fg_bringup.c b/drivers/power/supply/sh366101_fg_bringup.c
 new file mode 100644
-index 000000000..87eef0f1a
+index 000000000..420be8dd0
 --- /dev/null
 +++ b/drivers/power/supply/sh366101_fg_bringup.c
-@@ -0,0 +1,539 @@
+@@ -0,0 +1,606 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -15897,6 +15907,20 @@ index 000000000..87eef0f1a
 +#define SH_BLOCK_FUSION		0xEF
 +
 +#define SH_BLOCK_LEN		32
++
++/*
++ * Byte offsets inside the 32-byte ALTMAC blocks.  The block layout comes
++ * from the downstream sh366101_fg.c; naming them keeps the readers from
++ * carrying bare buf[N] indices.
++ */
++#define SH_CALIINFO_INT_TEMP		18	/* IntTemper, 0.1 degC, LE */
++#define SH_GAUGEBLOCK2_PACK_QMAX	2	/* learned pack capacity, mAh, BE */
++#define SH_GAUGEBLOCK5_TRUE_FCC		11	/* unfiltered FCC, mAh, BE */
++#define SH_GAUGEBLOCK5_ENERGY_NOW	19	/* mWh, BE */
++#define SH_GAUGEBLOCK5_ENERGY_FULL	21	/* mWh, BE */
++#define SH_GAUGEBLOCK6_OCV_CELL		24	/* OCV, mV, BE */
++
++/* Defaults, all overridable from DT (see sh366101_probe). */
 +#define TEMPER_OFFSET		2731
 +
 +#define FG_STATUS_CHG_DISCHG	BIT(0)
@@ -15921,6 +15945,11 @@ index 000000000..87eef0f1a
 +	struct delayed_work	poll_work;
 +	struct dentry		*dbgfs;
 +	unsigned long		ext_stamp;
++	unsigned int		poll_ms;
++	unsigned int		ext_refresh_ms;
++	unsigned int		cmd_delay_ms;
++	int			temper_offset_dc;
++	int			soc_scale;	/* 1 or 100, from the chip */
 +	int			soc;
 +	int			volt_uv;
 +	int			curr_ua;
@@ -15939,6 +15968,12 @@ index 000000000..87eef0f1a
 +	int			temp_ambient_dC;
 +	bool			ext_valid;
 +};
++
++/* Blocks report mAh/mV/mWh; power_supply wants uAh/uV/uWh. */
++static int sh_scale_milli_to_micro(int val)
++{
++	return val * 1000;
++}
 +
 +static int sh_read_word(struct sh366101_bringup *fg, u8 reg, u16 *val)
 +{
@@ -15970,12 +16005,12 @@ index 000000000..87eef0f1a
 +	rc = i2c_smbus_write_word_data(fg->client, SH_CMD_ALTMAC, cmd);
 +	if (rc)
 +		return rc;
-+	msleep(SH_CMD_DELAY_MS);
++	msleep(fg->cmd_delay_ms);
 +
 +	rc = sh_read_buffer(fg->client, SH_CMD_ALTBLOCK, buf, SH_BLOCK_LEN);
 +	if (rc)
 +		return rc;
-+	msleep(SH_CMD_DELAY_MS);
++	msleep(fg->cmd_delay_ms);
 +
 +	rc = sh_read_word(fg, SH_CMD_ALTCHK, &chk);
 +	if (rc)
@@ -16001,25 +16036,31 @@ index 000000000..87eef0f1a
 +
 +	if (!sh_read_block(fg, SH_BLOCK_CALIINFO, buf))
 +		/* IntTemper: internal die temp, 0.1°C */
-+		fg->temp_ambient_dC = (int)U16_LE(&buf[18]) - TEMPER_OFFSET;
++		fg->temp_ambient_dC = (int)U16_LE(&buf[SH_CALIINFO_INT_TEMP]) -
++				      fg->temper_offset_dc;
 +
 +	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK2, buf)) {
 +		/* PackQmax: learned full capacity (≈ design), mAh */
-+		fg->qmax_uah = (int)(s16)U16_BE(&buf[2]) * 1000;
++		fg->qmax_uah = sh_scale_milli_to_micro(
++			(int)(s16)U16_BE(&buf[SH_GAUGEBLOCK2_PACK_QMAX]));
 +		fg->ext_valid = true;
 +	}
 +
 +	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK5, buf)) {
 +		/* TrueFCC/TrueRE/TrueFCE: unfiltered, mAh/mWh */
-+		fg->true_fcc_uah = (int)(s16)U16_BE(&buf[11]) * 1000;
-+		fg->energy_now_uwh = (int)(s16)U16_BE(&buf[19]) * 1000;
-+		fg->energy_full_uwh = (int)(s16)U16_BE(&buf[21]) * 1000;
++		fg->true_fcc_uah = sh_scale_milli_to_micro(
++			(int)(s16)U16_BE(&buf[SH_GAUGEBLOCK5_TRUE_FCC]));
++		fg->energy_now_uwh = sh_scale_milli_to_micro(
++			(int)(s16)U16_BE(&buf[SH_GAUGEBLOCK5_ENERGY_NOW]));
++		fg->energy_full_uwh = sh_scale_milli_to_micro(
++			(int)(s16)U16_BE(&buf[SH_GAUGEBLOCK5_ENERGY_FULL]));
 +		fg->ext_valid = true;
 +	}
 +
 +	if (!sh_read_block(fg, SH_BLOCK_GAUGEBLOCK6, buf)) {
 +		/* OcvVcell: open-circuit cell voltage, mV */
-+		fg->ocv_uv = (int)(s16)U16_BE(&buf[24]) * 1000;
++		fg->ocv_uv = sh_scale_milli_to_micro(
++			(int)(s16)U16_BE(&buf[SH_GAUGEBLOCK6_OCV_CELL]));
 +		fg->ext_valid = true;
 +	}
 +
@@ -16042,11 +16083,12 @@ index 000000000..87eef0f1a
 +
 +	if (!sh_read_word(fg, SH_REG_SOC, &data)) {
 +		soc_raw = (int)data;
-+		/* Chip reports 0..10000 (0.01%) on rain; also tolerate 0..100 */
-+		if (soc_raw > 100)
-+			fg->soc = DIV_ROUND_CLOSEST(soc_raw, 100);
-+		else
-+			fg->soc = soc_raw;
++		/*
++		 * The chip reports 0.01 % (0..10000) on rain, but some
++		 * firmwares use 1 % steps.  The scale is latched once in
++		 * probe(), so a partially discharged pack cannot flip it.
++		 */
++		fg->soc = DIV_ROUND_CLOSEST(soc_raw, fg->soc_scale);
 +		if (fg->soc < 0)
 +			fg->soc = 0;
 +		if (fg->soc > 100)
@@ -16054,7 +16096,7 @@ index 000000000..87eef0f1a
 +	}
 +
 +	if (!sh_read_word(fg, SH_REG_VOLTAGE, &data))
-+		fg->volt_uv = (int)data * 1000;
++		fg->volt_uv = sh_scale_milli_to_micro((int)data);
 +
 +	if (!sh_read_word(fg, SH_REG_CURRENT, &data))
 +		fg->curr_ua = (int)((s16)data) * 1000;
@@ -16063,10 +16105,10 @@ index 000000000..87eef0f1a
 +		fg->temp_dC = (int)data - 2731;
 +
 +	if (!sh_read_word(fg, SH_REG_FCC, &data))
-+		fg->fcc_uah = (int)data * 1000;
++		fg->fcc_uah = sh_scale_milli_to_micro((int)data);
 +
 +	if (!sh_read_word(fg, SH_REG_RMC, &data))
-+		fg->rmc_uah = (int)data * 1000;
++		fg->rmc_uah = sh_scale_milli_to_micro((int)data);
 +
 +	if (!sh_read_word(fg, SH_REG_CYCLE, &data))
 +		fg->cycle = (int)data;
@@ -16088,7 +16130,7 @@ index 000000000..87eef0f1a
 +	sh_refresh(fg);
 +
 +	if (time_after(jiffies, fg->ext_stamp +
-+		       msecs_to_jiffies(EXT_REFRESH_MS))) {
++		       msecs_to_jiffies(fg->ext_refresh_ms))) {
 +		mutex_lock(&fg->lock);
 +		sh_refresh_ext(fg);
 +		mutex_unlock(&fg->lock);
@@ -16098,7 +16140,7 @@ index 000000000..87eef0f1a
 +	/* Freezable queue: the poll does i2c (and the gaugeinfo block
 +	 * reads) and must not run while the system is suspended. */
 +	queue_delayed_work(system_freezable_wq, &fg->poll_work,
-+			   msecs_to_jiffies(POLL_MS));
++			   msecs_to_jiffies(fg->poll_ms));
 +}
 +
 +static int sh_bms_get_prop(struct power_supply *psy,
@@ -16238,8 +16280,10 @@ index 000000000..87eef0f1a
 +		seq_printf(s, "CALIINFO: Elasp=%u Volt=%d Cur=%d TS1=%d IntTemp=%d\n",
 +			   U32_LE(&b[0]), (s16)U16_LE(&b[12]),
 +			   (s32)U32_LE(&b[8]),
-+			   (s16)U16_LE(&b[22]) - TEMPER_OFFSET,
-+			   (s16)U16_LE(&b[18]) - TEMPER_OFFSET);
++			   (s16)U16_LE(&b[SH_CALIINFO_INT_TEMP + 4]) -
++				   fg->temper_offset_dc,
++			   (s16)U16_LE(&b[SH_CALIINFO_INT_TEMP]) -
++				   fg->temper_offset_dc);
 +	else
 +		seq_puts(s, "CALIINFO: read fail\n");
 +
@@ -16311,6 +16355,25 @@ index 000000000..87eef0f1a
 +DEFINE_SHOW_ATTRIBUTE(sh_dump);
 +
 +
++/*
++ * Board tuning lives in DT so the driver carries no pack-specific values:
++ * the defaults above match rain, everything can be overridden per board.
++ */
++static void sh366101_read_dt_config(struct sh366101_bringup *fg)
++{
++	struct device *dev = &fg->client->dev;
++	u32 val;
++
++	if (!device_property_read_u32(dev, "sh,poll-interval-ms", &val))
++		fg->poll_ms = val;
++	if (!device_property_read_u32(dev, "sh,ext-refresh-ms", &val))
++		fg->ext_refresh_ms = val;
++	if (!device_property_read_u32(dev, "sh,cmd-delay-ms", &val))
++		fg->cmd_delay_ms = val;
++	if (!device_property_read_u32(dev, "sh,temp-offset-millicelsius", &val))
++		fg->temper_offset_dc = val / 100;
++}
++
 +static int sh366101_bringup_probe(struct i2c_client *client)
 +{
 +	struct sh366101_bringup *fg;
@@ -16326,12 +16389,26 @@ index 000000000..87eef0f1a
 +	mutex_init(&fg->lock);
 +	i2c_set_clientdata(client, fg);
 +
++	fg->poll_ms = POLL_MS;
++	fg->ext_refresh_ms = EXT_REFRESH_MS;
++	fg->cmd_delay_ms = SH_CMD_DELAY_MS;
++	fg->temper_offset_dc = TEMPER_OFFSET;
++	sh366101_read_dt_config(fg);
++
 +	/* Probe: voltage register must respond */
 +	rc = sh_read_word(fg, SH_REG_VOLTAGE, &id);
 +	if (rc) {
 +		dev_err(&client->dev, "sh366101 not responding (%d)\n", rc);
 +		return rc;
 +	}
++
++	/*
++	 * Latch the SOC scale once: 0.01 % steps are the norm on this pack,
++	 * but tolerate a firmware that reports whole percent.
++	 */
++	fg->soc_scale = 1;
++	if (!sh_read_word(fg, SH_REG_SOC, &id) && (int)id > 100)
++		fg->soc_scale = 100;
 +
 +	fg->soc = 50;
 +	fg->present = true;
