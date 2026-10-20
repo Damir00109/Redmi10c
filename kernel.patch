@@ -4247,6 +4247,35 @@ index d85dae4bd..07d983677 100644
  			goto err;
  		}
  	}
+diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
+index 048adfa86..3162d7f9a 100644
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -2165,6 +2165,24 @@ static int __clk_set_parent(struct clk_core *core, struct clk_core *parent,
+ 	int ret = 0;
+ 	struct clk_core *old_parent;
+ 
++	/*
++	 * Reparenting to the orphan list (parent == NULL) is what
++	 * clk_unregister() does with the children of a clock that is being
++	 * removed.  There is no hardware to reprogram and no prepare/enable
++	 * state to migrate to, so the enable/disable dance below would only
++	 * decrement the counts of a parent that is already going away.  That
++	 * shows up as "already disabled" / "already unprepared" WARNs (with
++	 * a full call trace) every time the ADSP is restarted and the q6afe
++	 * clocks are unregistered.
++	 */
++	if (!parent) {
++		flags = clk_enable_lock();
++		clk_reparent(core, NULL);
++		clk_enable_unlock(flags);
++
++		return 0;
++	}
++
+ 	old_parent = __clk_set_parent_before(core, parent);
+ 
+ 	trace_clk_set_parent(core, parent);
 diff --git a/drivers/clk/qcom/clk-alpha-pll.c b/drivers/clk/qcom/clk-alpha-pll.c
 index f8313f9d0..faae7571d 100644
 --- a/drivers/clk/qcom/clk-alpha-pll.c
@@ -18480,3 +18509,34 @@ index 48825756a..f514d8e0d 100644
  	if (core->fwk_version_supported)
  		kfree(core->fwk_version);
  	if (core->get_version_supported)
+diff --git a/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c b/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
+index 03838582a..aa03c46cb 100644
+--- a/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
++++ b/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
+@@ -144,6 +144,17 @@ int q6dsp_clock_dev_probe(struct platform_device *pdev)
+ 
+ 	cc->desc = desc;
+ 	cc->dev = dev;
++
++	/*
++	 * Publish the drvdata before any clock is registered: registering a
++	 * clock runs clk_core_reparent_orphans(), which may prepare/enable a
++	 * newly found parent through clk_q6dsp_prepare().  That callback
++	 * reads the drvdata back, so with it set only at the end of probe it
++	 * dereferences NULL and takes the whole SoC down as soon as the ADSP
++	 * is restarted (q6afe re-probe).
++	 */
++	dev_set_drvdata(dev, cc);
++
+ 	q6dsp_clks = desc->clks;
+ 
+ 	for (i = 0; i < desc->num_clks; i++) {
+@@ -178,8 +189,6 @@ int q6dsp_clock_dev_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		return ret;
+ 
+-	dev_set_drvdata(dev, cc);
+-
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(q6dsp_clock_dev_probe);
