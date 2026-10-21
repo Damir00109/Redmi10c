@@ -166,3 +166,73 @@ git rebase --onto stable-7.3 pre-stable-2026-10-21 kernel
 **Главный риск** — группа D: `camss.c` и `clk.c`, где мы правим активно
 меняющиеся подсистемы. **Главная экономия** — шаг 4: если апстрим уже принял
 часть наших правок, патч уменьшится и конфликтов станет меньше.
+
+---
+
+# Результат (2026-10-21) — выполнено
+
+Ветка `stable-7.3`, база **Linux 7.3**, патч уменьшился с 94 до **85 файлов**.
+
+## Разбор конфликтов: 21 отклонённая хунка
+
+| Файл | Как решено |
+|---|---|
+| `block/partitions/core.c`, `drivers/base/core.c` | лог-уровни, применено вручную |
+| `drivers/remoteproc/qcom_q6v5.c` | **дропнуто** — апстрим переписал handover-обработчик |
+| `drivers/misc/{Kconfig,Makefile}` | добавления по якорям |
+| `drivers/pinctrl/qcom/Kconfig.msm` | `PINCTRL_KHAJE` перед `PINCTRL_SM6115` |
+| `drivers/soc/qcom/mdt_loader.c` | квирк сохранён; API переименован `qcom_scm_pas_mem_setup`→`qcom_pas_mem_setup` |
+| `drivers/soc/qcom/ubwc_config.c` | апстрим отрефакторил: вместо структур — `ubwc_1_0_hbb13` |
+| `drivers/net/ipa/ipa_main.c` | последовательность сохранена, API `qcom_pas_*` |
+| `drivers/tty/serial/qcom_geni_serial.c` | применено |
+| `drivers/ufs/core/ufshcd.c` | якорь сместился (добавился `ufshcd_release`) |
+| `drivers/ufs/host/ufs-qcom.c` | первая часть уже в апстриме, квирк добавлен |
+| `drivers/usb/dwc3/gadget.c` | применено |
+| `drivers/clk/qcom/gcc-sm6115.c` | gpll10 → LUCID применено |
+| `camss-csiphy-3ph-1-0.c` | таблица `lane_regs_sm6225` вставлена из `.rej` |
+| `pinctrl-lpass-lpi.c` | **дропнуто** — апстрим перешёл на PM-clocks |
+| `phy-qcom-qmp-ufs.c` | **дропнуто** — оставлена апстримная таблица (UFS работает) |
+| `sound/soc/*` (4 файла) | **вырезано целиком** — на `stable` аудио отключено |
+
+## Ошибки сборки (смена API)
+
+1. `i2c-qcom-geni.c` — код переехал из `probe` в `geni_i2c_init`, `dev` → `gi2c->se.dev`
+2. `panel-xinli-ft8006s.c` — `drm_panel_init()` удалён; переход на `devm_drm_panel_alloc()`
+
+## Критичная регрессия 7.3: модем падал с DOG-стопом
+
+Симптом: модем поднимался, через 40 с — `dog_hal_common.c:173: DOG detects
+stalled initialization`, в логе `failed to announce new service`.
+
+Причина: в 7.3 из `net/qrtr/ns.c` **убрали `say_hello()`** — HELLO-хендшейк,
+который прошивка этого модема ожидает перед регистрацией сервисов. Без него
+инициализация модема не завершается и срабатывает watchdog.
+
+Фикс: `say_hello()` возвращён (вызов в `ctrl_cmd_hello()` и при инициализации NS)
+с комментарием-квирком. После него модем живёт, Wi-Fi-цепочка
+(qrtr-ns→rmtfs→tqftpserv→qcom-modem-start→ath10k) поднимается сама.
+
+## Тест-матрица на железе (7.3.0-dirty)
+
+| Проверка | Результат |
+|---|---|
+| Загрузка | `running`, **0 failed units** |
+| WARN/Oops | **0** |
+| Wi-Fi | `wlan0 UP`, 192.168.0.146/24 |
+| Bluetooth | `hci0 UP RUNNING` |
+| Камера задняя (S5KJN1) | **5 кадров** 4080×3072 (78.4 МБ) |
+| Камера передняя (Hi556) | **3 кадра** 2592×1944 (18.9 МБ) |
+| UFS + SD | смонтированы |
+| Питание / gauge | Full, 100 % |
+| Suspend/resume | `success=1, fail=0` |
+| Модем | `running`, QMI отвечает (`qmicli -d qrtr://0`), `sim-missing` — норма без SIM |
+
+## Замечания на будущее
+
+- Модули собираются отдельно: `make modules` + `modules_install INSTALL_MOD_PATH=…`
+  и ставятся в `/lib/modules/7.3.0-dirty`. Без них не поднимается `QRTR_TUN`
+  и, как следствие, вся Wi-Fi-цепочка.
+- `aarch64-linux-gnu-gcc` может пропасть после обновления системы — ставить
+  `gcc-aarch64-linux-gnu` заново.
+- Перенос аудио-ветки на 7.3 **не делается** (решение пользователя): звук
+  остаётся на ветке `kernel` с базой 7.1.5.

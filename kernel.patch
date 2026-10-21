@@ -1,8 +1,8 @@
 diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
-index 4ba8e7306..d942d781c 100644
+index 1c86e7e98..87d5443c1 100644
 --- a/arch/arm64/boot/dts/qcom/Makefile
 +++ b/arch/arm64/boot/dts/qcom/Makefile
-@@ -331,6 +331,9 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sm4250-oneplus-billie2.dtb
+@@ -343,6 +343,9 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sm4250-oneplus-billie2.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= sm4450-qrd.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= sm6115-fxtec-pro1x.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= sm6115p-lenovo-j606f.dtb
@@ -4109,7 +4109,7 @@ index 000000000..f773a2ef7
 +	};
 +};
 diff --git a/block/partitions/core.c b/block/partitions/core.c
-index 5d5332ce5..a599fc127 100644
+index b5c59b79c..f68e06c23 100644
 --- a/block/partitions/core.c
 +++ b/block/partitions/core.c
 @@ -152,7 +152,7 @@ static struct parsed_partitions *check_partition(struct gendisk *hd)
@@ -4119,7 +4119,7 @@ index 5d5332ce5..a599fc127 100644
 -		printk(KERN_INFO "%s", seq_buf_str(&state->pp_buf));
 +		pr_debug("%s", seq_buf_str(&state->pp_buf));
  
- 		free_page((unsigned long)state->pp_buf.buffer);
+ 		kfree(state->pp_buf.buffer);
  		return state;
 @@ -167,7 +167,7 @@ static struct parsed_partitions *check_partition(struct gendisk *hd)
  	if (res) {
@@ -4129,25 +4129,25 @@ index 5d5332ce5..a599fc127 100644
 +		pr_debug("%s", seq_buf_str(&state->pp_buf));
  	}
  
- 	free_page((unsigned long)state->pp_buf.buffer);
+ 	kfree(state->pp_buf.buffer);
 diff --git a/drivers/base/core.c b/drivers/base/core.c
-index 478aa3fbf..cff2921cf 100644
+index 4c0c37399..d0c5533d5 100644
 --- a/drivers/base/core.c
 +++ b/drivers/base/core.c
-@@ -2205,7 +2205,7 @@ static int fw_devlink_create_devlink(struct device *con,
- 	if (__fw_devlink_relax_cycles(link->consumer, sup_handle)) {
- 		__fwnode_link_cycle(link);
- 		pr_debug("----- cycle: end -----\n");
--		pr_info("%pfwf: Fixed dependency cycle(s) with %pfwf\n",
-+		pr_debug("%pfwf: Fixed dependency cycle(s) with %pfwf\n",
- 			link->consumer, sup_handle);
- 	}
- 	device_links_write_unlock();
+@@ -132,7 +132,7 @@ static void __fwnode_link_cycle(struct fwnode_link *link)
+ 		return;
+ 
+ 	link->flags |= FWLINK_FLAG_CYCLE;
+-	pr_info("%pfwf: Fixed dependency cycle(s) with %pfwf\n",
++	pr_debug("%pfwf: Fixed dependency cycle(s) with %pfwf\n",
+ 		link->consumer, link->supplier);
+ }
+ 
 diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
-index 244447195..b7c99ceb8 100644
+index 7089e9b63..6f4fdfdb1 100644
 --- a/drivers/bluetooth/hci_qca.c
 +++ b/drivers/bluetooth/hci_qca.c
-@@ -1760,6 +1760,9 @@ static int qca_port_reopen(struct hci_uart *hu)
+@@ -1763,6 +1763,9 @@ static int qca_port_reopen(struct hci_uart *hu)
  
  	hci_uart_set_flow_control(hu, false);
  
@@ -4157,7 +4157,7 @@ index 244447195..b7c99ceb8 100644
  	return 0;
  }
  
-@@ -1768,7 +1771,6 @@ static int qca_regulator_init(struct hci_uart *hu)
+@@ -1771,7 +1774,6 @@ static int qca_regulator_init(struct hci_uart *hu)
  	enum qca_btsoc_type soc_type = qca_soc_type(hu);
  	struct qca_serdev *qcadev;
  	int ret;
@@ -4165,7 +4165,7 @@ index 244447195..b7c99ceb8 100644
  
  	/* Check for vregs status, may be hci down has turned
  	 * off the voltage regulator.
-@@ -1781,40 +1783,49 @@ static int qca_regulator_init(struct hci_uart *hu)
+@@ -1784,40 +1786,49 @@ static int qca_regulator_init(struct hci_uart *hu)
  		if (ret)
  			return ret;
  
@@ -4237,7 +4237,7 @@ index 244447195..b7c99ceb8 100644
  	}
  
  	qca_set_speed(hu, QCA_INIT_SPEED);
-@@ -1828,7 +1839,12 @@ static int qca_regulator_init(struct hci_uart *hu)
+@@ -1831,7 +1842,12 @@ static int qca_regulator_init(struct hci_uart *hu)
  		ret = qca_send_power_pulse(hu, true);
  		if (ret)
  			return ret;
@@ -4251,7 +4251,7 @@ index 244447195..b7c99ceb8 100644
  
  	default:
  		break;
-@@ -1905,6 +1921,15 @@ static int qca_configure_hfp_offload(struct hci_dev *hdev)
+@@ -1908,6 +1924,15 @@ static int qca_configure_hfp_offload(struct hci_dev *hdev)
  	return 0;
  }
  
@@ -4267,7 +4267,7 @@ index 244447195..b7c99ceb8 100644
  static int qca_setup(struct hci_uart *hu)
  {
  	struct hci_dev *hdev = hu->hdev;
-@@ -2029,7 +2054,8 @@ static int qca_setup(struct hci_uart *hu)
+@@ -2032,7 +2057,8 @@ static int qca_setup(struct hci_uart *hu)
  	ret = qca_uart_setup(hdev, qca_baudrate, soc_type, ver,
  			firmware_name, rampatch_name);
  	if (!ret) {
@@ -4277,7 +4277,7 @@ index 244447195..b7c99ceb8 100644
  		qca_debugfs_init(hdev);
  		hu->hdev->hw_error = qca_hw_error;
  		hu->hdev->reset = qca_reset;
-@@ -2299,9 +2325,18 @@ static int qca_hci_shutdown(struct hci_dev *hdev)
+@@ -2308,9 +2334,18 @@ static int qca_hci_shutdown(struct hci_dev *hdev)
  	timer_delete_sync(&qca->wake_retrans_timer);
  	timer_delete_sync(&qca->tx_idle_timer);
  
@@ -4299,10 +4299,10 @@ index 244447195..b7c99ceb8 100644
  		usleep_range(8000, 10000);
  	}
 diff --git a/drivers/clk/clk-bulk.c b/drivers/clk/clk-bulk.c
-index d85dae4bd..07d983677 100644
+index acd9dff30..1b8e950aa 100644
 --- a/drivers/clk/clk-bulk.c
 +++ b/drivers/clk/clk-bulk.c
-@@ -182,8 +182,12 @@ int __must_check clk_bulk_prepare(int num_clks,
+@@ -184,8 +184,12 @@ int __must_check clk_bulk_prepare(int num_clks,
  	for (i = 0; i < num_clks; i++) {
  		ret = clk_prepare(clks[i].clk);
  		if (ret) {
@@ -4318,10 +4318,10 @@ index d85dae4bd..07d983677 100644
  		}
  	}
 diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
-index 048adfa86..1e1ac0c8e 100644
+index fef87167a..706d8ad43 100644
 --- a/drivers/clk/clk.c
 +++ b/drivers/clk/clk.c
-@@ -2165,6 +2165,24 @@ static int __clk_set_parent(struct clk_core *core, struct clk_core *parent,
+@@ -2234,6 +2234,24 @@ static int __clk_set_parent(struct clk_core *core, struct clk_core *parent,
  	int ret = 0;
  	struct clk_core *old_parent;
  
@@ -4346,7 +4346,7 @@ index 048adfa86..1e1ac0c8e 100644
  	old_parent = __clk_set_parent_before(core, parent);
  
  	trace_clk_set_parent(core, parent);
-@@ -3845,9 +3863,30 @@ static void clk_core_reparent_orphans_nolock(void)
+@@ -3941,9 +3959,30 @@ static void clk_core_reparent_orphans_nolock(void)
  		 * are enabled during init but might not have a parent yet.
  		 */
  		if (parent) {
@@ -4400,10 +4400,10 @@ index f8313f9d0..faae7571d 100644
  
  static int clk_zonda_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 diff --git a/drivers/clk/qcom/dispcc-sm6375.c b/drivers/clk/qcom/dispcc-sm6375.c
-index ec9dbb1f4..767d4ae1f 100644
+index 167dd369a..65e12eff2 100644
 --- a/drivers/clk/qcom/dispcc-sm6375.c
 +++ b/drivers/clk/qcom/dispcc-sm6375.c
-@@ -568,8 +568,30 @@ static const struct qcom_cc_desc disp_cc_sm6375_desc = {
+@@ -567,8 +567,30 @@ static const struct qcom_cc_desc disp_cc_sm6375_desc = {
  	.num_gdscs = ARRAY_SIZE(disp_cc_sm6375_gdscs),
  };
  
@@ -4434,7 +4434,7 @@ index ec9dbb1f4..767d4ae1f 100644
  	{ }
  };
  MODULE_DEVICE_TABLE(of, disp_cc_sm6375_match_table);
-@@ -577,14 +599,25 @@ MODULE_DEVICE_TABLE(of, disp_cc_sm6375_match_table);
+@@ -576,14 +598,25 @@ MODULE_DEVICE_TABLE(of, disp_cc_sm6375_match_table);
  static int disp_cc_sm6375_probe(struct platform_device *pdev)
  {
  	struct regmap *regmap;
@@ -4463,7 +4463,7 @@ index ec9dbb1f4..767d4ae1f 100644
  
  static struct platform_driver disp_cc_sm6375_driver = {
 diff --git a/drivers/clk/qcom/gcc-sm6115.c b/drivers/clk/qcom/gcc-sm6115.c
-index 4c3804701..e241dfccd 100644
+index a3c9dbe3a..ed7bfe58f 100644
 --- a/drivers/clk/qcom/gcc-sm6115.c
 +++ b/drivers/clk/qcom/gcc-sm6115.c
 @@ -9,6 +9,7 @@
@@ -4512,7 +4512,7 @@ index 4c3804701..e241dfccd 100644
 -	.vco_mask = GENMASK(21, 20),
 -	.main_output_mask = BIT(0),
 -	.config_ctl_val = 0x4001055b,
--	.test_ctl_hi1_val = 0x1,
+-	.test_ctl_hi_val = 0x1,
 -	.test_ctl_hi_mask = 0x1,
 +	.alpha = 0x0,
 +	.config_ctl_val = 0x20485699,
@@ -4927,7 +4927,7 @@ index 4c3804701..e241dfccd 100644
  };
  
  static struct gdsc gcc_vcodec0_gdsc = {
-@@ -3388,6 +3408,7 @@ static struct clk_regmap *gcc_sm6115_clocks[] = {
+@@ -3389,6 +3409,7 @@ static struct clk_regmap *gcc_sm6115_clocks[] = {
  	[GCC_UFS_PHY_PHY_AUX_CLK] = &gcc_ufs_phy_phy_aux_clk.clkr,
  	[GCC_UFS_PHY_PHY_AUX_CLK_SRC] = &gcc_ufs_phy_phy_aux_clk_src.clkr,
  	[GCC_UFS_PHY_RX_SYMBOL_0_CLK] = &gcc_ufs_phy_rx_symbol_0_clk.clkr,
@@ -4936,10 +4936,10 @@ index 4c3804701..e241dfccd 100644
  	[GCC_UFS_PHY_UNIPRO_CORE_CLK] = &gcc_ufs_phy_unipro_core_clk.clkr,
  	[GCC_UFS_PHY_UNIPRO_CORE_CLK_SRC] =
 diff --git a/drivers/clk/qcom/gpucc-sm6375.c b/drivers/clk/qcom/gpucc-sm6375.c
-index 41f590241..e0eeecda6 100644
+index eebbc6de2..d42fcbc04 100644
 --- a/drivers/clk/qcom/gpucc-sm6375.c
 +++ b/drivers/clk/qcom/gpucc-sm6375.c
-@@ -46,23 +46,27 @@ static const struct pll_vco lucid_vco[] = {
+@@ -45,23 +45,27 @@ static const struct pll_vco lucid_vco[] = {
  	{ 249600000, 2000000000, 0 },
  };
  
@@ -4979,7 +4979,7 @@ index 41f590241..e0eeecda6 100644
  	.clkr = {
  		.hw.init = &(struct clk_init_data){
  			.name = "gpucc_pll0",
-@@ -70,11 +74,33 @@ static struct clk_alpha_pll gpucc_pll0 = {
+@@ -69,11 +73,33 @@ static struct clk_alpha_pll gpucc_pll0 = {
  				.index = P_BI_TCXO,
  			},
  			.num_parents = 1,
@@ -5014,7 +5014,7 @@ index 41f590241..e0eeecda6 100644
  /* 514MHz Configuration */
  static const struct alpha_pll_config gpucc_pll1_config = {
  	.l = 0x1a,
-@@ -131,7 +157,7 @@ static const struct parent_map gpucc_parent_map_1[] = {
+@@ -130,7 +156,7 @@ static const struct parent_map gpucc_parent_map_1[] = {
  
  static const struct clk_parent_data gpucc_parent_data_1[] = {
  	{ .index = P_BI_TCXO },
@@ -5023,7 +5023,7 @@ index 41f590241..e0eeecda6 100644
  	{ .hw = &gpucc_pll0.clkr.hw },
  	{ .hw = &gpucc_pll1.clkr.hw },
  	{ .hw = &gpucc_pll1.clkr.hw },
-@@ -157,14 +183,22 @@ static struct clk_rcg2 gpucc_gmu_clk_src = {
+@@ -156,14 +182,22 @@ static struct clk_rcg2 gpucc_gmu_clk_src = {
  	},
  };
  
@@ -5053,7 +5053,7 @@ index 41f590241..e0eeecda6 100644
  	{ }
  };
  
-@@ -380,6 +414,9 @@ static struct gdsc gpu_gx_gdsc = {
+@@ -379,6 +413,9 @@ static struct gdsc gpu_gx_gdsc = {
  	.flags = CLAMP_IO | SW_RESET | AON_RESET,
  };
  
@@ -5063,7 +5063,7 @@ index 41f590241..e0eeecda6 100644
  static struct clk_regmap *gpucc_sm6375_clocks[] = {
  	[GPU_CC_AHB_CLK] = &gpucc_ahb_clk.clkr,
  	[GPU_CC_CX_GFX3D_CLK] = &gpucc_cx_gfx3d_clk.clkr,
-@@ -394,6 +431,7 @@ static struct clk_regmap *gpucc_sm6375_clocks[] = {
+@@ -393,6 +430,7 @@ static struct clk_regmap *gpucc_sm6375_clocks[] = {
  	[GPU_CC_GX_GFX3D_CLK_SRC] = &gpucc_gx_gfx3d_clk_src.clkr,
  	[GPU_CC_GX_GMU_CLK] = &gpucc_gx_gmu_clk.clkr,
  	[GPU_CC_PLL0] = &gpucc_pll0.clkr,
@@ -5071,7 +5071,7 @@ index 41f590241..e0eeecda6 100644
  	[GPU_CC_PLL1] = &gpucc_pll1.clkr,
  	[GPU_CC_SLEEP_CLK] = &gpucc_sleep_clk.clkr,
  };
-@@ -452,7 +490,7 @@ static int gpucc_sm6375_probe(struct platform_device *pdev)
+@@ -451,7 +489,7 @@ static int gpucc_sm6375_probe(struct platform_device *pdev)
  		return PTR_ERR(regmap);
  	}
  
@@ -5081,10 +5081,10 @@ index 41f590241..e0eeecda6 100644
  
  	ret = qcom_cc_really_probe(&pdev->dev, &gpucc_sm6375_desc, regmap);
 diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
-index 9b06a69d3..6d478531a 100644
+index 3eaa4c9cc..a9a9aa89a 100644
 --- a/drivers/firmware/qcom/qcom_scm.c
 +++ b/drivers/firmware/qcom/qcom_scm.c
-@@ -2319,6 +2319,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
+@@ -2335,6 +2335,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
  	{ .compatible = "qcom,x1e80100-crd" },
  	{ .compatible = "qcom,x1e80100-qcp" },
  	{ .compatible = "qcom,x1p42100-crd" },
@@ -5093,7 +5093,7 @@ index 9b06a69d3..6d478531a 100644
  };
  
 diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
-index c59375aaa..55980cfee 100644
+index 1fb3899b8..5a9628781 100644
 --- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
 +++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
 @@ -567,6 +567,10 @@ static const struct of_device_id dsi_phy_dt_match[] = {
@@ -5108,10 +5108,10 @@ index c59375aaa..55980cfee 100644
  	  .data = &dsi_phy_5nm_8350_cfgs },
  	{ .compatible = "qcom,sm8450-dsi-phy-5nm",
 diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
-index 8f4b03713..b2adabc58 100644
+index 5d805a797..81a0181d7 100644
 --- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
 +++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
-@@ -766,7 +766,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
+@@ -769,7 +769,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
  	pll_bit = devm_clk_hw_register_divider_parent_hw(dev, clk_name,
  			pll_out_div, CLK_SET_RATE_PARENT,
  			pll_7nm->phy->base + REG_DSI_7nm_PHY_CMN_CLK_CFG0,
@@ -5121,7 +5121,7 @@ index 8f4b03713..b2adabc58 100644
  	if (IS_ERR(pll_bit)) {
  		ret = PTR_ERR(pll_bit);
  		goto fail;
-@@ -839,7 +840,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
+@@ -842,7 +843,8 @@ static int pll_7nm_register(struct dsi_pll_7nm *pll_7nm, struct clk_hw **provide
  	hw = devm_clk_hw_register_divider_parent_hw(dev, clk_name,
  			phy_pll_out_dsi_parent, 0,
  			pll_7nm->phy->base + REG_DSI_7nm_PHY_CMN_CLK_CFG0,
@@ -5132,10 +5132,10 @@ index 8f4b03713..b2adabc58 100644
  		ret = PTR_ERR(hw);
  		goto fail;
 diff --git a/drivers/gpu/drm/msm/msm_gpu.c b/drivers/gpu/drm/msm/msm_gpu.c
-index 3f3925b11..038bd2285 100644
+index 0c2c35636..c9c90040b 100644
 --- a/drivers/gpu/drm/msm/msm_gpu.c
 +++ b/drivers/gpu/drm/msm/msm_gpu.c
-@@ -1058,13 +1058,19 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
+@@ -955,13 +955,19 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
  	if (IS_ERR(gpu->ebi1_clk))
  		gpu->ebi1_clk = NULL;
  
@@ -5159,7 +5159,7 @@ index 3f3925b11..038bd2285 100644
  	if (IS_ERR(gpu->gpu_cx))
  		gpu->gpu_cx = NULL;
 diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
-index 4a6acd468..47c0e6a94 100644
+index 9087c4b29..9a0f5a5d7 100644
 --- a/drivers/gpu/drm/msm/msm_mdss.c
 +++ b/drivers/gpu/drm/msm/msm_mdss.c
 @@ -54,8 +54,19 @@ static int msm_mdss_parse_data_bus_icc_path(struct device *dev,
@@ -5185,10 +5185,10 @@ index 4a6acd468..47c0e6a94 100644
  	msm_mdss->mdp_path[0] = path0;
  	msm_mdss->num_mdp_paths = 1;
 diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
-index b2153e04a..574f34446 100644
+index cbdf7b8f7..da8b1f2d1 100644
 --- a/drivers/gpu/drm/panel/Kconfig
 +++ b/drivers/gpu/drm/panel/Kconfig
-@@ -1295,6 +1295,15 @@ config DRM_PANEL_WIDECHIPS_WS2401
+@@ -1406,6 +1406,15 @@ config DRM_PANEL_WIDECHIPS_WS2401
  	  480x800 display controller used in panels such as Samsung LMS380KF01.
  	  This display is used in the Samsung Galaxy Ace 2 GT-I8160 (Codina).
  
@@ -5205,10 +5205,10 @@ index b2153e04a..574f34446 100644
  	tristate "Xinpeng XPP055C272 panel driver"
  	depends on OF
 diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
-index a4291dc39..09488480d 100644
+index 3b523cf37..cdcd1a222 100644
 --- a/drivers/gpu/drm/panel/Makefile
 +++ b/drivers/gpu/drm/panel/Makefile
-@@ -127,4 +127,5 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_RM692E5) += panel-visionox-rm692e5.o
+@@ -136,4 +136,5 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_RM692E5) += panel-visionox-rm692e5.o
  obj-$(CONFIG_DRM_PANEL_VISIONOX_VTDR6130) += panel-visionox-vtdr6130.o
  obj-$(CONFIG_DRM_PANEL_VISIONOX_R66451) += panel-visionox-r66451.o
  obj-$(CONFIG_DRM_PANEL_WIDECHIPS_WS2401) += panel-widechips-ws2401.o
@@ -5216,7 +5216,7 @@ index a4291dc39..09488480d 100644
  obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
 diff --git a/drivers/gpu/drm/panel/panel-xinli-ft8006s.c b/drivers/gpu/drm/panel/panel-xinli-ft8006s.c
 new file mode 100644
-index 000000000..46ea23cb0
+index 000000000..6ea9a1030
 --- /dev/null
 +++ b/drivers/gpu/drm/panel/panel-xinli-ft8006s.c
 @@ -0,0 +1,352 @@
@@ -5479,9 +5479,11 @@ index 000000000..46ea23cb0
 +	struct backlight_device *bl;
 +	int ret;
 +
-+	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
-+	if (!ctx)
-+		return -ENOMEM;
++	ctx = devm_drm_panel_alloc(dev, struct xinli_ft8006s, panel,
++				   &xinli_ft8006s_funcs,
++				   DRM_MODE_CONNECTOR_DSI);
++	if (IS_ERR(ctx))
++		return PTR_ERR(ctx);
 +
 +	ctx->dsi = dsi;
 +	mipi_dsi_set_drvdata(dsi, ctx);
@@ -5513,8 +5515,6 @@ index 000000000..46ea23cb0
 +			  MIPI_DSI_CLOCK_NON_CONTINUOUS |
 +			  MIPI_DSI_MODE_NO_EOT_PACKET;
 +
-+	drm_panel_init(&ctx->panel, dev, &xinli_ft8006s_funcs,
-+		       DRM_MODE_CONNECTOR_DSI);
 +	ctx->panel.prepare_prev_first = true;
 +
 +	ret = drm_panel_of_backlight(&ctx->panel);
@@ -5573,10 +5573,10 @@ index 000000000..46ea23cb0
 +MODULE_DESCRIPTION("Xinli FT8006S video-mode DSI panel");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/i2c/busses/i2c-qcom-geni.c b/drivers/i2c/busses/i2c-qcom-geni.c
-index a482a4c60..76f7348dc 100644
+index c4c6202ff..d936d0a4b 100644
 --- a/drivers/i2c/busses/i2c-qcom-geni.c
 +++ b/drivers/i2c/busses/i2c-qcom-geni.c
-@@ -1100,6 +1100,12 @@ static int geni_i2c_probe(struct platform_device *pdev)
+@@ -1096,6 +1096,12 @@ static int geni_i2c_init(struct geni_i2c_dev *gi2c)
  		gi2c->no_dma = true;
  	} else {
  		fifo_disable = readl_relaxed(gi2c->se.base + GENI_IF_DISABLE_RO) & FIFO_IF_DISABLE;
@@ -5584,16 +5584,16 @@ index a482a4c60..76f7348dc 100644
 +		 * Some platforms wedge the serial engine when a transfer takes
 +		 * the SE-DMA path; allow boards to pin the bus to FIFO mode.
 +		 */
-+		if (!fifo_disable && device_property_read_bool(dev, "qcom,no-dma"))
++		if (!fifo_disable && device_property_read_bool(gi2c->se.dev, "qcom,no-dma"))
 +			gi2c->no_dma = true;
  	}
  
  	if (fifo_disable) {
 diff --git a/drivers/input/touchscreen/Kconfig b/drivers/input/touchscreen/Kconfig
-index aeaf9a9cb..607d4a43e 100644
+index 9b9ae8ac3..1ad64ec53 100644
 --- a/drivers/input/touchscreen/Kconfig
 +++ b/drivers/input/touchscreen/Kconfig
-@@ -1412,4 +1412,6 @@ config TOUCHSCREEN_HIMAX_HX83112B
+@@ -1414,4 +1414,6 @@ config TOUCHSCREEN_HIMAX_HX83112B
  	  To compile this driver as a module, choose M here: the
  	  module will be called himax_hx83112b.
  
@@ -5601,7 +5601,7 @@ index aeaf9a9cb..607d4a43e 100644
 +source "drivers/input/touchscreen/fts_spi/Kconfig"
  endif
 diff --git a/drivers/input/touchscreen/Makefile b/drivers/input/touchscreen/Makefile
-index f2b002abe..a1157d61c 100644
+index bfd9de833..2b4f4967b 100644
 --- a/drivers/input/touchscreen/Makefile
 +++ b/drivers/input/touchscreen/Makefile
 @@ -119,3 +119,4 @@ obj-$(CONFIG_TOUCHSCREEN_IQS5XX)	+= iqs5xx.o
@@ -11698,10 +11698,10 @@ index 000000000..f4f203c20
 +/* Placeholder — real FW loaded via request_firmware(focaltech_ts_fw_xinli.bin) */
 +0x00
 diff --git a/drivers/interconnect/qcom/icc-rpm.c b/drivers/interconnect/qcom/icc-rpm.c
-index 23a1d116e..115dcdda9 100644
+index ca4c8a944..374bda67c 100644
 --- a/drivers/interconnect/qcom/icc-rpm.c
 +++ b/drivers/interconnect/qcom/icc-rpm.c
-@@ -603,7 +603,11 @@ int qnoc_probe(struct platform_device *pdev)
+@@ -600,7 +600,11 @@ int qnoc_probe(struct platform_device *pdev)
  		data->nodes[i] = node;
  	}
  
@@ -11715,10 +11715,10 @@ index 23a1d116e..115dcdda9 100644
  	ret = icc_provider_register(provider);
  	if (ret)
 diff --git a/drivers/interconnect/qcom/sm6115.c b/drivers/interconnect/qcom/sm6115.c
-index 3ee12c8a4..30a6bdf22 100644
+index e1cd898bc..8fa972b8d 100644
 --- a/drivers/interconnect/qcom/sm6115.c
 +++ b/drivers/interconnect/qcom/sm6115.c
-@@ -16,10 +16,14 @@
+@@ -15,10 +15,14 @@
  #include "icc-rpm.h"
  
  static const char * const snoc_intf_clocks[] = {
@@ -11737,10 +11737,10 @@ index 3ee12c8a4..30a6bdf22 100644
  
  static const char * const cnoc_intf_clocks[] = {
 diff --git a/drivers/media/i2c/Kconfig b/drivers/media/i2c/Kconfig
-index 8f2ba4121..82a9d348d 100644
+index 5c52007f9..8de9f66fa 100644
 --- a/drivers/media/i2c/Kconfig
 +++ b/drivers/media/i2c/Kconfig
-@@ -402,6 +402,16 @@ config VIDEO_OV02A10
+@@ -425,6 +425,16 @@ config VIDEO_OV02A10
  	  To compile this driver as a module, choose M here: the
  	  module will be called ov02a10.
  
@@ -11758,10 +11758,10 @@ index 8f2ba4121..82a9d348d 100644
  	tristate "OmniVision OV02E10 sensor support"
  	select V4L2_CCI_I2C
 diff --git a/drivers/media/i2c/Makefile b/drivers/media/i2c/Makefile
-index 90b276a74..2361243ef 100644
+index d04bd5724..53390db18 100644
 --- a/drivers/media/i2c/Makefile
 +++ b/drivers/media/i2c/Makefile
-@@ -87,6 +87,7 @@ obj-$(CONFIG_VIDEO_OG0VE1B) += og0ve1b.o
+@@ -89,6 +89,7 @@ obj-$(CONFIG_VIDEO_OG0VE1B) += og0ve1b.o
  obj-$(CONFIG_VIDEO_OS05B10) += os05b10.o
  obj-$(CONFIG_VIDEO_OV01A10) += ov01a10.o
  obj-$(CONFIG_VIDEO_OV02A10) += ov02a10.o
@@ -12854,7 +12854,7 @@ index a707cb740..42a044c7d 100644
  				     "MCLK clock frequency %lu is not supported\n",
  				     freq);
 diff --git a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
-index 415483274..dac87d493 100644
+index dac8d2ecf..76cf11394 100644
 --- a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
 +++ b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
 @@ -14,6 +14,7 @@
@@ -12865,8 +12865,8 @@ index 415483274..dac87d493 100644
  
  #define CSIPHY_3PH_LNn_CFG1(n)			(0x000 + 0x100 * (n))
  #define CSIPHY_3PH_LNn_CFG1_SWI_REC_DLY_PRG	(BIT(7) | BIT(6))
-@@ -399,6 +400,111 @@ csiphy_lane_regs lane_regs_sm8250[] = {
- 	{0x0884, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
+@@ -519,6 +520,111 @@ csiphy_lane_regs lane_regs_sm6350[] = {
+ 	{0x0000, 0x00, 0x00, CSIPHY_DNP_PARAMS},
  };
  
 +/* GEN2 1.2.1 2PH, SM6225 (Khaje) stock: lane CFG5 = 0x80 */
@@ -12977,7 +12977,7 @@ index 415483274..dac87d493 100644
  /* 14nm 2PH v 2.0.1 2p5Gbps 4 lane DPHY mode */
  static const struct
  csiphy_lane_regs lane_regs_qcm2290[] = {
-@@ -1102,6 +1208,11 @@ static int csiphy_init(struct csiphy_device *csiphy)
+@@ -1223,6 +1329,11 @@ static int csiphy_init(struct csiphy_device *csiphy)
  		break;
  	case CAMSS_2290:
  	case CAMSS_6150:
@@ -12990,7 +12990,7 @@ index 415483274..dac87d493 100644
  		regs->lane_array_size = ARRAY_SIZE(lane_regs_qcm2290);
  		break;
 diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
-index 9335636d7..6c4416d3e 100644
+index 2123f6388..755d02d50 100644
 --- a/drivers/media/platform/qcom/camss/camss.c
 +++ b/drivers/media/platform/qcom/camss/camss.c
 @@ -820,6 +820,209 @@ static const struct resources_icc icc_res_2290[] = {
@@ -13203,7 +13203,7 @@ index 9335636d7..6c4416d3e 100644
  static const struct camss_subdev_resources csiphy_res_660[] = {
  	/* CSIPHY0 */
  	{
-@@ -5160,6 +5363,18 @@ static const struct camss_resources qcm2290_resources = {
+@@ -5565,6 +5768,18 @@ static const struct camss_resources qcm2290_resources = {
  	.vfe_num = ARRAY_SIZE(vfe_res_2290),
  };
  
@@ -13222,7 +13222,7 @@ index 9335636d7..6c4416d3e 100644
  static const struct camss_resources qcs8300_resources = {
  	.version = CAMSS_8300,
  	.pd_name = "top",
-@@ -5322,6 +5537,7 @@ static const struct of_device_id camss_dt_match[] = {
+@@ -5746,6 +5961,7 @@ static const struct of_device_id camss_dt_match[] = {
  	{ .compatible = "qcom,msm8996-camss", .data = &msm8996_resources },
  	{ .compatible = "qcom,qcm2290-camss", .data = &qcm2290_resources },
  	{ .compatible = "qcom,qcs8300-camss", .data = &qcs8300_resources },
@@ -13230,7 +13230,7 @@ index 9335636d7..6c4416d3e 100644
  	{ .compatible = "qcom,sa8775p-camss", .data = &sa8775p_resources },
  	{ .compatible = "qcom,sc7280-camss", .data = &sc7280_resources },
  	{ .compatible = "qcom,sc8280xp-camss", .data = &sc8280xp_resources },
-@@ -5377,6 +5593,7 @@ static const struct dev_pm_ops camss_pm_ops = {
+@@ -5802,6 +6018,7 @@ static const struct dev_pm_ops camss_pm_ops = {
  	SET_RUNTIME_PM_OPS(camss_runtime_suspend, camss_runtime_resume, NULL)
  };
  
@@ -13239,13 +13239,13 @@ index 9335636d7..6c4416d3e 100644
  	.probe = camss_probe,
  	.remove = camss_remove,
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index 00683bf06..b7403c769 100644
+index 7364931da..f6b0e3a73 100644
 --- a/drivers/misc/Kconfig
 +++ b/drivers/misc/Kconfig
-@@ -661,4 +661,23 @@ source "drivers/misc/mchp_pci1xxxx/Kconfig"
- source "drivers/misc/keba/Kconfig"
+@@ -586,4 +586,23 @@ source "drivers/misc/keba/Kconfig"
  source "drivers/misc/amd-sbi/Kconfig"
  source "drivers/misc/rp1/Kconfig"
+ source "drivers/misc/issei/Kconfig"
 +
 +config AW87XXX_MINI
 +	tristate "Awinic AW87xxx speaker PA (minimal)"
@@ -13267,13 +13267,13 @@ index 00683bf06..b7403c769 100644
 +
  endmenu
 diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
-index b32a2597d..e54721153 100644
+index e8d8d5d88..f266a969f 100644
 --- a/drivers/misc/Makefile
 +++ b/drivers/misc/Makefile
-@@ -75,3 +75,5 @@ obj-$(CONFIG_MCHP_LAN966X_PCI)	+= lan966x-pci.o
- obj-y				+= keba/
+@@ -71,3 +71,5 @@ obj-y				+= keba/
  obj-y				+= amd-sbi/
  obj-$(CONFIG_MISC_RP1)		+= rp1/
+ obj-$(CONFIG_INTEL_SSEI)	+= issei/
 +obj-$(CONFIG_AW87XXX_MINI)		+= aw87xxx-mini.o
 +obj-$(CONFIG_WL2866D)		+= wl2866d.o
 diff --git a/drivers/misc/aw87xxx-mini.c b/drivers/misc/aw87xxx-mini.c
@@ -13477,10 +13477,10 @@ index 000000000..06e3e3500
 +MODULE_DESCRIPTION("Minimal Awinic AW87xxx speaker PA driver (Redmi 10C)");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/misc/fastrpc.c b/drivers/misc/fastrpc.c
-index f3a493845..7e7fec5cb 100644
+index d4fac2cac..ac24def9e 100644
 --- a/drivers/misc/fastrpc.c
 +++ b/drivers/misc/fastrpc.c
-@@ -1257,7 +1257,6 @@ static int fastrpc_internal_invoke(struct fastrpc_user *fl,  u32 kernel,
+@@ -1367,7 +1367,6 @@ static int fastrpc_internal_invoke(struct fastrpc_user *fl,  u32 kernel,
  		dev_warn_ratelimited(fl->sctx->dev, "user app trying to send a kernel RPC message (%d)\n",  handle);
  		return -EPERM;
  	}
@@ -13591,7 +13591,7 @@ index 000000000..b9639bc66
 +MODULE_DESCRIPTION("Omnivision WL2866D camera LDO driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/net/ipa/ipa_main.c b/drivers/net/ipa/ipa_main.c
-index 788dd99af..59bb4989b 100644
+index 14ac2d2fa..3e1dc0e57 100644
 --- a/drivers/net/ipa/ipa_main.c
 +++ b/drivers/net/ipa/ipa_main.c
 @@ -5,6 +5,7 @@
@@ -13611,12 +13611,13 @@ index 788dd99af..59bb4989b 100644
  	ssize_t size;
  	void *virt;
  	int ret;
-@@ -623,11 +626,51 @@ static int ipa_firmware_load(struct device *dev)
+@@ -623,13 +626,47 @@ static int ipa_firmware_load(struct device *dev)
  		goto out_release_firmware;
  	}
  
 -	ret = qcom_mdt_load(dev, fw, path, IPA_PAS_ID, virt, phys, size, NULL);
--	if (ret)
+-	if (ret) {
+-		dev_err(dev, "error %d loading \"%s\"\n", ret, path);
 +	/* khaje: replicate the downstream PIL sequence exactly.  The vendor
 +	 * pil driver passes the *entire* reserved region to PAS_MEM_SETUP,
 +	 * while qcom_mdt_load() only covers the loaded ELF segments (here
@@ -13628,30 +13629,29 @@ index 788dd99af..59bb4989b 100644
 +	 * with PAS_SHUTDOWN (the vendor "qcom,pil-force-shutdown" flag).
 +	 */
 +	/* Expected to fail harmlessly when the uC isn't loaded yet. */
-+	qcom_scm_pas_shutdown(IPA_PAS_ID);
++	qcom_pas_shutdown(IPA_PAS_ID);
 +
 +	metadata = qcom_mdt_read_metadata(fw, &metadata_len, path, dev);
 +	if (IS_ERR(metadata)) {
 +		ret = PTR_ERR(metadata);
 +		dev_err(dev, "error %d reading \"%s\" metadata\n", ret, path);
-+	} else {
-+		ret = qcom_scm_pas_init_image(IPA_PAS_ID, metadata,
-+					    metadata_len, NULL);
+ 	} else {
++		ret = qcom_pas_init_image(IPA_PAS_ID, metadata, metadata_len,
++					  NULL);
 +		kfree(metadata);
 +	}
 +
-+	if (!ret) {
-+		ret = qcom_scm_pas_mem_setup(IPA_PAS_ID, phys, size);
-+	}
++	if (!ret)
++		ret = qcom_pas_mem_setup(IPA_PAS_ID, phys, size);
 +
-+	if (!ret) {
++	if (!ret)
 +		ret = qcom_mdt_load_no_init(dev, fw, path, virt, phys, size,
 +					    NULL);
-+	}
 +
-+	if (!ret) {
-+		ret = qcom_scm_pas_auth_and_reset(IPA_PAS_ID);
-+	}
++	if (!ret)
+ 		ret = qcom_pas_auth_and_reset(IPA_PAS_ID);
+-		if (ret)
+-			dev_err(dev, "error %d authenticating \"%s\"\n", ret, path);
 +
 +	if (!ret) {
 +		/* Downstream has ~30 ms of natural latency between reset
@@ -13660,14 +13660,11 @@ index 788dd99af..59bb4989b 100644
 +		 */
 +		mdelay(200);
 +	} else {
- 		dev_err(dev, "error %d loading \"%s\"\n", ret, path);
--	else if ((ret = qcom_scm_pas_auth_and_reset(IPA_PAS_ID)))
--		dev_err(dev, "error %d authenticating \"%s\"\n", ret, path);
-+	}
++		dev_err(dev, "error %d loading \"%s\"\n", ret, path);
+ 	}
  
  	memunmap(virt);
- out_release_firmware:
-@@ -649,6 +692,10 @@ static const struct of_device_id ipa_match[] = {
+@@ -652,6 +689,10 @@ static const struct of_device_id ipa_match[] = {
  		.compatible	= "qcom,sc7180-ipa",
  		.data		= &ipa_data_v4_2,
  	},
@@ -13678,7 +13675,7 @@ index 788dd99af..59bb4989b 100644
  	{
  		.compatible	= "qcom,sdx55-ipa",
  		.data		= &ipa_data_v4_5,
-@@ -883,6 +930,18 @@ static int ipa_probe(struct platform_device *pdev)
+@@ -886,6 +927,18 @@ static int ipa_probe(struct platform_device *pdev)
  	if (WARN_ON(ret < 0))
  		goto err_power_put;
  
@@ -13697,7 +13694,7 @@ index 788dd99af..59bb4989b 100644
  	ret = ipa_config(ipa, data);
  	if (ret)
  		goto err_power_put;
-@@ -895,12 +954,7 @@ static int ipa_probe(struct platform_device *pdev)
+@@ -898,12 +951,7 @@ static int ipa_probe(struct platform_device *pdev)
  	if (loader == IPA_LOADER_MODEM)
  		goto done;
  
@@ -13754,188 +13751,10 @@ index e57588c19..f7f43aece 100644
  	}
  
 diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c b/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
-index b87314c83..4c169662f 100644
+index d4aca22c1..6598527c2 100644
 --- a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
 +++ b/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
-@@ -319,96 +319,100 @@ static const struct qmp_phy_init_tbl sc7280_ufsphy_hs_g4_rx[] = {
- 	QMP_PHY_INIT_CFG(QSERDES_V4_RX_GM_CAL, 0x0f),
- };
- 
-+/* Khaje/spes Android qmp-v4 rate-A no-G4 (phy-qcom-ufs-qmp-v4.h). */
- static const struct qmp_phy_init_tbl sm6115_ufsphy_serdes[] = {
--	QMP_PHY_INIT_CFG(QSERDES_COM_CMN_CONFIG, 0x0e),
--	QMP_PHY_INIT_CFG(QSERDES_COM_SYSCLK_EN_SEL, 0x14),
--	QMP_PHY_INIT_CFG(QSERDES_COM_CLK_SELECT, 0x30),
--	QMP_PHY_INIT_CFG(QSERDES_COM_SYS_CLK_CTRL, 0x02),
--	QMP_PHY_INIT_CFG(QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x08),
--	QMP_PHY_INIT_CFG(QSERDES_COM_BG_TIMER, 0x0a),
--	QMP_PHY_INIT_CFG(QSERDES_COM_HSCLK_SEL, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_CORECLK_DIV, 0x0a),
--	QMP_PHY_INIT_CFG(QSERDES_COM_CORECLK_DIV_MODE1, 0x0a),
--	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP_EN, 0x01),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_CTRL, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_RESETSM_CNTRL, 0x20),
--	QMP_PHY_INIT_CFG(QSERDES_COM_CORE_CLK_EN, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP_CFG, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_TIMER1, 0xff),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_TIMER2, 0x3f),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_MAP, 0x04),
--	QMP_PHY_INIT_CFG(QSERDES_COM_SVS_MODE_CLK_SEL, 0x05),
--	QMP_PHY_INIT_CFG(QSERDES_COM_DEC_START_MODE0, 0x82),
--	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START1_MODE0, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START2_MODE0, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START3_MODE0, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_CP_CTRL_MODE0, 0x0b),
--	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_RCTRL_MODE0, 0x16),
--	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_CCTRL_MODE0, 0x28),
--	QMP_PHY_INIT_CFG(QSERDES_COM_INTEGLOOP_GAIN0_MODE0, 0x80),
--	QMP_PHY_INIT_CFG(QSERDES_COM_INTEGLOOP_GAIN1_MODE0, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE1_MODE0, 0x28),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE2_MODE0, 0x02),
--	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP1_MODE0, 0xff),
--	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP2_MODE0, 0x0c),
--	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP3_MODE0, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_DEC_START_MODE1, 0x98),
--	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START1_MODE1, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START2_MODE1, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_DIV_FRAC_START3_MODE1, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_CP_CTRL_MODE1, 0x0b),
--	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_RCTRL_MODE1, 0x16),
--	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_CCTRL_MODE1, 0x28),
--	QMP_PHY_INIT_CFG(QSERDES_COM_INTEGLOOP_GAIN0_MODE1, 0x80),
--	QMP_PHY_INIT_CFG(QSERDES_COM_INTEGLOOP_GAIN1_MODE1, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE1_MODE1, 0xd6),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE2_MODE1, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP1_MODE1, 0x32),
--	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP2_MODE1, 0x0f),
--	QMP_PHY_INIT_CFG(QSERDES_COM_LOCK_CMP3_MODE1, 0x00),
--	QMP_PHY_INIT_CFG(QSERDES_COM_PLL_IVCO, 0x0f),
--	QMP_PHY_INIT_CFG(QSERDES_COM_BG_TRIM, 0x0f),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_INITVAL1, 0xff),
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_INITVAL2, 0x00),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_SYSCLK_EN_SEL, 0xd9),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_HSCLK_SEL, 0x11),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_HSCLK_HS_SWITCH_SEL, 0x00),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP_EN, 0x01),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_VCO_TUNE_MAP, 0x02),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_IVCO, 0x0f),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_VCO_TUNE_INITVAL2, 0x00),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_HSCLK_SEL, 0x11),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_DEC_START_MODE0, 0x82),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_CP_CTRL_MODE0, 0x06),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_RCTRL_MODE0, 0x16),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_CCTRL_MODE0, 0x36),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP1_MODE0, 0xff),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP2_MODE0, 0x0c),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_CMP_CODE1_MODE0, 0xac),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_CMP_CODE2_MODE0, 0x1e),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_DEC_START_MODE1, 0x98),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_CP_CTRL_MODE1, 0x06),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_RCTRL_MODE1, 0x16),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_PLL_CCTRL_MODE1, 0x36),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP1_MODE1, 0x32),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_LOCK_CMP2_MODE1, 0x0f),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_CMP_CODE1_MODE1, 0xdd),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_BIN_VCOCAL_CMP_CODE2_MODE1, 0x23),
- };
- 
- static const struct qmp_phy_init_tbl sm6115_ufsphy_hs_b_serdes[] = {
--	QMP_PHY_INIT_CFG(QSERDES_COM_VCO_TUNE_MAP, 0x44),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_COM_VCO_TUNE_MAP, 0x06),
- };
- 
- static const struct qmp_phy_init_tbl sm6115_ufsphy_tx[] = {
--	QMP_PHY_INIT_CFG(QSERDES_TX_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN, 0x45),
--	QMP_PHY_INIT_CFG(QSERDES_TX_LANE_MODE, 0x06),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_TX_PWM_GEAR_1_DIVIDER_BAND0_1, 0x06),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_TX_PWM_GEAR_2_DIVIDER_BAND0_1, 0x03),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_TX_PWM_GEAR_3_DIVIDER_BAND0_1, 0x01),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_TX_PWM_GEAR_4_DIVIDER_BAND0_1, 0x00),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_TX_LANE_MODE_1, 0x35),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_TX_TRAN_DRVR_EMP_EN, 0x0c),
- };
- 
- static const struct qmp_phy_init_tbl sm6115_ufsphy_rx[] = {
--	QMP_PHY_INIT_CFG(QSERDES_RX_SIGDET_LVL, 0x24),
--	QMP_PHY_INIT_CFG(QSERDES_RX_SIGDET_CNTRL, 0x0F),
--	QMP_PHY_INIT_CFG(QSERDES_RX_RX_INTERFACE_MODE, 0x40),
--	QMP_PHY_INIT_CFG(QSERDES_RX_SIGDET_DEGLITCH_CNTRL, 0x1E),
--	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_FASTLOCK_FO_GAIN, 0x0B),
--	QMP_PHY_INIT_CFG(QSERDES_RX_RX_TERM_BW, 0x5B),
--	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQ_GAIN1_LSB, 0xFF),
--	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQ_GAIN1_MSB, 0x3F),
--	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQ_GAIN2_LSB, 0xFF),
--	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQ_GAIN2_MSB, 0x3F),
--	QMP_PHY_INIT_CFG(QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2, 0x0D),
--	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_SVS_SO_GAIN_HALF, 0x04),
--	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_SVS_SO_GAIN_QUARTER, 0x04),
--	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_SVS_SO_GAIN, 0x04),
--	QMP_PHY_INIT_CFG(QSERDES_RX_UCDR_SO_SATURATION_AND_ENABLE, 0x5B),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_SIGDET_LVL, 0x24),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_SIGDET_CNTRL, 0x0f),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_SIGDET_DEGLITCH_CNTRL, 0x1e),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_BAND, 0x18),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_FASTLOCK_FO_GAIN, 0x0a),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_SO_SATURATION_AND_ENABLE, 0x5a),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_PI_CONTROLS, 0xf1),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_FASTLOCK_COUNT_LOW, 0x80),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_PI_CTRL2, 0x80),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_FO_GAIN, 0x0e),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_UCDR_SO_GAIN, 0x04),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_TERM_BW, 0x1b),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_EQU_ADAPTOR_CNTRL2, 0x06),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_EQU_ADAPTOR_CNTRL3, 0x04),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_EQU_ADAPTOR_CNTRL4, 0x1d),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_OFFSET_ADAPTOR_CNTRL2, 0x00),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_IDAC_MEASURE_TIME, 0x10),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_IDAC_TSETTLE_LOW, 0xc0),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_IDAC_TSETTLE_HIGH, 0x00),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_LOW, 0x6d),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_HIGH, 0x6d),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_HIGH2, 0xed),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_HIGH3, 0x3b),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_00_HIGH4, 0x3c),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_LOW, 0x6d),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_HIGH, 0x6d),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_HIGH2, 0xed),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_HIGH3, 0x3b),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_01_HIGH4, 0x3c),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_LOW, 0xe0),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_HIGH, 0xc8),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_HIGH2, 0xc8),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_HIGH3, 0x3b),
-+	QMP_PHY_INIT_CFG(QSERDES_V4_RX_RX_MODE_10_HIGH4, 0xb1),
- };
- 
- static const struct qmp_phy_init_tbl sm6115_ufsphy_pcs[] = {
--	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_PWM_GEAR_BAND, 0x15),
--	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_SIGDET_CTRL2, 0x6d),
--	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_TX_LARGE_AMP_DRV_LVL, 0x0f),
--	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_TX_SMALL_AMP_DRV_LVL, 0x02),
--	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_MIN_STALL_NOCONFIG_TIME_CAP, 0x28),
--	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_SYM_RESYNC_CTRL, 0x03),
--	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_TX_LARGE_AMP_POST_EMP_LVL, 0x12),
--	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_TX_SMALL_AMP_POST_EMP_LVL, 0x0f),
--	QMP_PHY_INIT_CFG(QPHY_V2_PCS_UFS_RX_MIN_HIBERN8_TIME, 0x9a), /* 8 us */
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_RX_SIGDET_CTRL2, 0x6d),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_LARGE_AMP_DRV_LVL, 0x0a),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_SMALL_AMP_DRV_LVL, 0x02),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_MID_TERM_CTRL1, 0x43),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_DEBUG_BUS_CLKSEL, 0x1f),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_RX_MIN_HIBERN8_TIME, 0xff),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_PLL_CNTL, 0x03),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TIMER_20US_CORECLK_STEPS_MSB, 0x16),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TIMER_20US_CORECLK_STEPS_LSB, 0xd8),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_PWM_GEAR_BAND, 0xaa),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_HS_GEAR_BAND, 0x06),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_TX_HSGEAR_CAPABILITY, 0x03),
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_RX_HSGEAR_CAPABILITY, 0x03),
-+	/* Android phy_cal_table_2nd_lane_no_g4 */
-+	QMP_PHY_INIT_CFG(QPHY_V4_PCS_UFS_MULTI_LANE_CTRL1, 0x02),
- };
- 
- static const struct qmp_phy_init_tbl sdm845_ufsphy_serdes[] = {
-@@ -1503,31 +1507,38 @@ static const struct qmp_phy_cfg sdm845_ufsphy_cfg = {
+@@ -1526,31 +1526,38 @@ static const struct qmp_phy_cfg sdm845_ufsphy_cfg = {
  	.no_pcs_sw_reset	= true,
  };
  
@@ -13987,7 +13806,7 @@ index b87314c83..4c169662f 100644
  };
  
  static const struct qmp_phy_cfg sm7150_ufsphy_cfg = {
-@@ -2291,6 +2302,9 @@ static const struct of_device_id qmp_ufs_of_match_table[] = {
+@@ -2430,6 +2437,9 @@ static const struct of_device_id qmp_ufs_of_match_table[] = {
  	}, {
  		.compatible = "qcom,sm6125-qmp-ufs-phy",
  		.data = &sm6115_ufsphy_cfg,
@@ -13998,7 +13817,7 @@ index b87314c83..4c169662f 100644
  		.compatible = "qcom,sm6350-qmp-ufs-phy",
  		.data = &sdm845_ufsphy_cfg,
 diff --git a/drivers/phy/qualcomm/phy-qcom-qusb2.c b/drivers/phy/qualcomm/phy-qcom-qusb2.c
-index eb93015be..5583382db 100644
+index 2e5fdb620..11dac321c 100644
 --- a/drivers/phy/qualcomm/phy-qcom-qusb2.c
 +++ b/drivers/phy/qualcomm/phy-qcom-qusb2.c
 @@ -232,10 +232,11 @@ static const struct qusb2_phy_init_tbl msm8998_init_tbl[] = {
@@ -14016,7 +13835,7 @@ index eb93015be..5583382db 100644
  	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_TUNE, 0x30),
  	QUSB2_PHY_INIT_CFG(QUSB2PHY_PLL_USER_CTL1, 0x79),
 diff --git a/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c b/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c
-index eb0b0f61d..f9135e252 100644
+index 980ad1fb1..901995881 100644
 --- a/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c
 +++ b/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c
 @@ -383,6 +383,43 @@ static const struct override_param_map sc7280_snps_7nm_phy[] = {
@@ -14083,10 +13902,10 @@ index eb0b0f61d..f9135e252 100644
  		dev_err(dev, "failed to get phy core reset\n");
  		return PTR_ERR(hsphy->phy_reset);
 diff --git a/drivers/pinctrl/qcom/Kconfig.msm b/drivers/pinctrl/qcom/Kconfig.msm
-index 836cdeca1..e8279b44d 100644
+index 42875457b..7357646a3 100644
 --- a/drivers/pinctrl/qcom/Kconfig.msm
 +++ b/drivers/pinctrl/qcom/Kconfig.msm
-@@ -377,6 +377,14 @@ config PINCTRL_SM4450
+@@ -462,6 +462,14 @@ config PINCTRL_SM4450
  	 Qualcomm Technologies Inc TLMM block found on the Qualcomm
  	 Technologies Inc SM4450 platform.
  
@@ -14099,13 +13918,13 @@ index 836cdeca1..e8279b44d 100644
 +	 Technologies Inc SM6225 (Khaje) platform.
 +
  config PINCTRL_SM6115
- 	tristate "Qualcomm Technologies Inc SM6115,SM4250 pin controller driver"
+ 	tristate "Qualcomm SM6115,SM4250 pin controller driver"
  	depends on ARM64 || COMPILE_TEST
 diff --git a/drivers/pinctrl/qcom/Makefile b/drivers/pinctrl/qcom/Makefile
-index 84bda3ada..938079923 100644
+index 43ecd246a..edcb834e6 100644
 --- a/drivers/pinctrl/qcom/Makefile
 +++ b/drivers/pinctrl/qcom/Makefile
-@@ -60,6 +60,7 @@ obj-$(CONFIG_PINCTRL_SDX75) += pinctrl-sdx75.o
+@@ -64,6 +64,7 @@ obj-$(CONFIG_PINCTRL_SHIKRA) += pinctrl-shikra.o
  obj-$(CONFIG_PINCTRL_SM4250_LPASS_LPI) += pinctrl-sm4250-lpass-lpi.o
  obj-$(CONFIG_PINCTRL_SM4450) += pinctrl-sm4450.o
  obj-$(CONFIG_PINCTRL_SM6115) += pinctrl-sm6115.o
@@ -15732,21 +15551,10 @@ index 000000000..6ff48c9a2
 +
 +MODULE_DESCRIPTION("QTI khaje pinctrl driver");
 diff --git a/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c b/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
-index 76aed3296..123ed66ff 100644
+index 5fd4a4eba..b0703bb40 100644
 --- a/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
 +++ b/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
-@@ -61,7 +61,10 @@ static int lpi_gpio_write(struct lpi_pinctrl *state, unsigned int pin,
- 	else
- 		pin_offset = LPI_TLMM_REG_OFFSET * pin;
- 
-+	dev_dbg(state->dev, "LPIWR pin=%u off=%#lx val=%#x\n",
-+		pin, (unsigned long)(pin_offset + addr), val);
- 	iowrite32(val, state->tlmm_base + pin_offset + addr);
-+	dev_dbg(state->dev, "LPIWR-ok\n");
- 
- 	return 0;
- }
-@@ -225,10 +228,15 @@ static int lpi_config_set_slew_rate(struct lpi_pinctrl *pctrl,
+@@ -254,10 +254,15 @@ static int lpi_config_set_slew_rate(struct lpi_pinctrl *pctrl,
  
  	mutex_lock(&pctrl->lock);
  
@@ -15762,30 +15570,11 @@ index 76aed3296..123ed66ff 100644
  
  	mutex_unlock(&pctrl->lock);
  
-@@ -500,8 +508,17 @@ int lpi_pinctrl_probe(struct platform_device *pdev)
- 		return ret;
- 
- 	ret = clk_bulk_prepare_enable(MAX_LPI_NUM_CLKS, pctrl->clks);
--	if (ret)
-+	if (ret) {
-+		/* The "audio" clock is owned by the ADSP, which may still be
-+		 * booting when we probe. -ETIMEDOUT means "not ready yet", not
-+		 * "broken": defer so we retry once the ADSP is up.
-+		 */
-+		if (ret == -ETIMEDOUT) {
-+			dev_dbg(dev, "audio clock not ready yet, deferring\n");
-+			return -EPROBE_DEFER;
-+		}
- 		return dev_err_probe(dev, ret, "Can't enable clocks\n");
-+	}
- 
- 	pctrl->desc.pctlops = &lpi_gpio_pinctrl_ops;
- 	pctrl->desc.pmxops = &lpi_gpio_pinmux_ops;
 diff --git a/drivers/pinctrl/qcom/pinctrl-msm.c b/drivers/pinctrl/qcom/pinctrl-msm.c
-index 45b3a2763..aef68b68b 100644
+index 27f06bbc1..e21271c51 100644
 --- a/drivers/pinctrl/qcom/pinctrl-msm.c
 +++ b/drivers/pinctrl/qcom/pinctrl-msm.c
-@@ -1045,6 +1045,14 @@ static void msm_gpio_irq_init_valid_mask(struct gpio_chip *gc,
+@@ -1050,6 +1050,14 @@ static void msm_gpio_irq_init_valid_mask(struct gpio_chip *gc,
  		if (g->intr_detection_width != 1 &&
  		    g->intr_detection_width != 2)
  			clear_bit(i, valid_mask);
@@ -15800,7 +15589,7 @@ index 45b3a2763..aef68b68b 100644
  	}
  }
  
-@@ -1400,6 +1408,52 @@ static const struct irq_chip msm_gpio_irq_chip = {
+@@ -1447,6 +1455,52 @@ static const struct irq_chip msm_gpio_irq_chip = {
  				   IRQCHIP_IMMUTABLE),
  };
  
@@ -15853,7 +15642,7 @@ index 45b3a2763..aef68b68b 100644
  static int msm_gpio_init(struct msm_pinctrl *pctrl)
  {
  	struct gpio_chip *chip;
-@@ -1440,6 +1494,8 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
+@@ -1487,6 +1541,8 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
  		}
  	}
  
@@ -15863,10 +15652,10 @@ index 45b3a2763..aef68b68b 100644
  	gpio_irq_chip_set_chip(girq, &msm_gpio_irq_chip);
  	girq->parent_handler = msm_gpio_irq_handler;
 diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
-index 83392ed6a..b8cb998a3 100644
+index b89ef40df..f7170b6a0 100644
 --- a/drivers/power/supply/Kconfig
 +++ b/drivers/power/supply/Kconfig
-@@ -1165,4 +1165,21 @@ config MACSMC_POWER
+@@ -1202,4 +1202,21 @@ config MACSMC_POWER
  
  	  Say Y or M here if you have an Apple Silicon based Mac.
  
@@ -15889,10 +15678,10 @@ index 83392ed6a..b8cb998a3 100644
 +
  endif # POWER_SUPPLY
 diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
-index 7ee839dca..dbc0a5884 100644
+index f3c0d1006..c236a3de9 100644
 --- a/drivers/power/supply/Makefile
 +++ b/drivers/power/supply/Makefile
-@@ -131,3 +131,5 @@ obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_smbx.o
+@@ -135,3 +135,5 @@ obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_smbx.o
  obj-$(CONFIG_FUEL_GAUGE_MM8013)	+= mm8013.o
  obj-$(CONFIG_MACSMC_POWER)	+= macsmc-power.o
  obj-$(CONFIG_CHARGER_MAX77759)	+= max77759_charger.o
@@ -17319,10 +17108,10 @@ index 000000000..8190c1fcb
 +MODULE_DESCRIPTION("Summit SMB1351 USB charger");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/regulator/core.c b/drivers/regulator/core.c
-index 1797929df..09b7eb8d0 100644
+index 6a4008f38..a55020769 100644
 --- a/drivers/regulator/core.c
 +++ b/drivers/regulator/core.c
-@@ -1265,8 +1265,8 @@ static int machine_constraints_voltage(struct regulator_dev *rdev,
+@@ -1354,8 +1354,8 @@ static int machine_constraints_voltage(struct regulator_dev *rdev,
  		}
  
  		if (target_min != current_uV || target_max != current_uV) {
@@ -17333,24 +17122,11 @@ index 1797929df..09b7eb8d0 100644
  			ret = _regulator_do_set_voltage(
  				rdev, target_min, target_max);
  			if (ret < 0) {
-diff --git a/drivers/remoteproc/qcom_q6v5.c b/drivers/remoteproc/qcom_q6v5.c
-index 58d5b85e5..c9eb8b027 100644
---- a/drivers/remoteproc/qcom_q6v5.c
-+++ b/drivers/remoteproc/qcom_q6v5.c
-@@ -165,7 +165,7 @@ static irqreturn_t q6v5_handover_interrupt(int irq, void *data)
- 	struct qcom_q6v5 *q6v5 = data;
- 
- 	if (q6v5->handover_issued) {
--		dev_err(q6v5->dev, "Handover signaled, but it already happened\n");
-+		dev_dbg(q6v5->dev, "Handover signaled, but it already happened\n");
- 		return IRQ_HANDLED;
- 	}
- 
 diff --git a/drivers/scsi/scsi_scan.c b/drivers/scsi/scsi_scan.c
-index b118ed0bf..b4ece2ab2 100644
+index 0f0f243c2..2ac5f7038 100644
 --- a/drivers/scsi/scsi_scan.c
 +++ b/drivers/scsi/scsi_scan.c
-@@ -978,11 +978,11 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
+@@ -989,11 +989,11 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
  	if (inq_result[7] & 0x10)
  		sdev->sdtr = 1;
  
@@ -17368,10 +17144,10 @@ index b118ed0bf..b4ece2ab2 100644
  	if ((sdev->scsi_level >= SCSI_2) && (inq_result[7] & 2) &&
  	    !(*bflags & BLIST_NOTQ)) {
 diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
-index 599e75f33..faafb4a40 100644
+index a1b21ea14..7038740ce 100644
 --- a/drivers/scsi/sd.c
 +++ b/drivers/scsi/sd.c
-@@ -3002,15 +3002,14 @@ sd_print_capacity(struct scsi_disk *sdkp,
+@@ -3015,15 +3015,14 @@ sd_print_capacity(struct scsi_disk *sdkp,
  	string_get_size(sdkp->capacity, sector_size,
  			STRING_UNITS_10, cap_str_10, sizeof(cap_str_10));
  
@@ -17393,7 +17169,7 @@ index 599e75f33..faafb4a40 100644
  }
  
  /* called with buffer of length 512 */
-@@ -3082,9 +3081,9 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
+@@ -3095,9 +3094,9 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
  		sdkp->write_prot = ((data.device_specific & 0x80) != 0);
  		set_disk_ro(sdkp->disk, sdkp->write_prot);
  		if (sdkp->first_scan || old_wp != sdkp->write_prot) {
@@ -17406,7 +17182,7 @@ index 599e75f33..faafb4a40 100644
  		}
  	}
  }
-@@ -3232,12 +3231,12 @@ sd_read_cache_type(struct scsi_disk *sdkp, unsigned char *buffer)
+@@ -3245,12 +3244,12 @@ sd_read_cache_type(struct scsi_disk *sdkp, unsigned char *buffer)
  
  		if (sdkp->first_scan || old_wce != sdkp->WCE ||
  		    old_rcd != sdkp->RCD || old_dpofua != sdkp->DPOFUA)
@@ -17425,7 +17201,7 @@ index 599e75f33..faafb4a40 100644
  
  		return;
  	}
-@@ -3665,8 +3664,8 @@ static bool sd_validate_min_xfer_size(struct scsi_disk *sdkp)
+@@ -3678,8 +3677,8 @@ static bool sd_validate_min_xfer_size(struct scsi_disk *sdkp)
  		return false;
  	}
  
@@ -17436,7 +17212,7 @@ index 599e75f33..faafb4a40 100644
  	return true;
  }
  
-@@ -4120,8 +4119,8 @@ static int sd_probe(struct scsi_device *sdp)
+@@ -4135,8 +4134,8 @@ static int sd_probe(struct scsi_device *sdp)
  			sd_printk(KERN_NOTICE, sdkp, "supports TCG Opal\n");
  	}
  
@@ -17448,10 +17224,10 @@ index 599e75f33..faafb4a40 100644
  
  	return 0;
 diff --git a/drivers/soc/qcom/mdt_loader.c b/drivers/soc/qcom/mdt_loader.c
-index c004d444d..641861ed7 100644
+index 002100fe2..133c2a8d6 100644
 --- a/drivers/soc/qcom/mdt_loader.c
 +++ b/drivers/soc/qcom/mdt_loader.c
-@@ -279,7 +279,13 @@ static int __qcom_mdt_pas_init(struct device *dev, const struct firmware *fw,
+@@ -280,7 +280,13 @@ static int __qcom_mdt_pas_init(struct device *dev, const struct firmware *fw,
  		goto out;
  	}
  
@@ -17463,14 +17239,14 @@ index c004d444d..641861ed7 100644
 +	 * rejects the call for pas_id 1 with -EINVAL; skip it in that case.
 +	 */
 +	if (relocate && mem_phys != min_addr) {
- 		ret = qcom_scm_pas_mem_setup(pas_id, mem_phys, max_addr - min_addr);
+ 		ret = qcom_pas_mem_setup(pas_id, mem_phys, max_addr - min_addr);
  		if (ret) {
  			/* Unable to set up relocation */
 diff --git a/drivers/soc/qcom/qcom_pd_mapper.c b/drivers/soc/qcom/qcom_pd_mapper.c
-index 7bb14c20a..321f73215 100644
+index 64ca99d7f..2ddfe96aa 100644
 --- a/drivers/soc/qcom/qcom_pd_mapper.c
 +++ b/drivers/soc/qcom/qcom_pd_mapper.c
-@@ -607,6 +607,10 @@ static const struct of_device_id qcom_pdm_domains[] __maybe_unused = {
+@@ -652,6 +652,10 @@ static const struct of_device_id qcom_pdm_domains[] __maybe_unused = {
  	{ .compatible = "qcom,sdm845", .data = sdm845_domains, },
  	{ .compatible = "qcom,sm4250", .data = sm6115_domains, },
  	{ .compatible = "qcom,sm6115", .data = sm6115_domains, },
@@ -17482,37 +17258,31 @@ index 7bb14c20a..321f73215 100644
  	{ .compatible = "qcom,sm7150", .data = sm7150_domains, },
  	{ .compatible = "qcom,sm7225", .data = sm6350_domains, },
 diff --git a/drivers/soc/qcom/ubwc_config.c b/drivers/soc/qcom/ubwc_config.c
-index 3fe47d8f0..d9c5d1ca1 100644
+index 23901a4c5..54d84aa0b 100644
 --- a/drivers/soc/qcom/ubwc_config.c
 +++ b/drivers/soc/qcom/ubwc_config.c
-@@ -143,6 +143,16 @@ static const struct qcom_ubwc_cfg_data sm6115_data = {
- 	.highest_bank_bit = 14,
+@@ -22,6 +22,11 @@ static const struct qcom_ubwc_cfg_data ubwc_0_0_hbb15 = {
+ 	.highest_bank_bit = 15,
  };
  
-+static const struct qcom_ubwc_cfg_data sm6225_data = {
++static const struct qcom_ubwc_cfg_data ubwc_1_0_hbb13 = {
 +	.ubwc_enc_version = UBWC_1_0,
-+	.ubwc_dec_version = UBWC_2_0,
-+	.ubwc_swizzle = UBWC_SWIZZLE_ENABLE_LVL1 |
-+			UBWC_SWIZZLE_ENABLE_LVL2 |
-+			UBWC_SWIZZLE_ENABLE_LVL3,
-+	.ubwc_bank_spread = true,
 +	.highest_bank_bit = 13,
 +};
 +
- static const struct qcom_ubwc_cfg_data sm6125_data = {
+ static const struct qcom_ubwc_cfg_data ubwc_1_0_hbb14 = {
  	.ubwc_enc_version = UBWC_1_0,
- 	.ubwc_dec_version = UBWC_3_0,
-@@ -280,6 +290,8 @@ static const struct of_device_id qcom_ubwc_configs[] __maybe_unused = {
- 	{ .compatible = "qcom,sdm845", .data = &sdm845_data, },
- 	{ .compatible = "qcom,sm4250", .data = &sm6115_data, },
- 	{ .compatible = "qcom,sm6115", .data = &sm6115_data, },
-+	/* SM6225 (khaje): same as SM6115 except highest_bank_bit (GPU fuse = 13). */
-+	{ .compatible = "qcom,sm6225", .data = &sm6225_data, },
- 	{ .compatible = "qcom,sm6125", .data = &sm6125_data, },
- 	{ .compatible = "qcom,sm6150", .data = &sm6150_data, },
- 	{ .compatible = "qcom,sm6350", .data = &sm6350_data, },
+ 	.highest_bank_bit = 14,
+@@ -149,6 +154,7 @@ static const struct of_device_id qcom_ubwc_configs[] __maybe_unused = {
+ 	{ .compatible = "qcom,shikra", .data = &ubwc_0_0_hbb15, },
+ 	{ .compatible = "qcom,sm4250", .data = &ubwc_1_0_hbb14, },
+ 	{ .compatible = "qcom,sm6115", .data = &ubwc_1_0_hbb14, },
++	{ .compatible = "qcom,sm6225", .data = &ubwc_1_0_hbb13, },
+ 	{ .compatible = "qcom,sm6125", .data = &ubwc_1_0_hbb14, },
+ 	{ .compatible = "qcom,sm6150", .data = &ubwc_2_0_hbb14, },
+ 	{ .compatible = "qcom,sm6350", .data = &ubwc_2_0_hbb14, },
 diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
-index 3d8f5a81e..2d670166a 100644
+index 55678a30c..dda9e9ad1 100644
 --- a/drivers/soundwire/qcom.c
 +++ b/drivers/soundwire/qcom.c
 @@ -93,6 +93,9 @@
@@ -17525,7 +17295,7 @@ index 3d8f5a81e..2d670166a 100644
  #define SWRM_MCP_BUS_CTRL					0x1044
  #define SWRM_MCP_BUS_CLK_START					BIT(1)
  #define SWRM_MCP_CFG_ADDR					0x1048
-@@ -209,6 +212,7 @@ struct qcom_swrm_ctrl {
+@@ -208,6 +211,7 @@ struct qcom_swrm_ctrl {
  	int nports;
  	int cols_index;
  	int rows_index;
@@ -17533,7 +17303,7 @@ index 3d8f5a81e..2d670166a 100644
  	unsigned long port_mask;
  	u32 intr_mask;
  	u8 rcmd_id;
-@@ -222,11 +226,14 @@ struct qcom_swrm_ctrl {
+@@ -221,11 +225,14 @@ struct qcom_swrm_ctrl {
  	u32 slave_status;
  	u32 wr_fifo_depth;
  	bool clock_stop_not_supported;
@@ -17548,7 +17318,7 @@ index 3d8f5a81e..2d670166a 100644
  	bool sw_clk_gate_required;
  	u32 max_reg;
  	const unsigned int *reg_layout;
-@@ -267,7 +274,12 @@ static const struct qcom_swrm_data swrm_v1_5_data = {
+@@ -266,7 +273,12 @@ static const struct qcom_swrm_data swrm_v1_5_data = {
  
  static const struct qcom_swrm_data swrm_v1_6_data = {
  	.default_rows = 50,
@@ -17561,7 +17331,7 @@ index 3d8f5a81e..2d670166a 100644
  	.sw_clk_gate_required = true,
  	.max_reg = SWR_V1_3_MSTR_MAX_REG_ADDR,
  	.reg_layout = swrm_v1_3_reg_layout,
-@@ -884,9 +896,23 @@ static int qcom_swrm_init(struct qcom_swrm_ctrl *ctrl)
+@@ -883,9 +895,23 @@ static int qcom_swrm_init(struct qcom_swrm_ctrl *ctrl)
  	/* Clear Rows and Cols */
  	val = FIELD_PREP(SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK, ctrl->rows_index);
  	val |= FIELD_PREP(SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK, ctrl->cols_index);
@@ -17585,7 +17355,7 @@ index 3d8f5a81e..2d670166a 100644
  	ctrl->reg_write(ctrl, SWRM_MCP_FRAME_CTRL_BANK_ADDR(0), val);
  
  	/* Enable Auto enumeration */
-@@ -1011,6 +1037,9 @@ static int qcom_swrm_pre_bank_switch(struct sdw_bus *bus)
+@@ -1024,6 +1050,9 @@ static int qcom_swrm_pre_bank_switch(struct sdw_bus *bus)
  
  	u32p_replace_bits(&val, ctrl->cols_index, SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK);
  	u32p_replace_bits(&val, ctrl->rows_index, SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK);
@@ -17595,7 +17365,7 @@ index 3d8f5a81e..2d670166a 100644
  
  	return ctrl->reg_write(ctrl, reg, val);
  }
-@@ -1424,10 +1453,16 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
+@@ -1441,10 +1470,16 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
  	ctrl->num_dout_ports = FIELD_GET(SWRM_COMP_PARAMS_DOUT_PORTS_MASK, val);
  	ctrl->num_din_ports = FIELD_GET(SWRM_COMP_PARAMS_DIN_PORTS_MASK, val);
  
@@ -17613,7 +17383,7 @@ index 3d8f5a81e..2d670166a 100644
  				val, ctrl->num_din_ports);
  		}
  
-@@ -1437,7 +1472,7 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
+@@ -1454,7 +1489,7 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
  	ret = of_property_read_u32(np, "qcom,dout-ports", &val);
  	if (!ret) { /* only if present */
  		if (val != ctrl->num_dout_ports) {
@@ -17622,7 +17392,7 @@ index 3d8f5a81e..2d670166a 100644
  				val, ctrl->num_dout_ports);
  		}
  
-@@ -1549,6 +1584,7 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+@@ -1566,6 +1601,7 @@ static int qcom_swrm_probe(struct platform_device *pdev)
  	ctrl->reg_layout = data->reg_layout;
  	ctrl->rows_index = sdw_find_row_index(data->default_rows);
  	ctrl->cols_index = sdw_find_col_index(data->default_cols);
@@ -17630,7 +17400,7 @@ index 3d8f5a81e..2d670166a 100644
  #if IS_REACHABLE(CONFIG_SLIMBUS)
  	if (dev->parent->bus == &slimbus_bus) {
  #else
-@@ -1600,6 +1636,10 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+@@ -1617,6 +1653,10 @@ static int qcom_swrm_probe(struct platform_device *pdev)
  	ctrl->bus.port_ops = &qcom_swrm_port_ops;
  	ctrl->bus.compute_params = &qcom_swrm_compute_params;
  	ctrl->bus.clk_stop_timeout = 300;
@@ -17641,7 +17411,7 @@ index 3d8f5a81e..2d670166a 100644
  
  	ret = qcom_swrm_get_port_config(ctrl);
  	if (ret)
-@@ -1676,6 +1716,11 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+@@ -1694,6 +1734,11 @@ static int qcom_swrm_probe(struct platform_device *pdev)
  	pm_runtime_mark_last_busy(dev);
  	pm_runtime_set_active(dev);
  	pm_runtime_enable(dev);
@@ -17653,7 +17423,7 @@ index 3d8f5a81e..2d670166a 100644
  
  #ifdef CONFIG_DEBUG_FS
  	ctrl->debugfs = debugfs_create_dir("qualcomm-sdw", ctrl->bus.debugfs);
-@@ -1713,7 +1758,13 @@ static int __maybe_unused swrm_runtime_resume(struct device *dev)
+@@ -1731,7 +1776,13 @@ static int __maybe_unused swrm_runtime_resume(struct device *dev)
  
  	clk_prepare_enable(ctrl->hclk);
  
@@ -17668,7 +17438,7 @@ index 3d8f5a81e..2d670166a 100644
  		reinit_completion(&ctrl->enumeration);
  		ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
  		usleep_range(100, 105);
-@@ -1772,7 +1823,7 @@ static int __maybe_unused swrm_runtime_suspend(struct device *dev)
+@@ -1790,7 +1841,7 @@ static int __maybe_unused swrm_runtime_suspend(struct device *dev)
  	int ret;
  
  	swrm_wait_for_wr_fifo_done(ctrl);
@@ -17678,10 +17448,10 @@ index 3d8f5a81e..2d670166a 100644
  		ctrl->intr_mask &= ~SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET;
  		if (ctrl->version < SWRM_VERSION_2_0_0)
 diff --git a/drivers/tty/serial/qcom_geni_serial.c b/drivers/tty/serial/qcom_geni_serial.c
-index 3b0f836a9..deba35fa5 100644
+index a851b8f0e..76eba7d93 100644
 --- a/drivers/tty/serial/qcom_geni_serial.c
 +++ b/drivers/tty/serial/qcom_geni_serial.c
-@@ -783,6 +783,9 @@ static void qcom_geni_serial_handle_rx_fifo(struct uart_port *uport, bool drop)
+@@ -530,6 +530,9 @@ static void qcom_geni_serial_handle_rx_fifo(struct uart_port *uport, bool drop)
  		total_bytes += last_word_byte_cnt;
  	else
  		total_bytes += BYTES_PER_FIFO_WORD;
@@ -17691,16 +17461,16 @@ index 3b0f836a9..deba35fa5 100644
  	handle_rx_console(uport, total_bytes, drop);
  }
  
-@@ -870,7 +873,7 @@ static void qcom_geni_serial_stop_rx_dma(struct uart_port *uport)
- 	}
+@@ -1015,7 +1018,7 @@ static void qcom_geni_serial_stop_rx_dma(struct uart_port *uport)
+ 
  }
  
 -static void qcom_geni_serial_start_rx_dma(struct uart_port *uport)
 +static void __maybe_unused qcom_geni_serial_start_rx_dma(struct uart_port *uport)
  {
  	struct qcom_geni_serial_port *port = to_dev_port(uport);
- 	int ret;
-@@ -1783,10 +1786,10 @@ static const struct uart_ops qcom_geni_console_pops = {
+ 
+@@ -1846,10 +1849,10 @@ static const struct uart_ops qcom_geni_console_pops = {
  
  static const struct uart_ops qcom_geni_uart_pops = {
  	.tx_empty = qcom_geni_serial_tx_empty,
@@ -17715,23 +17485,23 @@ index 3b0f836a9..deba35fa5 100644
  	.set_termios = qcom_geni_serial_set_termios,
  	.startup = qcom_geni_serial_startup,
  	.request_port = qcom_geni_serial_request_port,
-@@ -2011,7 +2014,7 @@ static const struct qcom_geni_device_data qcom_geni_console_data = {
+@@ -2156,7 +2159,7 @@ static const struct qcom_geni_device_data sa8255p_qcom_geni_console_data = {
  
  static const struct qcom_geni_device_data qcom_geni_uart_data = {
  	.console = false,
 -	.mode = GENI_SE_DMA,
 +	.mode = GENI_SE_FIFO,
- 	.resources_init = geni_serial_resource_init,
+ 	.resources_init = geni_se_resources_init,
  	.set_rate = geni_serial_set_rate,
- 	.power_state = geni_serial_resource_state,
+ 	.power_on = geni_se_resources_activate,
 diff --git a/drivers/ufs/core/ufshcd.c b/drivers/ufs/core/ufshcd.c
-index 84e32957c..ae5b3ce11 100644
+index ca8329052..1d1b8826b 100644
 --- a/drivers/ufs/core/ufshcd.c
 +++ b/drivers/ufs/core/ufshcd.c
-@@ -9456,7 +9456,12 @@ static void ufshcd_async_scan(void *data, async_cookie_t cookie)
- 	ret = ufshcd_add_lus(hba);
+@@ -9550,7 +9550,12 @@ static void ufshcd_async_scan(void *data, async_cookie_t cookie)
  
  out:
+ 	ufshcd_release(hba);
 -	pm_runtime_put_sync(hba->dev);
 +	if (device_property_read_bool(hba->dev, "qcom,disable-runtime-pm")) {
 +		pm_runtime_forbid(hba->dev);
@@ -17742,7 +17512,7 @@ index 84e32957c..ae5b3ce11 100644
  
  	if (ret)
  		dev_err(hba->dev, "%s failed: %d\n", __func__, ret);
-@@ -11229,7 +11234,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
+@@ -11318,7 +11323,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
  	INIT_DELAYED_WORK(&hba->ufs_rtc_update_work, ufshcd_rtc_work);
  
  	/* Set the default auto-hiberate idle timer value to 150 ms */
@@ -17754,7 +17524,7 @@ index 84e32957c..ae5b3ce11 100644
  			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
  	}
 diff --git a/drivers/ufs/host/ufs-qcom.c b/drivers/ufs/host/ufs-qcom.c
-index 9c0973a7f..28b370f5b 100644
+index 954be9343..e32a8691c 100644
 --- a/drivers/ufs/host/ufs-qcom.c
 +++ b/drivers/ufs/host/ufs-qcom.c
 @@ -15,6 +15,7 @@
@@ -17773,15 +17543,7 @@ index 9c0973a7f..28b370f5b 100644
  
  static struct ufs_qcom_host *rcdev_to_ufs_host(struct reset_controller_dev *rcd)
  {
-@@ -708,6 +710,7 @@ static int ufs_qcom_cfg_timers(struct ufs_hba *hba, bool is_pre_scale_up, unsign
- static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
- 					enum ufs_notify_change_status status)
- {
-+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
- 	int err = 0;
- 
- 	switch (status) {
-@@ -721,6 +724,14 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
+@@ -729,6 +731,14 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
  		err = ufs_qcom_set_core_clk_ctrl(hba, true, ULONG_MAX);
  		if (err)
  			dev_err(hba->dev, "cfg core clk ctrl failed\n");
@@ -17796,7 +17558,7 @@ index 9c0973a7f..28b370f5b 100644
  		/*
  		 * Some UFS devices (and may be host) have issues if LCC is
  		 * enabled. So we are setting PA_Local_TX_LCC_Enable to 0
-@@ -742,11 +753,10 @@ static void ufs_qcom_device_reset_ctrl(struct ufs_hba *hba, bool asserted)
+@@ -761,11 +771,10 @@ static void ufs_qcom_device_reset_ctrl(struct ufs_hba *hba, bool asserted)
  {
  	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
  
@@ -17811,9 +17573,9 @@ index 9c0973a7f..28b370f5b 100644
  }
  
  static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
-@@ -1305,6 +1315,15 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
- 	if (host->hw_ver.major > 0x3)
- 		hba->quirks |= UFSHCD_QUIRK_REINIT_AFTER_MAX_GEAR_SWITCH;
+@@ -1327,6 +1336,15 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
+ 	if (host->hw_ver.major == 0x7 && host->hw_ver.minor == 0x1)
+ 		hba->quirks |= UFSHCD_QUIRK_EXTENDED_TX_EQTR_ADAPT_LENGTH_L0L1L2L3;
  
 +	/*
 +	 * Some khaje/bengal downstream trees force legacy DME timing quirks
@@ -17827,7 +17589,7 @@ index 9c0973a7f..28b370f5b 100644
  	if (drvdata && drvdata->quirks)
  		hba->quirks |= drvdata->quirks;
  }
-@@ -1393,6 +1412,18 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
+@@ -1415,6 +1433,18 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
  	hba->caps |= UFSHCD_CAP_AGGR_POWER_COLLAPSE;
  	hba->caps |= UFSHCD_CAP_RPM_AUTOSUSPEND;
  
@@ -17846,7 +17608,7 @@ index 9c0973a7f..28b370f5b 100644
  	if (host->hw_ver.major >= 0x7)
  		hba->caps |= UFSHCD_CAP_TX_EQUALIZATION;
  
-@@ -1600,6 +1631,49 @@ static int ufs_qcom_init(struct ufs_hba *hba)
+@@ -1622,6 +1652,49 @@ static int ufs_qcom_init(struct ufs_hba *hba)
  		goto out_variant_clear;
  	}
  
@@ -17896,7 +17658,7 @@ index 9c0973a7f..28b370f5b 100644
  	ufs_qcom_get_controller_revision(hba, &host->hw_ver.major,
  		&host->hw_ver.minor, &host->hw_ver.step);
  
-@@ -1652,6 +1726,8 @@ static void ufs_qcom_exit(struct ufs_hba *hba)
+@@ -1674,6 +1747,8 @@ static void ufs_qcom_exit(struct ufs_hba *hba)
  	ufs_qcom_disable_lane_clks(host);
  	phy_power_off(host->generic_phy);
  	phy_exit(host->generic_phy);
@@ -17905,7 +17667,7 @@ index 9c0973a7f..28b370f5b 100644
  }
  
  static int ufs_qcom_fw_managed_init(struct ufs_hba *hba)
-@@ -1685,8 +1761,6 @@ static int ufs_qcom_fw_managed_init(struct ufs_hba *hba)
+@@ -1707,8 +1782,6 @@ static int ufs_qcom_fw_managed_init(struct ufs_hba *hba)
  	ufs_qcom_advertise_quirks(hba);
  	host->hba->quirks &= ~UFSHCD_QUIRK_REINIT_AFTER_MAX_GEAR_SWITCH;
  
@@ -17914,7 +17676,7 @@ index 9c0973a7f..28b370f5b 100644
  	ufs_qcom_set_host_params(hba);
  	ufs_qcom_parse_gear_limits(hba);
  
-@@ -2220,13 +2294,15 @@ static int ufs_qcom_device_reset(struct ufs_hba *hba)
+@@ -2242,13 +2315,15 @@ static int ufs_qcom_device_reset(struct ufs_hba *hba)
  
  	/*
  	 * The UFS device shall detect reset pulses of 1us, sleep for 10us to
@@ -17933,7 +17695,7 @@ index 9c0973a7f..28b370f5b 100644
  
  	return 0;
  }
-@@ -2993,6 +3069,8 @@ static const struct ufs_qcom_drvdata ufs_qcom_sa8255p_drvdata = {
+@@ -3012,6 +3087,8 @@ static const struct ufs_qcom_drvdata ufs_qcom_sa8255p_drvdata = {
  
  static const struct of_device_id ufs_qcom_of_match[] __maybe_unused = {
  	{ .compatible = "qcom,ufshc" },
@@ -17943,10 +17705,10 @@ index 9c0973a7f..28b370f5b 100644
  	{ .compatible = "qcom,sm8650-ufshc", .data = &ufs_qcom_sm8550_drvdata },
  	{ .compatible = "qcom,sa8255p-ufshc", .data = &ufs_qcom_sa8255p_drvdata },
 diff --git a/drivers/ufs/host/ufs-qcom.h b/drivers/ufs/host/ufs-qcom.h
-index 5d083331a..dc2c10c26 100644
+index a5ad5ce44..eedda6f35 100644
 --- a/drivers/ufs/host/ufs-qcom.h
 +++ b/drivers/ufs/host/ufs-qcom.h
-@@ -343,6 +343,8 @@ struct ufs_qcom_host {
+@@ -354,6 +354,8 @@ struct ufs_qcom_host {
  	struct reset_controller_dev rcdev;
  
  	struct gpio_desc *device_reset;
@@ -17956,10 +17718,10 @@ index 5d083331a..dc2c10c26 100644
  	struct ufs_host_params host_params;
  	u32 phy_gear;
 diff --git a/drivers/usb/dwc3/core.c b/drivers/usb/dwc3/core.c
-index 6f3c00b08..efc01eaf3 100644
+index fd5c2cd36..cbd53b92e 100644
 --- a/drivers/usb/dwc3/core.c
 +++ b/drivers/usb/dwc3/core.c
-@@ -2290,7 +2290,23 @@ int dwc3_core_probe(const struct dwc3_probe_data *data)
+@@ -2353,7 +2353,23 @@ int dwc3_core_probe(const struct dwc3_probe_data *data)
  
  	if (!dev_is_pci(dwc->sysdev) &&
  	    DWC3_GHWPARAMS0_AWIDTH(dwc->hwparams.hwparams0) == 64) {
@@ -18012,10 +17774,10 @@ index d3fad0fcf..06ed3cef6 100644
  };
  MODULE_DEVICE_TABLE(of, dwc3_qcom_of_match);
 diff --git a/drivers/usb/dwc3/gadget.c b/drivers/usb/dwc3/gadget.c
-index 1082e9c9a..459ee267b 100644
+index ee8372356..29e8ab241 100644
 --- a/drivers/usb/dwc3/gadget.c
 +++ b/drivers/usb/dwc3/gadget.c
-@@ -2427,13 +2427,13 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
+@@ -2448,7 +2448,7 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
  	int			ret;
  
  	if (!dwc->wakeup_configured) {
@@ -18024,14 +17786,16 @@ index 1082e9c9a..459ee267b 100644
  		return -EINVAL;
  	}
  
- 	spin_lock_irqsave(&dwc->lock, flags);
+@@ -2458,7 +2458,7 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
+ 		return -ESHUTDOWN;
+ 	}
  	if (!dwc->gadget->wakeup_armed) {
 -		dev_err(dwc->dev, "not armed for remote wakeup\n");
 +		dev_dbg_ratelimited(dwc->dev, "not armed for remote wakeup\n");
  		spin_unlock_irqrestore(&dwc->lock, flags);
  		return -EINVAL;
  	}
-@@ -2454,7 +2454,7 @@ static int dwc3_gadget_func_wakeup(struct usb_gadget *g, int intf_id)
+@@ -2479,7 +2479,7 @@ static int dwc3_gadget_func_wakeup(struct usb_gadget *g, int intf_id)
  	int			link_state;
  
  	if (!dwc->wakeup_configured) {
@@ -18064,681 +17828,62 @@ index b91a7b460..2cf571166 100644
  
  /* GCC resets */
  #define GCC_QUSB2PHY_PRIM_BCR					0
-diff --git a/sound/soc/codecs/lpass-macro-common.h b/sound/soc/codecs/lpass-macro-common.h
-index 10ad68201..6af9f380b 100644
---- a/sound/soc/codecs/lpass-macro-common.h
-+++ b/sound/soc/codecs/lpass-macro-common.h
-@@ -24,6 +24,7 @@ enum lpass_codec_version {
- 	LPASS_CODEC_VERSION_1_1,
- 	LPASS_CODEC_VERSION_1_2,
- 	LPASS_CODEC_VERSION_2_0,
-+	LPASS_CODEC_VERSION_2_2,
- 	LPASS_CODEC_VERSION_2_1,
- 	LPASS_CODEC_VERSION_2_5,
- 	LPASS_CODEC_VERSION_2_6,
-diff --git a/sound/soc/codecs/lpass-rx-macro.c b/sound/soc/codecs/lpass-rx-macro.c
-index 6233aa9f5..98455bb5b 100644
---- a/sound/soc/codecs/lpass-rx-macro.c
-+++ b/sound/soc/codecs/lpass-rx-macro.c
-@@ -1607,6 +1607,7 @@ static bool rx_is_rw_register(struct device *dev, unsigned int reg)
- 	case LPASS_CODEC_VERSION_1_2:
- 	case LPASS_CODEC_VERSION_2_0:
- 	case LPASS_CODEC_VERSION_2_1:
-+	case LPASS_CODEC_VERSION_2_2:
- 		return rx_pre_2_5_is_rw_register(dev, reg);
- 	case LPASS_CODEC_VERSION_2_5:
- 	case LPASS_CODEC_VERSION_2_6:
-@@ -3639,6 +3640,7 @@ static int rx_macro_component_probe(struct snd_soc_component *component)
- 	case LPASS_CODEC_VERSION_1_2:
- 	case LPASS_CODEC_VERSION_2_0:
- 	case LPASS_CODEC_VERSION_2_1:
-+	case LPASS_CODEC_VERSION_2_2:
- 		controls = rx_macro_def_snd_controls;
- 		num_controls = ARRAY_SIZE(rx_macro_def_snd_controls);
- 		widgets = rx_macro_def_dapm_widgets;
-@@ -3817,6 +3819,7 @@ static int rx_macro_probe(struct platform_device *pdev)
- 	case LPASS_CODEC_VERSION_1_2:
- 	case LPASS_CODEC_VERSION_2_0:
- 	case LPASS_CODEC_VERSION_2_1:
-+	case LPASS_CODEC_VERSION_2_2:
- 		rx->rxn_reg_stride = 0x80;
- 		rx->rxn_reg_stride2 = 0xc;
- 		def_count = ARRAY_SIZE(rx_defaults) + ARRAY_SIZE(rx_pre_2_5_defaults);
-@@ -3910,6 +3913,7 @@ static int rx_macro_probe(struct platform_device *pdev)
- 	pm_runtime_mark_last_busy(dev);
- 	pm_runtime_set_active(dev);
- 	pm_runtime_enable(dev);
-+	pm_runtime_forbid(dev);
- 
- 	ret = rx_macro_register_mclk_output(rx);
- 	if (ret)
-diff --git a/sound/soc/codecs/lpass-tx-macro.c b/sound/soc/codecs/lpass-tx-macro.c
-index f7d168f55..87c493124 100644
---- a/sound/soc/codecs/lpass-tx-macro.c
-+++ b/sound/soc/codecs/lpass-tx-macro.c
-@@ -2363,6 +2363,7 @@ static int tx_macro_probe(struct platform_device *pdev)
- 	pm_runtime_mark_last_busy(dev);
- 	pm_runtime_set_active(dev);
- 	pm_runtime_enable(dev);
-+	pm_runtime_forbid(dev);
- 
- 	ret = tx_macro_register_mclk_output(tx);
- 	if (ret)
-diff --git a/sound/soc/codecs/lpass-va-macro.c b/sound/soc/codecs/lpass-va-macro.c
-index 58a579882..ac2378035 100644
---- a/sound/soc/codecs/lpass-va-macro.c
-+++ b/sound/soc/codecs/lpass-va-macro.c
-@@ -1498,6 +1498,9 @@ static int va_macro_set_lpass_codec_version(struct va_macro *va)
- 		case 0:
- 			version = LPASS_CODEC_VERSION_2_0;
- 			break;
-+		case 2:
-+			version = LPASS_CODEC_VERSION_2_2;
-+			break;
- 		case 5:
- 			version = LPASS_CODEC_VERSION_2_5;
- 			break;
-@@ -1671,6 +1674,7 @@ static int va_macro_probe(struct platform_device *pdev)
- 	pm_runtime_mark_last_busy(dev);
- 	pm_runtime_set_active(dev);
- 	pm_runtime_enable(dev);
-+	pm_runtime_forbid(dev);
- 
- 	ret = va_macro_register_fsgen_output(va);
- 	if (ret)
-diff --git a/sound/soc/codecs/wcd937x-sdw.c b/sound/soc/codecs/wcd937x-sdw.c
-index 7a18bed7f..8b86e7d7c 100644
---- a/sound/soc/codecs/wcd937x-sdw.c
-+++ b/sound/soc/codecs/wcd937x-sdw.c
-@@ -132,7 +132,7 @@ static const struct reg_default wcd937x_defaults[] = {
- 	{ WCD937X_ANA_BIAS,					0x00 },
- 	{ WCD937X_ANA_RX_SUPPLIES,				0x00 },
- 	{ WCD937X_ANA_HPH,					0x0c },
--	{ WCD937X_ANA_EAR,					0x00 },
-+	{ WCD937X_ANA_EAR,					0x40 },
- 	{ WCD937X_ANA_EAR_COMPANDER_CTL,			0x02 },
- 	{ WCD937X_ANA_TX_CH1,					0x20 },
- 	{ WCD937X_ANA_TX_CH2,					0x00 },
-@@ -164,7 +164,7 @@ static const struct reg_default wcd937x_defaults[] = {
- 	{ WCD937X_MBHC_CTL_SPARE_1,				0x00 },
- 	{ WCD937X_MBHC_CTL_SPARE_2,				0x00 },
- 	{ WCD937X_MBHC_CTL_BCS,					0x00 },
--	{ WCD937X_MBHC_TEST_CTL,				0x00 },
-+	{ WCD937X_MBHC_TEST_CTL,				0x30 },
- 	{ WCD937X_LDOH_MODE,					0x2b },
- 	{ WCD937X_LDOH_BIAS,					0x68 },
- 	{ WCD937X_LDOH_STB_LOADS,				0x00 },
-diff --git a/sound/soc/codecs/wcd937x.c b/sound/soc/codecs/wcd937x.c
-index 72a53f95d..919b8ec40 100644
---- a/sound/soc/codecs/wcd937x.c
-+++ b/sound/soc/codecs/wcd937x.c
-@@ -3,7 +3,9 @@
- 
- #include <linux/component.h>
- #include <linux/delay.h>
-+#include <linux/debugfs.h>
- #include <linux/device.h>
-+#include <linux/fs.h>
- #include <linux/gpio/consumer.h>
- #include <linux/kernel.h>
- #include <linux/module.h>
-@@ -13,6 +15,7 @@
- #include <linux/regmap.h>
- #include <linux/regulator/consumer.h>
- #include <linux/slab.h>
-+#include <linux/uaccess.h>
- #include <sound/jack.h>
- #include <sound/pcm_params.h>
- #include <sound/pcm.h>
-@@ -112,6 +115,33 @@ static const char * const wcd937x_supplies[] = {
- 	"vdd-rxtx", "vdd-px", "vdd-mic-bias", "vdd-buck",
- };
- 
-+/*
-+ * Vendor configures the codec rails explicitly (cdc-vdd-buck 1.8 V / 650 mA,
-+ * cdc-vdd-rxtx 1.8 V / 10 mA).  Without the load hint the PMIC keeps these
-+ * rails in low-power mode (higher ripple).  Requires "regulator-allow-set-load"
-+ * on the regulators.
-+ */
-+static void wcd937x_config_supplies(struct device *dev)
-+{
-+	static const struct {
-+		const char *name;
-+		unsigned int uv, load;
-+	} cfg[] = {
-+		{ "vdd-buck", 1800000, 650000 },
-+		{ "vdd-rxtx", 1800000, 10000 },
-+	};
-+	struct regulator *r;
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(cfg); i++) {
-+		r = devm_regulator_get(dev, cfg[i].name);
-+		if (IS_ERR(r))
-+			continue;
-+		regulator_set_voltage(r, cfg[i].uv, cfg[i].uv);
-+		regulator_set_load(r, cfg[i].load);
-+	}
-+}
-+
- static const SNDRV_CTL_TLVD_DECLARE_DB_MINMAX(ear_pa_gain, 600, -1800);
- static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
- static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
-@@ -723,11 +753,11 @@ static int wcd937x_codec_enable_aux_pa(struct snd_soc_dapm_widget *w,
- 	switch (event) {
- 	case SND_SOC_DAPM_PRE_PMU:
- 		val = WCD937X_DIGITAL_PDM_WD_CTL2_EN |
--		      WCD937X_DIGITAL_PDM_WD_CTL2_TIMEOUT_SEL |
- 		      WCD937X_DIGITAL_PDM_WD_CTL2_HOLD_OFF;
- 		snd_soc_component_update_bits(component,
- 					      WCD937X_DIGITAL_PDM_WD_CTL2,
--					      WCD937X_DIGITAL_PDM_WD_CTL2_MASK,
-+					      WCD937X_DIGITAL_PDM_WD_CTL2_EN |
-+					      WCD937X_DIGITAL_PDM_WD_CTL2_HOLD_OFF,
- 					      val);
- 		break;
- 	case SND_SOC_DAPM_POST_PMU:
-@@ -736,22 +766,19 @@ static int wcd937x_codec_enable_aux_pa(struct snd_soc_dapm_widget *w,
- 			snd_soc_component_update_bits(component,
- 						      WCD937X_ANA_RX_SUPPLIES,
- 						      BIT(1), BIT(1));
--		/* Enable AUX PA related RX supplies */
--		snd_soc_component_update_bits(component,
--					      WCD937X_ANA_RX_SUPPLIES,
--					      BIT(6), BIT(6));
--		snd_soc_component_update_bits(component,
--					      WCD937X_ANA_RX_SUPPLIES,
-+		/*
-+		 * Vendor keeps the RX path muted until the analog path is fully
-+		 * up (bolero WCD_BOLERO_EVT_RX_MUTE at POST_PMU) and mutes it
-+		 * again before tearing it down (PRE_PMD), which is what removes
-+		 * the power-up transient and the click on stop.
-+		 */
-+		snd_soc_component_update_bits(component, WCD937X_AUX_AUXPA,
- 					      BIT(7), BIT(7));
- 		enable_irq(wcd937x->aux_pdm_wd_int);
- 		break;
- 	case SND_SOC_DAPM_PRE_PMD:
- 		disable_irq_nosync(wcd937x->aux_pdm_wd_int);
--		snd_soc_component_update_bits(component,
--					      WCD937X_ANA_RX_SUPPLIES,
--					      BIT(6), 0x00);
--		snd_soc_component_update_bits(component,
--					      WCD937X_ANA_RX_SUPPLIES,
-+		snd_soc_component_update_bits(component, WCD937X_AUX_AUXPA,
- 					      BIT(7), 0x00);
- 		break;
- 	case SND_SOC_DAPM_POST_PMD:
-@@ -762,7 +789,8 @@ static int wcd937x_codec_enable_aux_pa(struct snd_soc_dapm_widget *w,
- 					hph_mode);
- 		snd_soc_component_update_bits(component,
- 					      WCD937X_DIGITAL_PDM_WD_CTL2,
--					      WCD937X_DIGITAL_PDM_WD_CTL2_MASK,
-+					      WCD937X_DIGITAL_PDM_WD_CTL2_EN |
-+					      WCD937X_DIGITAL_PDM_WD_CTL2_HOLD_OFF,
- 					      0x00);
- 		break;
- 	}
-@@ -1367,8 +1395,8 @@ static int wcd937x_set_swr_port(struct snd_kcontrol *kcontrol,
+diff --git a/net/qrtr/ns.c b/net/qrtr/ns.c
+index bcb090ee7..e46977b8b 100644
+--- a/net/qrtr/ns.c
++++ b/net/qrtr/ns.c
+@@ -327,8 +327,43 @@ static int server_del(struct qrtr_node *node, unsigned int port, bool bcast)
+ 	return 0;
  }
  
- static const char * const rx_hph_mode_mux_text[] = {
--	"CLS_H_NORMAL", "CLS_H_INVALID", "CLS_H_HIFI", "CLS_H_LP", "CLS_AB",
--	"CLS_H_LOHIFI", "CLS_H_ULP", "CLS_AB_LP", "CLS_AB_HIFI",
-+	"CLS_H_INVALID", "CLS_H_HIFI", "CLS_H_LP", "CLS_AB",
-+	"CLS_H_LOHIFI", "CLS_H_ULP", "CLS_AB_HIFI",
- };
- 
- static const struct soc_enum rx_hph_mode_mux_enum =
-@@ -2047,6 +2075,48 @@ static void wcd937x_mbhc_deinit(struct snd_soc_component *component)
- 
- /* END MBHC */
- 
-+static const char * const wcd937x_aux_path_mode_text[] = {
-+	"HP_MODE", "NORMAL_MODE",
-+};
-+
-+static int wcd937x_aux_path_mode_get(struct snd_kcontrol *kcontrol,
-+				     struct snd_ctl_elem_value *ucontrol)
-+{
-+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
-+	int aux_mode;
-+
-+	aux_mode = (snd_soc_component_read(component,
-+			WCD937X_DIGITAL_CDC_PATH_MODE) & 0x40) >> 6;
-+	ucontrol->value.integer.value[0] = aux_mode;
-+
-+	return 0;
-+}
-+
-+static int wcd937x_aux_path_mode_put(struct snd_kcontrol *kcontrol,
-+				     struct snd_ctl_elem_value *ucontrol)
-+{
-+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
-+	int aux_mode = ucontrol->value.integer.value[0];
-+
-+	if (aux_mode) {
-+		snd_soc_component_update_bits(component,
-+			WCD937X_DIGITAL_CDC_PATH_MODE, 0x40, 0x40);
-+		snd_soc_component_update_bits(component,
-+			WCD937X_AUX_AUXPA, 0x10, 0x10);
-+	} else {
-+		snd_soc_component_update_bits(component,
-+			WCD937X_DIGITAL_CDC_PATH_MODE, 0x40, 0x00);
-+		snd_soc_component_update_bits(component,
-+			WCD937X_AUX_AUXPA, 0x10, 0x00);
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct soc_enum wcd937x_aux_path_mode_enum =
-+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(wcd937x_aux_path_mode_text),
-+			    wcd937x_aux_path_mode_text);
-+
- static const struct snd_kcontrol_new wcd937x_snd_controls[] = {
- 	SOC_SINGLE_TLV("EAR_PA Volume", WCD937X_ANA_EAR_COMPANDER_CTL,
- 		       2, 0x10, 0, ear_pa_gain),
-@@ -2096,6 +2166,8 @@ static const struct snd_kcontrol_new wcd937x_snd_controls[] = {
- 		       wcd937x_get_swr_port, wcd937x_set_swr_port),
- 	SOC_SINGLE_EXT("DMIC5 Switch", WCD937X_DMIC5, 1, 1, 0,
- 		       wcd937x_get_swr_port, wcd937x_set_swr_port),
-+	SOC_ENUM_EXT("AUX PATH Mode", wcd937x_aux_path_mode_enum,
-+		     wcd937x_aux_path_mode_get, wcd937x_aux_path_mode_put),
- };
- 
- static const struct snd_kcontrol_new adc1_switch[] = {
-@@ -2495,6 +2567,51 @@ static int wcd937x_irq_init(struct wcd937x_priv *wcd, struct device *dev)
- 					&wcd->irq_chip);
- }
- 
-+#ifdef CONFIG_DEBUG_FS
 +/*
-+ * Bring-up helper: raw codec register poke via debugfs.
-+ *   echo "30b4 1" > /sys/kernel/debug/wcd937x-reg   (write)
-+ *   echo "30b4"   > /sys/kernel/debug/wcd937x-reg   (read -> dmesg)
-+ * Remove before upstreaming.
++ * sm6225/khaje: the modem firmware on this platform still expects the
++ * legacy HELLO handshake before it registers its services.  Upstream
++ * dropped say_hello(); without it the modem's qrtr init never completes
++ * and its watchdog fires ("DOG detects stalled initialization").
 + */
-+static struct snd_soc_component *wcd937x_dbg_comp;
-+
-+static ssize_t wcd937x_reg_write(struct file *file, const char __user *ubuf,
-+				 size_t count, loff_t *ppos)
++static int say_hello(struct sockaddr_qrtr *dest)
 +{
-+	char buf[64];
-+	unsigned int addr, val;
++	struct qrtr_ctrl_pkt pkt;
++	struct msghdr msg = { };
++	struct kvec iv;
 +	int ret;
 +
-+	if (count >= sizeof(buf))
-+		return -EINVAL;
-+	if (copy_from_user(buf, ubuf, count))
-+		return -EFAULT;
-+	buf[count] = '\0';
++	iv.iov_base = &pkt;
++	iv.iov_len = sizeof(pkt);
 +
-+	if (!wcd937x_dbg_comp)
-+		return -ENODEV;
++	memset(&pkt, 0, sizeof(pkt));
++	pkt.cmd = cpu_to_le32(QRTR_TYPE_HELLO);
 +
-+	if (sscanf(buf, "%x %x", &addr, &val) == 2) {
-+		ret = snd_soc_component_write(wcd937x_dbg_comp, addr, val);
-+		pr_info("wcd937x-dbg: W 0x%x = 0x%x ret=%d\n", addr, val, ret);
-+	} else if (sscanf(buf, "%x", &addr) == 1) {
-+		ret = snd_soc_component_read(wcd937x_dbg_comp, addr);
-+		pr_info("wcd937x-dbg: R 0x%x = 0x%x\n", addr, ret);
-+	} else {
-+		return -EINVAL;
-+	}
++	msg.msg_name = (struct sockaddr *)dest;
++	msg.msg_namelen = sizeof(*dest);
 +
-+	return count;
++	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
++	if (ret < 0)
++		pr_err("failed to send hello msg\n");
++
++	return ret;
 +}
 +
-+static const struct file_operations wcd937x_reg_fops = {
-+	.open = simple_open,
-+	.write = wcd937x_reg_write,
-+	.llseek = default_llseek,
-+};
-+#endif
-+
- static int wcd937x_soc_codec_probe(struct snd_soc_component *component)
+ static int ctrl_cmd_hello(struct sockaddr_qrtr *sq)
  {
- 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
-@@ -2513,6 +2630,10 @@ static int wcd937x_soc_codec_probe(struct snd_soc_component *component)
- 	}
- 
- 	snd_soc_component_init_regmap(component, wcd937x->regmap);
-+#ifdef CONFIG_DEBUG_FS
-+	wcd937x_dbg_comp = component;
-+	debugfs_create_file("wcd937x-reg", 0200, NULL, NULL, &wcd937x_reg_fops);
-+#endif
- 	ret = pm_runtime_resume_and_get(dev);
- 	if (ret < 0)
- 		return ret;
-@@ -2531,6 +2652,9 @@ static int wcd937x_soc_codec_probe(struct snd_soc_component *component)
- 		return PTR_ERR(wcd937x->clsh_info);
- 	}
- 
-+	/* vendor default for the RX/AUX class-H path */
-+	wcd937x->hph_mode = CLS_H_ULP;
++	int ret;
 +
- 	wcd937x_io_init(wcd937x->regmap);
- 	/* Set all interrupts as edge triggered */
- 	for (i = 0; i < wcd937x_regmap_irq_chip.num_regs; i++)
-@@ -2931,6 +3055,8 @@ static int wcd937x_probe(struct platform_device *pdev)
- 	cfg = &wcd937x->mbhc_cfg;
- 	cfg->swap_gnd_mic = wcd937x_swap_gnd_mic;
- 
-+	wcd937x_config_supplies(dev);
++	ret = say_hello(sq);
++	if (ret < 0)
++		return ret;
 +
- 	ret = devm_regulator_bulk_get_enable(dev, ARRAY_SIZE(wcd937x_supplies),
- 					     wcd937x_supplies);
- 	if (ret)
-@@ -2953,19 +3079,21 @@ static int wcd937x_probe(struct platform_device *pdev)
- 
- 	ret = wcd937x_add_slave_components(wcd937x, dev, &match);
- 	if (ret)
--		return ret;
-+		return dev_err_probe(dev, ret, "failed to find slave components\n");
- 
- 	wcd937x_reset(wcd937x);
- 
- 	ret = component_master_add_with_match(dev, &wcd937x_comp_ops, match);
- 	if (ret)
--		return ret;
-+		return dev_err_probe(dev, ret, "failed to add component master\n");
- 
- 	pm_runtime_set_autosuspend_delay(dev, 1000);
- 	pm_runtime_use_autosuspend(dev);
- 	pm_runtime_mark_last_busy(dev);
- 	pm_runtime_set_active(dev);
- 	pm_runtime_enable(dev);
-+	/* keep the codec powered: the suspend path pops/clicks on teardown */
-+	pm_runtime_forbid(dev);
- 	pm_runtime_idle(dev);
- 
- 	return 0;
-@@ -2984,6 +3112,7 @@ static void wcd937x_remove(struct platform_device *pdev)
- 
- #if defined(CONFIG_OF)
- static const struct of_device_id wcd937x_of_match[] = {
-+	{ .compatible = "qcom,wcd937x-codec" },
- 	{ .compatible = "qcom,wcd9370-codec" },
- 	{ .compatible = "qcom,wcd9375-codec" },
- 	{ }
-diff --git a/sound/soc/qcom/qdsp6/q6asm-dai.c b/sound/soc/qcom/qdsp6/q6asm-dai.c
-index 4f09fdd40..d2aaef173 100644
---- a/sound/soc/qcom/qdsp6/q6asm-dai.c
-+++ b/sound/soc/qcom/qdsp6/q6asm-dai.c
-@@ -222,6 +222,8 @@ static int q6asm_dai_prepare(struct snd_soc_component *component,
- 	}
- 
- 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
-+	/* appl_ptr is reset by prepare(); keep the queue pointer in sync */
-+	prtd->queue_ptr = 0;
- 	/* rate and channels are sent to audio driver */
- 	if (prtd->state == Q6ASM_STREAM_RUNNING) {
- 		/* clear the previous setup if any  */
-@@ -313,14 +315,29 @@ static int q6asm_dai_ack(struct snd_soc_component *component, struct snd_pcm_sub
- {
- 	struct snd_pcm_runtime *runtime = substream->runtime;
- 	struct q6asm_dai_rtd *prtd = runtime->private_data;
-+	snd_pcm_sframes_t avail;
- 	int i, ret = 0, avail_periods;
- 
- 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK && prtd->state == Q6ASM_STREAM_RUNNING) {
--		avail_periods = (runtime->control->appl_ptr - prtd->queue_ptr)/runtime->period_size;
-+		avail = runtime->control->appl_ptr - prtd->queue_ptr;
-+		/*
-+		 * appl_ptr wraps at the ALSA boundary and is reset by prepare(),
-+		 * while queue_ptr is monotonic.  A negative delta therefore means
-+		 * we lost sync (e.g. after an XRUN): resync instead of turning the
-+		 * difference into a huge unsigned period count.
-+		 */
-+		if (avail < 0) {
-+			prtd->queue_ptr = runtime->control->appl_ptr;
-+			return 0;
-+		}
-+
-+		avail_periods = avail / runtime->period_size;
-+		if (avail_periods > runtime->periods)
-+			avail_periods = runtime->periods;
-+
- 		for (i = 0; i < avail_periods; i++) {
- 			ret = q6asm_write_async(prtd->audio_client, prtd->stream_id,
- 					   prtd->pcm_count, 0, 0, 0);
--
- 			if (ret < 0) {
- 				dev_err(component->dev, "Error queuing playback buffer %d\n", ret);
- 				return ret;
-@@ -360,6 +377,9 @@ static int q6asm_dai_trigger(struct snd_soc_component *component,
- 		break;
- 	}
- 
-+	/* some DSP commands return a positive token; trigger expects 0/err */
-+	if (ret > 0)
-+		ret = 0;
- 	return ret;
+ 	return announce_servers(sq);
  }
  
-diff --git a/sound/soc/qcom/qdsp6/q6core.c b/sound/soc/qcom/qdsp6/q6core.c
-index 48825756a..f514d8e0d 100644
---- a/sound/soc/qcom/qdsp6/q6core.c
-+++ b/sound/soc/qcom/qdsp6/q6core.c
-@@ -10,6 +10,8 @@
- #include <linux/of.h>
- #include <linux/of_platform.h>
- #include <linux/jiffies.h>
-+#include <linux/delay.h>
-+#include <linux/workqueue.h>
- #include <linux/soc/qcom/apr.h>
- #include "q6core.h"
- #include "q6dsp-errno.h"
-@@ -23,6 +25,30 @@
- #define AVCS_CMD_GET_FWK_VERSION	0x001292c
- #define AVCS_CMDRSP_GET_FWK_VERSION	0x001292d
+@@ -745,6 +780,10 @@ int qrtr_ns_init(void)
+ 	qrtr_ns.bcast_sq.sq_node = QRTR_NODE_BCAST;
+ 	qrtr_ns.bcast_sq.sq_port = QRTR_PORT_CTRL;
  
-+/* Khaje-era LPASS island power via AVCS NPA (sent on ADSP core svc) */
-+#define AVCS_CMD_CREATE_LPASS_NPA_CLIENT	0x00012985
-+#define AVCS_CMDRSP_CREATE_LPASS_NPA_CLIENT	0x00012986
-+#define AVCS_CMD_REQUEST_LPASS_NPA_RESOURCES	0x00012987
-+#define AVCS_SLEEP_ISLAND_CORE_DRIVER_NODE_ID	0x00000001
-+#define AVCS_SLEEP_NODE_ISLAND_TRANSITION_RSC	0x00000001
-+#define SLEEP_RESTRICT_ISLAND			0x0
++	ret = say_hello(&qrtr_ns.bcast_sq);
++	if (ret < 0)
++		goto err_wq;
 +
-+struct avcs_cmd_create_lpass_npa_client {
-+	uint32_t node_id;
-+	char client_name[16];
-+} __packed;
-+
-+struct avcs_cmdrsp_create_lpass_npa_client {
-+	uint32_t status;
-+	uint32_t client_handle;
-+} __packed;
-+
-+struct avcs_cmd_request_lpass_npa_resources {
-+	uint32_t client_handle;
-+	uint32_t resource_id;
-+	uint32_t island_allow_mode;
-+} __packed;
-+
- struct avcs_svc_info {
- 	uint32_t service_id;
- 	uint32_t version;
-@@ -63,6 +89,9 @@ struct q6core {
- 	bool get_state_supported;
- 	bool get_version_supported;
- 	bool is_version_requested;
-+	uint32_t npa_client_handle;
-+	uint32_t npa_status;
-+	struct delayed_work npa_work;
- };
- 
- static struct q6core *g_core;
-@@ -93,9 +122,23 @@ static int q6core_callback(struct apr_device *adev, const struct apr_resp_pkt *d
- 				core->get_state_supported = false;
- 			core->resp_received = true;
- 			break;
-+		case AVCS_CMD_REQUEST_LPASS_NPA_RESOURCES:
-+		case AVCS_CMD_CREATE_LPASS_NPA_CLIENT:
-+			core->npa_status = result->status;
-+			core->resp_received = true;
-+			break;
- 		}
- 		break;
- 	}
-+	case AVCS_CMDRSP_CREATE_LPASS_NPA_CLIENT: {
-+		const struct avcs_cmdrsp_create_lpass_npa_client *rsp;
-+
-+		rsp = data->payload;
-+		core->npa_status = rsp->status;
-+		core->npa_client_handle = rsp->client_handle;
-+		core->resp_received = true;
-+		break;
-+	}
- 	case AVCS_CMDRSP_GET_FWK_VERSION: {
- 		struct avcs_cmdrsp_get_fwk_version *fwk;
- 
-@@ -325,6 +368,98 @@ bool q6core_is_adsp_ready(void)
- }
- EXPORT_SYMBOL_GPL(q6core_is_adsp_ready);
- 
-+static int q6core_send_wait(struct q6core *core, struct apr_pkt *pkt)
-+{
-+	int rc;
-+
-+	core->resp_received = false;
-+	rc = apr_send_pkt(core->adev, pkt);
-+	if (rc < 0)
-+		return rc;
-+
-+	rc = wait_event_timeout(core->wait, core->resp_received,
-+				msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS));
-+	return rc > 0 ? 0 : -ETIMEDOUT;
-+}
-+
-+/*
-+ * On Khaje-era firmware the LPASS island is powered by an NPA resource
-+ * vote on the ADSP core service, not by the AFE hw-block vote (which
-+ * times out). Create a client on /island/core/drivers and request the
-+ * island-transition resource to keep the island awake permanently.
-+ */
-+static int q6core_lpass_island_vote(struct q6core *core)
-+{
-+	struct apr_pkt *pkt;
-+	struct avcs_cmd_create_lpass_npa_client *create;
-+	struct avcs_cmd_request_lpass_npa_resources *req;
-+	struct device *dev = &core->adev->dev;
-+	int rc, pkt_size;
-+
-+	pkt_size = APR_HDR_SIZE + sizeof(*create);
-+	pkt = kzalloc(pkt_size, GFP_KERNEL);
-+	if (!pkt)
-+		return -ENOMEM;
-+
-+	pkt->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-+					   APR_HDR_LEN(APR_HDR_SIZE),
-+					   APR_PKT_VER);
-+	pkt->hdr.pkt_size = pkt_size;
-+	pkt->hdr.opcode = AVCS_CMD_CREATE_LPASS_NPA_CLIENT;
-+	create = (void *)pkt + APR_HDR_SIZE;
-+	create->node_id = AVCS_SLEEP_ISLAND_CORE_DRIVER_NODE_ID;
-+	strscpy(create->client_name, "linux-lpass-vote",
-+		sizeof(create->client_name));
-+
-+	rc = q6core_send_wait(core, pkt);
-+	kfree(pkt);
-+	if (rc || core->npa_status) {
-+		dev_err(dev, "LPASS npa client create failed: rc=%d st=%u\n",
-+			rc, core->npa_status);
-+		return rc ? rc : -EIO;
-+	}
-+	dev_dbg(dev, "LPASS npa client created, handle=%u\n",
-+		core->npa_client_handle);
-+
-+	pkt_size = APR_HDR_SIZE + sizeof(*req);
-+	pkt = kzalloc(pkt_size, GFP_KERNEL);
-+	if (!pkt)
-+		return -ENOMEM;
-+
-+	pkt->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-+					   APR_HDR_LEN(APR_HDR_SIZE),
-+					   APR_PKT_VER);
-+	pkt->hdr.pkt_size = pkt_size;
-+	pkt->hdr.opcode = AVCS_CMD_REQUEST_LPASS_NPA_RESOURCES;
-+	req = (void *)pkt + APR_HDR_SIZE;
-+	req->client_handle = core->npa_client_handle;
-+	req->resource_id = AVCS_SLEEP_NODE_ISLAND_TRANSITION_RSC;
-+	req->island_allow_mode = SLEEP_RESTRICT_ISLAND;
-+
-+	rc = q6core_send_wait(core, pkt);
-+	kfree(pkt);
-+	if (rc || core->npa_status) {
-+		dev_err(dev, "LPASS island vote failed: rc=%d st=%u\n",
-+			rc, core->npa_status);
-+		return rc ? rc : -EIO;
-+	}
-+	dev_dbg(dev, "LPASS island vote OK\n");
-+	return 0;
-+}
-+
-+static void q6core_npa_vote_work(struct work_struct *w)
-+{
-+	struct q6core *core = container_of(w, struct q6core, npa_work.work);
-+	int i;
-+
-+	/* retry a few times — PDR/audio_pd domain may not be up yet */
-+	for (i = 0; i < 10; i++) {
-+		if (q6core_lpass_island_vote(core) == 0)
-+			return;
-+		msleep(2000);
-+	}
-+}
-+
- static int q6core_probe(struct apr_device *adev)
- {
- 	g_core = kzalloc_obj(*g_core);
-@@ -336,6 +471,8 @@ static int q6core_probe(struct apr_device *adev)
- 	mutex_init(&g_core->lock);
- 	g_core->adev = adev;
- 	init_waitqueue_head(&g_core->wait);
-+	/* NPA island vote: khaje ADSP replies ENOTIMPL(17) — disabled */
-+	INIT_DELAYED_WORK(&g_core->npa_work, q6core_npa_vote_work);
- 	return 0;
- }
- 
-@@ -343,6 +480,7 @@ static void q6core_exit(struct apr_device *adev)
- {
- 	struct q6core *core = dev_get_drvdata(&adev->dev);
- 
-+	cancel_delayed_work_sync(&core->npa_work);
- 	if (core->fwk_version_supported)
- 		kfree(core->fwk_version);
- 	if (core->get_version_supported)
-diff --git a/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c b/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
-index 03838582a..aa03c46cb 100644
---- a/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
-+++ b/sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c
-@@ -144,6 +144,17 @@ int q6dsp_clock_dev_probe(struct platform_device *pdev)
- 
- 	cc->desc = desc;
- 	cc->dev = dev;
-+
-+	/*
-+	 * Publish the drvdata before any clock is registered: registering a
-+	 * clock runs clk_core_reparent_orphans(), which may prepare/enable a
-+	 * newly found parent through clk_q6dsp_prepare().  That callback
-+	 * reads the drvdata back, so with it set only at the end of probe it
-+	 * dereferences NULL and takes the whole SoC down as soon as the ADSP
-+	 * is restarted (q6afe re-probe).
-+	 */
-+	dev_set_drvdata(dev, cc);
-+
- 	q6dsp_clks = desc->clks;
- 
- 	for (i = 0; i < desc->num_clks; i++) {
-@@ -178,8 +189,6 @@ int q6dsp_clock_dev_probe(struct platform_device *pdev)
- 	if (ret)
- 		return ret;
- 
--	dev_set_drvdata(dev, cc);
--
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(q6dsp_clock_dev_probe);
+ 	/* As the qrtr ns socket owner and creator is the same module, we have
+ 	 * to decrease the qrtr module reference count to guarantee that it
+ 	 * remains zero after the ns socket is created, otherwise, executing

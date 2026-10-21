@@ -151,17 +151,17 @@ sudo chmod 644 "$RF/var/lib/dbus/machine-id"
 
 echo "=== [4/6] modules + firmware + rain-overlay ==="
 # Kernel modules from the Redmi10c build tree (make modules_install staging).
-if [ -n "$REDMI" ] && [ -d "$REDMI/out/build/linux-7.1.5" ]; then
-  MODVER=$(ls "$REDMI/out/build/linux-7.1.5/lib/modules" 2>/dev/null | head -1 || true)
+if [ -n "$REDMI" ] && [ -d "$REDMI/out/build/linux-7.3" ]; then
+  MODVER=$(ls "$REDMI/out/build/linux-7.3/lib/modules" 2>/dev/null | head -1 || true)
   if [ -z "$MODVER" ]; then
     echo ">> no staged modules; run in $REDMI:"
-    echo "   make -C out/src/linux O=out/build/linux-7.1.5 ARCH=arm64 \\"
+    echo "   make -C out/src/linux O=out/build/linux-7.3 ARCH=arm64 \\"
     echo "     CROSS_COMPILE=aarch64-linux-gnu- modules -j$(nproc)"
-    echo "   make -C out/src/linux O=out/build/linux-7.1.5 ARCH=arm64 \\"
-    echo "     CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=out/build/linux-7.1.5 modules_install"
+    echo "   make -C out/src/linux O=out/build/linux-7.3 ARCH=arm64 \\"
+    echo "     CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=out/build/linux-7.3 modules_install"
   else
     sudo mkdir -p "$RF/lib/modules"
-    sudo rsync -a --delete "$REDMI/out/build/linux-7.1.5/lib/modules/$MODVER/" \
+    sudo rsync -a --delete "$REDMI/out/build/linux-7.3/lib/modules/$MODVER/" \
       "$RF/lib/modules/$MODVER/"
     echo ">> modules $MODVER staged"
   fi

@@ -9,7 +9,7 @@ ARCH=arm64
 # Пусто = нативная сборка (например, на aarch64-хосте): `${VAR-...}`, а не
 # `${VAR:-...}`, чтобы явный CROSS_COMPILE= не подменялся кросс-префиксом.
 CROSS_COMPILE="${CROSS_COMPILE-aarch64-linux-gnu-}"
-KERNEL_TAG="${KERNEL_TAG:-v7.1.5}"
+KERNEL_TAG="${KERNEL_TAG:-v7.3}"
 BUSYBOX_TAG="${BUSYBOX_TAG:-1_36_1}"
 TINYALSA_TAG="${TINYALSA_TAG:-1.1.1}"
 
@@ -20,7 +20,7 @@ MAINLINE="$SRC/linux"
 BUSYBOX_SRC="$SRC/busybox"
 TINYALSA_SRC="$SRC/tinyalsa"
 MKBOOTIMG_SRC="$SRC/mkbootimg"
-KERN_OUT="$BUILD/linux-7.1.5"
+KERN_OUT="$BUILD/linux-7.3"
 IR="$BUILD/initramfs"
 
 check_deps() {
