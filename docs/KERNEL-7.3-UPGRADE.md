@@ -12,8 +12,8 @@
 ветку `kernel` с аудио.
 
 ```
-pre-stable-2026-10-21 ──┬── stable ──(7.3)── stable-7.3
-                        └── kernel ──(rebase на stable-7.3)── kernel-7.3
+pre-stable-2026-10-21 ──┬── stable ──(7.3)── v7.3
+                        └── kernel ──(rebase на v7.3)── kernel-7.3
 ```
 
 ## Шаг 0. Подготовка (без риска)
@@ -140,7 +140,7 @@ rm -rf out/src/linux out/build/linux-7.1.5     # чистое дерево
 
 ```sh
 git checkout kernel
-git rebase --onto stable-7.3 pre-stable-2026-10-21 kernel
+git rebase --onto v7.3 pre-stable-2026-10-21 kernel
 ```
 Конфликты будут в `sound/soc/*` и `q6dsp` — там наши правки самые большие.
 После — заново проверить, что карта регистрируется (даже если звук не играет,
@@ -171,7 +171,7 @@ git rebase --onto stable-7.3 pre-stable-2026-10-21 kernel
 
 # Результат (2026-10-21) — выполнено
 
-Ветка `stable-7.3`, база **Linux 7.3**, патч уменьшился с 94 до **85 файлов**.
+Ветка `v7.3`, база **Linux 7.3**, патч уменьшился с 94 до **85 файлов**.
 
 ## Разбор конфликтов: 21 отклонённая хунка
 
