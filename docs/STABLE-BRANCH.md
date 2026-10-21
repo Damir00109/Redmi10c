@@ -1,0 +1,68 @@
+# Ветка `stable` — база без аудио
+
+Создана 2026-10-21 от `kernel` (тег `pre-stable-2026-10-21`).
+
+## Зачем
+
+Аудио — единственный блок, который стабильно не работал и тянул за собой риск:
+в `docs/audio/CAPTURE.md` зафиксированы hard lockup'и CPU при `SND=y` с
+включёнными LPASS-макросами, а на момент создания ветки PCM вообще падал с
+`EIO` (FE→BE не активируется в DAPM).
+
+Остальные подсистемы работают, поэтому в этой ветке вырезано **только аудио**,
+чтобы иметь стабильную точку отсчёта. Разработка звука продолжается на ветке
+`kernel`.
+
+## Что вырезано
+
+| Что | Как |
+|---|---|
+| ALSA целиком | `# CONFIG_SND is not set` в `kernel.config` (было 349 упоминаний SND, стало 0) |
+| Карта `sound` | `status = "disabled"` |
+| Кодек `wcd937x` | `status = "disabled"` |
+| RX/VA макросы LPASS | `status = "disabled"` |
+| SoundWire `swr0`/`swr1` | `status = "disabled"` |
+
+## Что НЕ вырезано и почему
+
+- **PulseAudio остаётся включённым**: BT-аудио (A2DP) идёт через BT-чип и
+  ALSA-карту не использует, `module-bluez5-device` работает без неё.
+- **AW87xxx / FS1599 узлы в DT** остались, но без SND их драйверы не
+  участвуют в звуковом тракте (aw87xxx — отдельный misc-драйвер, он просто
+  висит в профиле `off`).
+- Всё остальное (камера, Wi-Fi, BT, модем, UFS, зарядка, suspend) не тронуто.
+
+## Проверено на железе (2026-10-21)
+
+| Проверка | Результат |
+|---|---|
+| Загрузка | `systemd: running`, **0 failed units** |
+| ALSA | карт нет (`/proc/asound/cards` отсутствует) |
+| WARN/Oops в dmesg | **0** |
+| Wi-Fi | `wlan0 UP`, 192.168.0.146/24 |
+| Bluetooth | `hci0 UP RUNNING` |
+| Камера | 12 видеоузлов |
+| Питание | `bms`: Full, 100 % |
+| Suspend/resume | `suspend_stats: success=1, fail=0`, разбудил RTC-алярм |
+| PulseAudio | `active` (для BT-аудио) |
+
+## Сборка и прошивка
+
+```sh
+./tools/rebuild-rescue.sh
+./rootfs/tools/pack-boot-linux.sh
+fastboot boot rootfs/out/boot-linux.img     # проверка
+fastboot flash boot_b rootfs/out/boot-linux.img
+```
+
+## Как вернуть аудио
+
+Ветка `kernel` (тег `pre-stable-2026-10-21`) содержит полное аудио и всю
+историю экспериментов: `docs/audio/ANDROID-ROUTES.md` (вендорские маршруты,
+снятые с Android), `docs/audio/CAPTURE.md`, `docs/audio/SPEAKERS.md`.
+
+Порядок возврата (по возрастанию сложности): динамик → разговорный динамик →
+микрофон → наушники. Точка отказа на момент заморозки: PCM отдаёт EIO, потому
+что `q6routing` не соединяет FE с BE (DAPM оставляет `MM_DL1` и BE-микшер
+выключенными), а ADSP-прошивка умеет только APR, так что апстримный
+AudioReach-путь (`q6apm`/GPR) недоступен.

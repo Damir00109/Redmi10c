@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..770d7cc9e
+index 000000000..ff0a827cc
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1341 @@
+@@ -0,0 +1,1343 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -1079,8 +1079,9 @@ index 000000000..770d7cc9e
 +
 +/* Exclusive with &wifi — same MMIO @ 0xc800000 */
 +
++/* Audio is disabled on the stable branch — see docs/STABLE-BRANCH.md */
 +&lpass_rx_macro {
-+	status = "okay";
++	status = "disabled";
 +};
 +
 +&lpass_tx_macro {
@@ -1088,11 +1089,11 @@ index 000000000..770d7cc9e
 +};
 +
 +&lpass_va_macro {
-+	status = "okay";
++	status = "disabled";
 +};
 +
 +&swr0 {
-+	status = "okay";
++	status = "disabled";
 +
 +	/* WCD937x RX half on the rx SoundWire master (speaker/hp path) */
 +	wcd937x_rx: codec@0,4 {
@@ -1105,7 +1106,7 @@ index 000000000..770d7cc9e
 +};
 +
 +&swr1 {
-+	status = "okay";
++	status = "disabled";
 +
 +	/* WCD937x TX half on the VA SoundWire master (mic capture) */
 +	wcd937x_tx: codec@0,3 {
@@ -1125,6 +1126,7 @@ index 000000000..770d7cc9e
 +/ {
 +	wcd937x: audio-codec-0 {
 +		compatible = "qcom,wcd937x-codec";
++		status = "disabled";
 +		qcom,split-codec;
 +
 +		reset-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
@@ -1152,7 +1154,7 @@ index 000000000..770d7cc9e
 +
 +sound: sound {
 +	compatible = "fairphone,fp5-sndcard";
-+	status = "okay";
++	status = "disabled";
 +	model = "Xiaomi-Redmi10C";
 +
 +	/* Vendor speaker path: codec RX2/AUX -> aw87xxx PA -> speaker */
