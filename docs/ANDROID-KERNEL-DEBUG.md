@@ -190,3 +190,71 @@ CONFIG_KALLSYMS_ALL=y
 CONFIG_I2C_CHARDEV=y
 CONFIG_PSTORE_RAM=y
 ```
+
+---
+
+# Проверка сборки от 2026-10-22 (ветка LineageOS, ядро 4.19.325-Sakayori)
+
+Проверено на устройстве через adb.
+
+## Что работает
+
+- Ядро собрано и грузится: `4.19.325-cip136-st20-Sakayori #1`.
+- Камера в ядре есть: `cam_cci` — 48 символов в `/proc/kallsyms`, камера
+  открывается (клиент активен на ID 0), устройства перечисляются (6 шт).
+- Из фрагмента `fog-debug.config` реально включились: `DEBUG_FS`,
+  `DEBUG_INFO`, `DYNAMIC_DEBUG`, `FTRACE`, `FUNCTION_TRACER`, `KPROBES`,
+  `UPROBES`, `I2C_CHARDEV`, `KALLSYMS_ALL`, `LOG_BUF_SHIFT=21`, `PSTORE_RAM`.
+- `i2c_geni` логирует FIFO-трафик (`FIFO i:1,wrote 0x3c`) — но это geni-i2c
+  (зарядка и т.п.), камера идёт через **CCI**, так что для сенсора бесполезно.
+
+## Почему логирования камеры нет
+
+1. При активном стриме (OpenCamera, camera ID 0) — **0 строк `CAM_DBG`**.
+2. В ядре **нет** `cam_printk` и `__param_debug_mdl`
+   (`grep cam_printk /proc/kallsyms` = 0) — то есть `cam_debug_util.c`
+   не собран, а значит `CAM_DBG` вырезан целиком.
+3. Поэтому параметр `cam_utils.debug_mdl=0xffffffff` из cmdline — мёртвый:
+   `/sys/module/*/parameters/debug_mdl` не существует ни у одного модуля.
+4. В `fog-debug.config` **нет ни одной опции камеры**.
+
+## Корневая причина (наиболее вероятная)
+
+Камера на Khaje включается не через `.config`, а через Makefile-переменные:
+
+```
+techpack/camera-bengal/config/bengalcamera.conf:  export CONFIG_SPECTRA_CAMERA=y   ← есть
+techpack/camera-bengal/config/khajecamera.conf:   ...                             ← НЕТ
+```
+
+`khajecamera.conf` экспортирует только `CONFIG_SPECTRA_CAMERA_BENGAL/OPE/TFE/SENSOR`,
+но **не** `CONFIG_SPECTRA_CAMERA`. А подкаталоги внутри `drivers/`
+(`cam_utils/`, `cam_sensor_module/` и остальные) гейтятся именно на
+`CONFIG_SPECTRA_CAMERA`. Отсюда: часть стека собирается, а `cam_utils`
+с отладочной печатью — нет.
+
+## Что исправить
+
+1. В `techpack/camera-bengal/config/khajecamera.conf` добавить:
+   ```
+   export CONFIG_SPECTRA_CAMERA=y
+   ```
+2. В конфиг ядра добавить `CONFIG_SPECTRA_CAMERA=y` (menuconfig в
+   `drivers/media/platform/msm/Kconfig`) — чтобы символ был и в `.config`.
+3. `CONFIG_IKCONFIG=y` + `CONFIG_IKCONFIG_PROC=y` — сейчас `/proc/config.gz`
+   на устройстве **чужой** (пишет «4.19.157»), проверить конфиг нельзя.
+4. Смонтировать debugfs в init: `mount -t debugfs none /sys/kernel/debug`
+   (сейчас не смонтирован, `/sys/kernel/debug/camera` недоступен).
+
+## Как проверить после пересборки
+
+```sh
+adb shell su -c "grep -c cam_printk /proc/kallsyms"          # должно быть > 0
+adb shell su -c "cat /sys/module/cam_utils/parameters/debug_mdl"   # 0xffffffff
+adb shell su -c "dmesg -c > /dev/null"
+# открыть камеру
+adb shell su -c "dmesg | grep CAM_DBG | head"
+```
+
+Ожидаемая строка (из `cam_sensor_cci_i2c.c`):
+`CAM_DBG ... addr: 0x300a data: 0x00` — это и есть init-таблица.
