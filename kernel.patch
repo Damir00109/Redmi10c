@@ -11805,10 +11805,10 @@ index de573cee4..58a7ce80c 100644
  	.probe = hi556_probe,
 diff --git a/drivers/media/i2c/ov02b1b.c b/drivers/media/i2c/ov02b1b.c
 new file mode 100644
-index 000000000..0fd3ac6ad
+index 000000000..fe4e70b69
 --- /dev/null
 +++ b/drivers/media/i2c/ov02b1b.c
-@@ -0,0 +1,975 @@
+@@ -0,0 +1,963 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Omnivision OV02B1B Camera Sensor driver
@@ -11917,88 +11917,55 @@ index 000000000..0fd3ac6ad
 +}
 +
 +static const struct cci_reg_sequence ov02b1b_init_regs[] = {
++	/* Vendor sequence captured from cam_cci on Android (docs/camera/). */
 +	{ CCI_REG8(0xfd), 0x00 },
 +	{ CCI_REG8(0xfc), 0x01 },
-+	{ CCI_REG8(0xfd), 0x00 },
 +	{ CCI_REG8(0x24), 0x03 },
-+	{ CCI_REG8(0x25), 0x0c },
 +	{ CCI_REG8(0x29), 0x02 },
-+	{ CCI_REG8(0x2a), 0x31 },
-+	{ CCI_REG8(0x2b), 0x05 },
 +	{ CCI_REG8(0x1e), 0x17 },
 +	{ CCI_REG8(0x33), 0x07 },
 +	{ CCI_REG8(0x35), 0x07 },
 +	{ CCI_REG8(0x4a), 0x0c },
 +	{ CCI_REG8(0x3a), 0x05 },
-+	{ CCI_REG8(0x3b), 0x02 },
 +	{ CCI_REG8(0x3e), 0x00 },
 +	{ CCI_REG8(0x46), 0x01 },
 +	{ CCI_REG8(0x6d), 0x03 },
++	{ CCI_REG8(0x6f), 0x55 },
 +	{ CCI_REG8(0xfd), 0x01 },
 +	{ CCI_REG8(0x0e), 0x02 },
-+	{ CCI_REG8(0x0f), 0x1a },
 +	{ CCI_REG8(0x18), 0x00 },
 +	{ CCI_REG8(0x22), 0xff },
-+	{ CCI_REG8(0x23), 0x02 },
 +	{ CCI_REG8(0x17), 0x2c },
 +	{ CCI_REG8(0x19), 0x20 },
 +	{ CCI_REG8(0x1b), 0x06 },
-+	{ CCI_REG8(0x1c), 0x04 },
 +	{ CCI_REG8(0x20), 0x03 },
 +	{ CCI_REG8(0x30), 0x01 },
 +	{ CCI_REG8(0x33), 0x01 },
 +	{ CCI_REG8(0x31), 0x0a },
-+	{ CCI_REG8(0x32), 0x09 },
 +	{ CCI_REG8(0x38), 0x01 },
-+	{ CCI_REG8(0x39), 0x01 },
-+	{ CCI_REG8(0x3a), 0x01 },
-+	{ CCI_REG8(0x3b), 0x01 },
 +	{ CCI_REG8(0x4f), 0x04 },
 +	{ CCI_REG8(0x4e), 0x05 },
 +	{ CCI_REG8(0x50), 0x01 },
 +	{ CCI_REG8(0x35), 0x0c },
 +	{ CCI_REG8(0x45), 0x2a },
-+	{ CCI_REG8(0x46), 0x2a },
-+	{ CCI_REG8(0x47), 0x2a },
-+	{ CCI_REG8(0x48), 0x2a },
 +	{ CCI_REG8(0x4a), 0x2c },
-+	{ CCI_REG8(0x4b), 0x2c },
-+	{ CCI_REG8(0x4c), 0x2c },
-+	{ CCI_REG8(0x4d), 0x2c },
 +	{ CCI_REG8(0x56), 0x3a },
-+	{ CCI_REG8(0x57), 0x0a },
-+	{ CCI_REG8(0x58), 0x24 },
-+	{ CCI_REG8(0x59), 0x20 },
-+	{ CCI_REG8(0x5a), 0x0a },
-+	{ CCI_REG8(0x5b), 0xff },
 +	{ CCI_REG8(0x37), 0x0a },
 +	{ CCI_REG8(0x42), 0x0e },
 +	{ CCI_REG8(0x68), 0x90 },
-+	{ CCI_REG8(0x69), 0xcd },
-+	{ CCI_REG8(0x6a), 0x8f },
 +	{ CCI_REG8(0x7c), 0x0a },
-+	{ CCI_REG8(0x7d), 0x0a },
-+	{ CCI_REG8(0x7e), 0x0a },
-+	{ CCI_REG8(0x7f), 0x08 },
 +	{ CCI_REG8(0x83), 0x14 },
-+	{ CCI_REG8(0x84), 0x14 },
 +	{ CCI_REG8(0x86), 0x14 },
-+	{ CCI_REG8(0x87), 0x07 },
-+	{ CCI_REG8(0x88), 0x0f },
 +	{ CCI_REG8(0x94), 0x02 },
 +	{ CCI_REG8(0x98), 0xd1 },
 +	{ CCI_REG8(0xfe), 0x02 },
 +	{ CCI_REG8(0xfd), 0x03 },
 +	{ CCI_REG8(0x97), 0x6c },
-+	{ CCI_REG8(0x98), 0x60 },
-+	{ CCI_REG8(0x99), 0x60 },
-+	{ CCI_REG8(0x9a), 0x6c },
 +	{ CCI_REG8(0xa1), 0x40 },
 +	{ CCI_REG8(0xaf), 0x04 },
 +	{ CCI_REG8(0xb1), 0x40 },
 +	{ CCI_REG8(0xae), 0x0d },
 +	{ CCI_REG8(0x88), 0x5b },
-+	{ CCI_REG8(0x89), 0x7c },
 +	{ CCI_REG8(0xb4), 0x05 },
 +	{ CCI_REG8(0x8c), 0x40 },
 +	{ CCI_REG8(0x8e), 0x40 },
@@ -12009,26 +11976,47 @@ index 000000000..0fd3ac6ad
 +	{ CCI_REG8(0xfd), 0x00 },
 +	{ CCI_REG8(0x5a), 0x15 },
 +	{ CCI_REG8(0x74), 0x01 },
++	{ CCI_REG8(0xfd), 0x00 },
++	{ CCI_REG8(0x50), 0x40 },
++	{ CCI_REG8(0x52), 0xb0 },
++	{ CCI_REG8(0xfd), 0x01 },
++	{ CCI_REG8(0x03), 0x70 },
++	{ CCI_REG8(0x05), 0x10 },
++	{ CCI_REG8(0x07), 0x20 },
++	{ CCI_REG8(0x09), 0xb0 },
++	{ CCI_REG8(0xfd), 0x01 },
++	{ CCI_REG8(0x14), 0x00 },
++	{ CCI_REG8(0xfd), 0x03 },
++	{ CCI_REG8(0xfb), 0x01 },
 +};
 +
 +static const struct cci_reg_sequence ov02b1b_1600x1200_regs[] = {
++	/*
++	 * Only the output window is mode specific.  The PLL lives in the
++	 * vendor init sequence now (0x50/0x52 on page 0, 0x03/0x05/0x07/0x09
++	 * on page 1); rewriting it here with 16-bit accesses also touched
++	 * 0x06/0x08, which the vendor never programs.
++	 */
 +	{ CCI_REG8(0xfd), 0x00 },
 +	{ CCI_REG8(0x28), 0x00 },
 +	{ CCI_REG16(0x4f), 0x0640 },
 +	{ CCI_REG16(0x51), 0x04b0 },
 +	{ CCI_REG8(0xfd), 0x01 },
-+	{ CCI_REG16(0x02), 0x0070 },
-+	{ CCI_REG16(0x04), 0x0010 },
-+	{ CCI_REG16(0x06), 0x0320 },
-+	{ CCI_REG16(0x08), 0x04b0 },
 +	{ CCI_REG16(0x16), 0x002c },
-+	{ CCI_REG8(0x6c), 0x00 },
-+	{ CCI_REG8(0xfe), 0x02 },
-+	{ CCI_REG8(0xfd), 0x03 },
-+	{ CCI_REG8(0xfb), 0x01 },
++	{ CCI_REG8(0xfd), 0x00 },
 +};
 +
 +static const struct cci_reg_sequence ov02b1b_streamon_regs[] = {
++	/* Vendor stream-start block, captured from cam_cci. */
++	{ CCI_REG8(0xfd), 0x01 },
++	{ CCI_REG8(0xfd), 0x01 },
++	{ CCI_REG8(0x22), 0x38 },
++	{ CCI_REG8(0x14), 0x01 },
++	{ CCI_REG8(0x0f), 0x0b },
++	{ CCI_REG8(0x0e), 0x06 },
++	{ CCI_REG8(0x9b), 0x40 },
++	{ CCI_REG8(0xfe), 0x02 },
++	{ CCI_REG8(0xfd), 0x00 },
 +	{ CCI_REG8(0xfd), 0x03 },
 +	{ CCI_REG8(0xc2), 0x01 },
 +};
@@ -12853,6 +12841,30 @@ index a707cb740..42a044c7d 100644
  		return dev_err_probe(s5kjn1->dev, -EINVAL,
  				     "MCLK clock frequency %lu is not supported\n",
  				     freq);
+diff --git a/drivers/media/platform/qcom/camss/camss-csid.c b/drivers/media/platform/qcom/camss/camss-csid.c
+index 48459b46a..a2dbf3ce6 100644
+--- a/drivers/media/platform/qcom/camss/camss-csid.c
++++ b/drivers/media/platform/qcom/camss/camss-csid.c
+@@ -480,6 +480,19 @@ static const struct csid_format_info formats_gen2[] = {
+ 		14,
+ 		1,
+ 	},
++	{
++		/*
++		 * CSID-340 looks the source pad up after decoding, so the
++		 * padded output of a mono sensor needs its own entry - without
++		 * it the lookup falls back to formats[0] and the stream is
++		 * configured with a YUV data type.
++		 */
++		MEDIA_BUS_FMT_Y10_2X8_PADHI_LE,
++		MIPI_CSI2_DT_RAW10,
++		DECODE_FORMAT_UNCOMPRESSED_10_BIT,
++		10,
++		1,
++	},
+ };
+ 
+ const struct csid_formats csid_formats_4_1 = {
 diff --git a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
 index dac8d2ecf..76cf11394 100644
 --- a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
