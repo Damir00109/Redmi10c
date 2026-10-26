@@ -12947,6 +12947,26 @@ index a707cb740..42a044c7d 100644
  		return dev_err_probe(s5kjn1->dev, -EINVAL,
  				     "MCLK clock frequency %lu is not supported\n",
  				     freq);
+diff --git a/drivers/media/platform/qcom/camss/camss-csid-340.c b/drivers/media/platform/qcom/camss/camss-csid-340.c
+index eca3f07b8..ea0f9c88b 100644
+--- a/drivers/media/platform/qcom/camss/camss-csid-340.c
++++ b/drivers/media/platform/qcom/camss/camss-csid-340.c
+@@ -175,10 +175,12 @@ static irqreturn_t csid_isr(int irq, void *dev)
+ 	writel_relaxed(val, csid->base + CSID_IRQ_CLEAR);
+ 	writel_relaxed(CSID_IRQ_CMD_CLEAR, csid->base + CSID_IRQ_CMD);
+ 
+-	if (val & CSID_IRQ_MASK_RST_DONE)
++	if (val & CSID_IRQ_MASK_RST_DONE) {
+ 		complete(&csid->reset_complete);
+-	else
+-		dev_warn_ratelimited(csid->camss->dev, "Spurious CSID interrupt\n");
++	} else {
++		dev_warn_ratelimited(csid->camss->dev,
++				     "CSID%u: irq status %#x\n", csid->id, val);
++	}
+ 
+ 	return IRQ_HANDLED;
+ }
 diff --git a/drivers/media/platform/qcom/camss/camss-csid.c b/drivers/media/platform/qcom/camss/camss-csid.c
 index 48459b46a..a2dbf3ce6 100644
 --- a/drivers/media/platform/qcom/camss/camss-csid.c
