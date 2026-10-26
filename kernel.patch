@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..67faed451
+index 000000000..e32eb36b7
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1352 @@
+@@ -0,0 +1,1358 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -1382,6 +1382,12 @@ index 000000000..67faed451
 +		status = "okay";
 +		reg = <0x3c>;
 +
++		/*
++		 * MCLK1 (gpio21) per the stock camera DT for cell-index 2.
++		 * The alternative sensor on the same connector uses MCLK3
++		 * (gpio28); trying MCLK3 gave the same "I2C works, no MIPI"
++		 * result, so the stock assignment stays.
++		 */
 +		clocks = <&gcc GCC_CAMSS_MCLK1_CLK>;
 +		assigned-clocks = <&gcc GCC_CAMSS_MCLK1_CLK>;
 +		assigned-clock-rates = <19200000>;
