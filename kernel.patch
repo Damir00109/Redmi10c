@@ -11814,10 +11814,10 @@ index de573cee4..58a7ce80c 100644
  	.probe = hi556_probe,
 diff --git a/drivers/media/i2c/ov02b1b.c b/drivers/media/i2c/ov02b1b.c
 new file mode 100644
-index 000000000..d982a9644
+index 000000000..d77a29095
 --- /dev/null
 +++ b/drivers/media/i2c/ov02b1b.c
-@@ -0,0 +1,1053 @@
+@@ -0,0 +1,1060 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Omnivision OV02B1B Camera Sensor driver
@@ -12038,13 +12038,17 @@ index 000000000..d982a9644
 +};
 +
 +static const struct cci_reg_sequence ov02b1b_streamon_regs[] = {
-+	/* Vendor stream-start block, captured from cam_cci. */
++	/*
++	 * Vendor stream-start block, captured from cam_cci.  The exposure must
++	 * not exceed the frame length (1238 lines for 1600x1200), otherwise the
++	 * sensor never starts delivering frames.
++	 */
 +	{ CCI_REG8(0xfd), 0x01 },
 +	{ CCI_REG8(0xfd), 0x01 },
-+	{ CCI_REG8(0x22), 0x38 },
-+	{ CCI_REG8(0x14), 0x01 },
-+	{ CCI_REG8(0x0f), 0x0b },
-+	{ CCI_REG8(0x0e), 0x06 },
++	{ CCI_REG8(0x22), 0x1f },
++	{ CCI_REG8(0x14), 0x00 },
++	{ CCI_REG8(0x0f), 0xd6 },
++	{ CCI_REG8(0x0e), 0x04 },
 +	{ CCI_REG8(0x9b), 0x40 },
 +	{ CCI_REG8(0xfe), 0x02 },
 +	{ CCI_REG8(0xfd), 0x00 },
@@ -12220,6 +12224,9 @@ index 000000000..d982a9644
 +		return ret;
 +
 +	ov02b1b_debug_dump_registers(ov02b1b);
++
++	/* The stock driver leaves ~70 ms between the start block and c2=1. */
++	msleep(70);
 +
 +	ret = cci_multi_reg_write(ov02b1b->regmap, ov02b1b_stream_enable_regs,
 +				  ARRAY_SIZE(ov02b1b_stream_enable_regs), NULL);
@@ -12965,7 +12972,7 @@ index 48459b46a..a2dbf3ce6 100644
  
  const struct csid_formats csid_formats_4_1 = {
 diff --git a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
-index dac8d2ecf..36343a12d 100644
+index dac8d2ecf..5173bf2d6 100644
 --- a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
 +++ b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
 @@ -14,6 +14,7 @@
@@ -12976,7 +12983,7 @@ index dac8d2ecf..36343a12d 100644
  
  #define CSIPHY_3PH_LNn_CFG1(n)			(0x000 + 0x100 * (n))
  #define CSIPHY_3PH_LNn_CFG1_SWI_REC_DLY_PRG	(BIT(7) | BIT(6))
-@@ -519,6 +520,143 @@ csiphy_lane_regs lane_regs_sm6350[] = {
+@@ -519,6 +520,149 @@ csiphy_lane_regs lane_regs_sm6350[] = {
  	{0x0000, 0x00, 0x00, CSIPHY_DNP_PARAMS},
  };
  
@@ -13092,6 +13099,12 @@ index dac8d2ecf..36343a12d 100644
 + */
 +static const struct
 +csiphy_lane_regs lane_regs_sm6225_clk3[] = {
++	/*
++	 * Combo mode bits for the 1-lane sensor case (lane_mask 0x18 in the
++	 * stock driver): LN2 CFG10 carries 0x0a, which the generic table
++	 * leaves at zero.
++	 */
++	{0x0428, 0x0A, 0x00, CSIPHY_DEFAULT_PARAMS},
 +	/* Data lane 2 timer block, from the stock combo-mode table. */
 +	{0x0B00, 0x05, 0x00, CSIPHY_DEFAULT_PARAMS},
 +	{0x0B08, 0x10, 0x00, CSIPHY_DEFAULT_PARAMS},
@@ -13120,7 +13133,7 @@ index dac8d2ecf..36343a12d 100644
  /* 14nm 2PH v 2.0.1 2p5Gbps 4 lane DPHY mode */
  static const struct
  csiphy_lane_regs lane_regs_qcm2290[] = {
-@@ -1084,11 +1222,12 @@ static void csiphy_gen1_config_lanes(struct csiphy_device *csiphy,
+@@ -1084,11 +1228,12 @@ static void csiphy_gen1_config_lanes(struct csiphy_device *csiphy,
  	writel_relaxed(val, csiphy->base + CSIPHY_3PH_LNn_MISC1(l));
  }
  
@@ -13137,7 +13150,7 @@ index dac8d2ecf..36343a12d 100644
  	u32 val;
  
  	for (i = 0; i < array_size; i++, r++) {
-@@ -1111,6 +1250,26 @@ static void csiphy_gen2_config_lanes(struct csiphy_device *csiphy,
+@@ -1111,6 +1256,26 @@ static void csiphy_gen2_config_lanes(struct csiphy_device *csiphy,
  	}
  }
  
@@ -13164,7 +13177,7 @@ index dac8d2ecf..36343a12d 100644
  static u8 csiphy_get_lane_mask(struct csiphy_lanes_cfg *lane_cfg)
  {
  	u8 lane_mask;
-@@ -1160,7 +1319,23 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
+@@ -1160,7 +1325,23 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
  
  	settle_cnt = csiphy_settle_cnt_calc(link_freq, csiphy->timer_clk_rate);
  
@@ -13189,7 +13202,7 @@ index dac8d2ecf..36343a12d 100644
  	for (i = 0; i < c->num_data; i++)
  		val |= BIT(c->data[i].pos * 2);
  
-@@ -1180,10 +1355,23 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
+@@ -1180,10 +1361,23 @@ static void csiphy_lanes_enable(struct csiphy_device *csiphy,
  		       CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 0));
  
  	if (csiphy_is_gen2(csiphy->camss->res->version))
@@ -13214,7 +13227,7 @@ index dac8d2ecf..36343a12d 100644
  	/* IRQ_MASK registers - disable all interrupts */
  	for (i = 11; i < 22; i++) {
  		writel_relaxed(0, csiphy->base +
-@@ -1196,6 +1384,8 @@ static void csiphy_lanes_disable(struct csiphy_device *csiphy,
+@@ -1196,6 +1390,8 @@ static void csiphy_lanes_disable(struct csiphy_device *csiphy,
  {
  	struct csiphy_device_regs *regs = csiphy->regs;
  
@@ -13223,7 +13236,7 @@ index dac8d2ecf..36343a12d 100644
  	writel_relaxed(0, csiphy->base +
  			  CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 5));
  
-@@ -1203,11 +1393,31 @@ static void csiphy_lanes_disable(struct csiphy_device *csiphy,
+@@ -1203,11 +1399,31 @@ static void csiphy_lanes_disable(struct csiphy_device *csiphy,
  			  CSIPHY_3PH_CMN_CSI_COMMON_CTRLn(regs->offset, 6));
  }
  
@@ -13255,7 +13268,7 @@ index dac8d2ecf..36343a12d 100644
  	regs = devm_kmalloc(dev, sizeof(*regs), GFP_KERNEL);
  	if (!regs)
  		return -ENOMEM;
-@@ -1223,6 +1433,11 @@ static int csiphy_init(struct csiphy_device *csiphy)
+@@ -1223,6 +1439,11 @@ static int csiphy_init(struct csiphy_device *csiphy)
  		break;
  	case CAMSS_2290:
  	case CAMSS_6150:
