@@ -9,6 +9,13 @@ make -C "$OUT/src/linux" O="$OUT/build/linux-7.3" ARCH=arm64 \
 aarch64-linux-gnu-gcc -static -O2 -I"$OUT/src/tinyalsa/include" \
   "$ROOT/tools/pcm-hold.c" "$OUT/src/tinyalsa/src/libtinyalsa.a" -o "$IR/bin/pcm-hold"
 aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/fp-probe" "$ROOT/tools/fp-probe.c"
+aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/ta-load" "$ROOT/tools/ta-load.c"
+# TA images pulled from Android (proprietary, local only — not in git).
+if [ -d "$OUT/fp-recon" ]; then
+  mkdir -p "$IR/lib/firmware/qcom"
+  cp "$OUT"/fp-recon/sileadta.* "$IR/lib/firmware/qcom/" 2>/dev/null || true
+  
+fi
 ( cd "$IR" && find . | cpio -o -H newc 2>/dev/null | zstd -19 -T0 -q -f -o "$OUT/build/rescue.cpio.zst" )
 python3 "$OUT/src/mkbootimg/mkbootimg.py" \
   --header_version 2 \

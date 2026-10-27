@@ -129,3 +129,42 @@ libfprint-драйвер для некоторых Silead — но он бесп
 
 `STATUS.md` и `docs/hardware-inventory.md`: «сканер отпечатка» — NOT SUPPORTED,
 сенсор **Silead**, шина TEE-only. Предыдущая запись про FPC1020 исправлена.
+
+---
+
+## 8. Phase 0/1 (2026-10-27): TA загружается из mainline, команды ходят
+
+Это главный результат: **ветка 4B работает**. Что сделано:
+
+1. `qcom_scm_qseecom_app_load()` в `drivers/firmware/qcom/qcom_scm.c` —
+   `APP_START` (owner QSEE_OS, svc APP_MGR, cmd 1) с аргументами
+   `(mdt_len=0, img_len, phys)`. TEE возвращает `resp_type=0xEE01` и app id.
+2. `drivers/misc/qseecom_fp.c` — misc-узел `/dev/qseecom-fp` с двумя ioctl:
+   - `LOAD` (`_IOWR(0xf5,1,...)`): образ TA из userspace → TZ-память → APP_START,
+     наружу отдаётся `app_id`;
+   - `SEND` (`_IOWR(0xf5,2,...)`): request/response в TA.
+3. `tools/ta-load.c` — собирает образ из `.mdt` + `.b00..b07` (сегменты по
+   `p_offset`, как libQSEEComAPI) и грузит его; режим `probe` шлёт цепочку
+   команд silead.
+
+Живой лог (rescue-образ, `fastboot boot`):
+
+```
+qseecom: APP_START img_len=1644558 phys=0xfdb00000 status=0 result=0x0 resp_type=0xee01 data=0x3
+qseecom_fp: loaded sileadta, app_id 3
+cmd 0x50(0,0,0,0) -> 0x000f4638 0x000001ff 0x00000000 ...   # GET_VERSIONS
+```
+
+`GET_VERSIONS` вернул **ровно те же** `0xf4638 / 0x1ff`, что silead-HAL на
+Android (`ta version:v511, algo version:v1001016`) — значит протокол и
+транспорт совпадают.
+
+Что пока не работает: `SET_SPI_DEV(0x20, 14)` → `INIT(0x0e)` даёт
+`[0, 0, 0x80000000]` без chip id (на Android — `0x6135a080`). Сенсор сброшен
+(gpio104 hog'ом выставлен в high), питание L9 есть (1.8 В), но SPI-обмен не
+поднимается. Дальше: проверить, не требует ли TEE-шный SPI dev 14 инициализации
+QUP со стороны AP (клоки/пины), и не нужен ли импульс reset вместо статического
+high.
+
+Артефакты: `/dev/qseecom-fp`, `ta-load`, `lib/firmware/qcom/sileadta.*`
+(локально, не в git).

@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..bb313a203
+index 000000000..abf3fe66f
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1353 @@
+@@ -0,0 +1,1365 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -594,6 +594,18 @@ index 000000000..bb313a203
 +	 * Pin 120 is UFS_RESET (output-only); extend gpio-range to 121.
 +	 */
 +	gpio-ranges = <&tlmm 0 0 121>;
++
++	/*
++	 * Fingerprint reset (silead sensor, gpio104).  The vendor driver
++	 * drives it; on mainline nothing else does, so keep it deasserted
++	 * (high) from boot for the TEE-side SPI bring-up experiments.
++	 */
++	fp-reset-hog {
++		gpio-hog;
++		gpios = <104 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "fp-reset";
++	};
 +
 +	ufs_reset_default: ufs-reset-default {
 +		config {
@@ -5110,10 +5122,80 @@ index eebbc6de2..d42fcbc04 100644
  
  	ret = qcom_cc_really_probe(&pdev->dev, &gpucc_sm6375_desc, regmap);
 diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
-index 3eaa4c9cc..a9a9aa89a 100644
+index 3eaa4c9cc..d7bf5d936 100644
 --- a/drivers/firmware/qcom/qcom_scm.c
 +++ b/drivers/firmware/qcom/qcom_scm.c
-@@ -2335,6 +2335,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
+@@ -119,6 +119,15 @@ enum qcom_scm_qseecom_tz_cmd_app {
+ 	QSEECOM_TZ_CMD_APP_LOOKUP		= 3,
+ };
+ 
++/*
++ * APP_MGR commands (owner QSEE_OS, service APP_MGR).  APP_START is the
++ * "load a TA image" call: args are (mdt_len, img_len, image_phys).
++ */
++enum qcom_scm_qseecom_tz_cmd_app_mgr {
++	QSEECOM_TZ_CMD_APP_START		= 1,
++	QSEECOM_TZ_CMD_APP_SHUTDOWN		= 2,
++};
++
+ enum qcom_scm_qseecom_tz_cmd_info {
+ 	QSEECOM_TZ_CMD_INFO_VERSION		= 3,
+ };
+@@ -2295,6 +2304,53 @@ int qcom_scm_qseecom_app_send(u32 app_id, void *req, size_t req_size,
+ }
+ EXPORT_SYMBOL_GPL(qcom_scm_qseecom_app_send);
+ 
++/**
++ * qcom_scm_qseecom_app_load() - Load a QSEE app image into the secure world.
++ * @img:      TA image (TZ memory), laid out at the ELF segment offsets.
++ * @img_len:  Size of the image.
++ *
++ * Issues APP_START with the image's physical address.  On success the app
++ * becomes available to qcom_scm_qseecom_app_get_id().
++ *
++ * Return: Zero on success, nonzero on failure.
++ */
++int qcom_scm_qseecom_app_load(void *img, size_t img_len, u32 *app_id)
++{
++	struct qcom_scm_qseecom_resp res = {};
++	struct qcom_scm_desc desc = {};
++	phys_addr_t img_phys;
++	int status;
++
++	img_phys = qcom_tzmem_to_phys(img);
++
++	desc.owner = QSEECOM_TZ_OWNER_QSEE_OS;
++	desc.svc = QSEECOM_TZ_SVC_APP_MGR;
++	desc.cmd = QSEECOM_TZ_CMD_APP_START;
++	desc.arginfo = QCOM_SCM_ARGS(3, QCOM_SCM_VAL, QCOM_SCM_VAL,
++				     QCOM_SCM_VAL);
++	desc.args[0] = 0;	/* mdt_len: the vendor loader passes 0 */
++	desc.args[1] = img_len;
++	desc.args[2] = img_phys;
++
++	status = qcom_scm_qseecom_call(&desc, &res);
++
++	pr_info("qseecom: APP_START img_len=%zu phys=%pa status=%d result=0x%llx resp_type=0x%llx data=0x%llx\n",
++		img_len, &img_phys, status, res.result, res.resp_type, res.data);
++
++	if (status)
++		return status;
++
++	if (res.result != QSEECOM_RESULT_SUCCESS)
++		return -EIO;
++
++	if (res.resp_type != QSEECOM_SCM_RES_APP_ID)
++		return -EINVAL;
++
++	*app_id = res.data;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(qcom_scm_qseecom_app_load);
++
+ /*
+  * We do not yet support re-entrant calls via the qseecom interface. To prevent
+  + any potential issues with this, only allow validated machines for now.
+@@ -2335,6 +2391,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
  	{ .compatible = "qcom,x1e80100-crd" },
  	{ .compatible = "qcom,x1e80100-qcp" },
  	{ .compatible = "qcom,x1p42100-crd" },
@@ -13573,13 +13655,22 @@ index 2123f6388..755d02d50 100644
  	.probe = camss_probe,
  	.remove = camss_remove,
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index 7364931da..f6b0e3a73 100644
+index 7364931da..f99f37750 100644
 --- a/drivers/misc/Kconfig
 +++ b/drivers/misc/Kconfig
-@@ -586,4 +586,23 @@ source "drivers/misc/keba/Kconfig"
+@@ -586,4 +586,32 @@ source "drivers/misc/keba/Kconfig"
  source "drivers/misc/amd-sbi/Kconfig"
  source "drivers/misc/rp1/Kconfig"
  source "drivers/misc/issei/Kconfig"
++
++config QSEECOM_FP
++	tristate "Minimal QSEECom client for fingerprint TA experiments"
++	depends on QCOM_QSEECOM && QCOM_TZMEM
++	help
++	  Misc device that loads a TrustZone application image (APP_START)
++	  and exchanges request/response buffers with it.  Used to talk to
++	  the sileadta fingerprint TA on Xiaomi Redmi 10C (sm6225) from
++	  mainline.  The image is laid out by userspace.
 +
 +config AW87XXX_MINI
 +	tristate "Awinic AW87xxx speaker PA (minimal)"
@@ -13601,13 +13692,14 @@ index 7364931da..f6b0e3a73 100644
 +
  endmenu
 diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
-index e8d8d5d88..f266a969f 100644
+index e8d8d5d88..8dc68daa9 100644
 --- a/drivers/misc/Makefile
 +++ b/drivers/misc/Makefile
-@@ -71,3 +71,5 @@ obj-y				+= keba/
+@@ -71,3 +71,6 @@ obj-y				+= keba/
  obj-y				+= amd-sbi/
  obj-$(CONFIG_MISC_RP1)		+= rp1/
  obj-$(CONFIG_INTEL_SSEI)	+= issei/
++obj-$(CONFIG_QSEECOM_FP)		+= qseecom_fp.o
 +obj-$(CONFIG_AW87XXX_MINI)		+= aw87xxx-mini.o
 +obj-$(CONFIG_WL2866D)		+= wl2866d.o
 diff --git a/drivers/misc/aw87xxx-mini.c b/drivers/misc/aw87xxx-mini.c
@@ -13822,6 +13914,230 @@ index d4fac2cac..ac24def9e 100644
  	ctx = fastrpc_context_alloc(fl, kernel, sc, args);
  	if (IS_ERR(ctx))
  		return PTR_ERR(ctx);
+diff --git a/drivers/misc/qseecom_fp.c b/drivers/misc/qseecom_fp.c
+new file mode 100644
+index 000000000..4ab33c4ee
+--- /dev/null
++++ b/drivers/misc/qseecom_fp.c
+@@ -0,0 +1,218 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * qseecom_fp - minimal QSEECom client for the fingerprint TA experiments.
++ *
++ * Exposes a misc device that lets userspace load a TA image (APP_START) and
++ * exchange request/response buffers with it.  The TA image is laid out by
++ * userspace (segments at their ELF p_offset, see tools/ta-load.c); this
++ * driver only copies it into TZ memory and issues the SCM calls.
++ */
++#include <linux/ioctl.h>
++#include <linux/miscdevice.h>
++#include <linux/slab.h>
++#include <linux/uaccess.h>
++
++#include <linux/firmware/qcom/qcom_scm.h>
++#include <linux/firmware/qcom/qcom_tzmem.h>
++
++#define QSEECOM_FP_MAX_NAME	64
++#define QSEECOM_FP_MAX_IMG	(8 * 1024 * 1024)
++#define QSEECOM_FP_MAX_MSG	(64 * 1024)
++
++struct qseecom_fp_load_req {
++	__u32 name_len;
++	__u32 img_len;
++	__u64 name_ptr;
++	__u64 img_ptr;
++	__u32 app_id;
++	__u32 reserved;
++};
++
++struct qseecom_fp_send_req {
++	__u32 app_id;
++	__u32 req_len;
++	__u32 rsp_len;
++	__u32 reserved;
++	__u64 req_ptr;
++	__u64 rsp_ptr;
++};
++
++#define QSEECOM_FP_IOC_MAGIC	0xf5
++#define QSEECOM_FP_IOCTL_LOAD \
++	_IOWR(QSEECOM_FP_IOC_MAGIC, 1, struct qseecom_fp_load_req)
++#define QSEECOM_FP_IOCTL_SEND \
++	_IOWR(QSEECOM_FP_IOC_MAGIC, 2, struct qseecom_fp_send_req)
++
++struct qseecom_fp {
++	struct qcom_tzmem_pool *pool;
++	struct mutex lock;
++};
++
++static struct qseecom_fp *qseecom_fp_dev;
++
++static int qseecom_fp_load(struct qseecom_fp *fp,
++			   struct qseecom_fp_load_req *req)
++{
++	void *img;
++	char *name;
++	u32 app_id = 0;
++	int ret;
++
++	if (req->name_len == 0 || req->name_len > QSEECOM_FP_MAX_NAME)
++		return -EINVAL;
++	if (req->img_len == 0 || req->img_len > QSEECOM_FP_MAX_IMG)
++		return -EINVAL;
++
++	name = kzalloc(QSEECOM_FP_MAX_NAME + 1, GFP_KERNEL);
++	if (!name)
++		return -ENOMEM;
++	if (copy_from_user(name, u64_to_user_ptr(req->name_ptr), req->name_len)) {
++		ret = -EFAULT;
++		goto out_name;
++	}
++
++	img = qcom_tzmem_alloc(fp->pool, req->img_len, GFP_KERNEL);
++	if (!img) {
++		ret = -ENOMEM;
++		goto out_name;
++	}
++
++	if (copy_from_user(img, u64_to_user_ptr(req->img_ptr), req->img_len)) {
++		ret = -EFAULT;
++		goto out_img;
++	}
++
++	ret = qcom_scm_qseecom_app_load(img, req->img_len, &app_id);
++	if (ret)
++		goto out_img;
++
++	req->app_id = app_id;
++	pr_info("qseecom_fp: loaded %s, app_id %u\n", name, app_id);
++out_img:
++	qcom_tzmem_free(img);
++out_name:
++	kfree(name);
++	return ret;
++}
++
++static int qseecom_fp_send(struct qseecom_fp *fp,
++			   struct qseecom_fp_send_req *req)
++{
++	void *rsp, *msg;
++	int ret;
++
++	if (!req->req_len || req->req_len > QSEECOM_FP_MAX_MSG ||
++	    req->rsp_len > QSEECOM_FP_MAX_MSG)
++		return -EINVAL;
++
++	msg = qcom_tzmem_alloc(fp->pool, req->req_len, GFP_KERNEL);
++	if (!msg)
++		return -ENOMEM;
++	if (copy_from_user(msg, u64_to_user_ptr(req->req_ptr), req->req_len)) {
++		ret = -EFAULT;
++		goto out_msg;
++	}
++
++	rsp = qcom_tzmem_alloc(fp->pool, req->rsp_len, GFP_KERNEL);
++	if (!rsp) {
++		ret = -ENOMEM;
++		goto out_msg;
++	}
++
++	ret = qcom_scm_qseecom_app_send(req->app_id, msg, req->req_len,
++					rsp, req->rsp_len);
++	if (!ret && copy_to_user(u64_to_user_ptr(req->rsp_ptr), rsp, req->rsp_len))
++		ret = -EFAULT;
++
++	qcom_tzmem_free(rsp);
++out_msg:
++	qcom_tzmem_free(msg);
++	return ret;
++}
++
++static long qseecom_fp_ioctl(struct file *file, unsigned int cmd,
++			     unsigned long arg)
++{
++	struct qseecom_fp *fp = file->private_data;
++	int ret;
++
++	switch (cmd) {
++	case QSEECOM_FP_IOCTL_LOAD: {
++		struct qseecom_fp_load_req req;
++
++		if (copy_from_user(&req, (void __user *)arg, sizeof(req)))
++			return -EFAULT;
++		mutex_lock(&fp->lock);
++		ret = qseecom_fp_load(fp, &req);
++		mutex_unlock(&fp->lock);
++		if (!ret && copy_to_user((void __user *)arg, &req, sizeof(req)))
++			ret = -EFAULT;
++		return ret;
++	}
++	case QSEECOM_FP_IOCTL_SEND: {
++		struct qseecom_fp_send_req req;
++
++		if (copy_from_user(&req, (void __user *)arg, sizeof(req)))
++			return -EFAULT;
++		mutex_lock(&fp->lock);
++		ret = qseecom_fp_send(fp, &req);
++		mutex_unlock(&fp->lock);
++		return ret;
++	}
++	default:
++		return -ENOTTY;
++	}
++}
++
++static int qseecom_fp_open(struct inode *inode, struct file *file)
++{
++	file->private_data = qseecom_fp_dev;
++	return 0;
++}
++
++static const struct file_operations qseecom_fp_fops = {
++	.owner		= THIS_MODULE,
++	.unlocked_ioctl	= qseecom_fp_ioctl,
++	.open		= qseecom_fp_open,
++};
++
++static struct miscdevice qseecom_fp_misc = {
++	.minor	= MISC_DYNAMIC_MINOR,
++	.name	= "qseecom-fp",
++	.fops	= &qseecom_fp_fops,
++};
++
++static int __init qseecom_fp_init(void)
++{
++	struct qcom_tzmem_pool_config config = {};
++	int ret;
++
++	qseecom_fp_dev = kzalloc(sizeof(*qseecom_fp_dev), GFP_KERNEL);
++	if (!qseecom_fp_dev)
++		return -ENOMEM;
++	mutex_init(&qseecom_fp_dev->lock);
++
++	config.initial_size = 0;
++	config.policy = QCOM_TZMEM_POLICY_ON_DEMAND;
++	config.increment = 2;
++	config.max_size = SZ_16M;
++
++	qseecom_fp_dev->pool = qcom_tzmem_pool_new(&config);
++	if (IS_ERR(qseecom_fp_dev->pool)) {
++		ret = PTR_ERR(qseecom_fp_dev->pool);
++		kfree(qseecom_fp_dev);
++		return ret;
++	}
++
++	qseecom_fp_misc.parent = NULL;
++	ret = misc_register(&qseecom_fp_misc);
++	if (ret) {
++		qcom_tzmem_pool_free(qseecom_fp_dev->pool);
++		kfree(qseecom_fp_dev);
++	}
++	return ret;
++}
++device_initcall(qseecom_fp_init);
++
++MODULE_DESCRIPTION("Minimal QSEECom client for fingerprint TA experiments");
++MODULE_LICENSE("GPL");
 diff --git a/drivers/misc/wl2866d.c b/drivers/misc/wl2866d.c
 new file mode 100644
 index 000000000..b9639bc66
@@ -18162,6 +18478,31 @@ index b91a7b460..2cf571166 100644
  
  /* GCC resets */
  #define GCC_QUSB2PHY_PRIM_BCR					0
+diff --git a/include/linux/firmware/qcom/qcom_scm.h b/include/linux/firmware/qcom/qcom_scm.h
+index 5747bd191..386b844cb 100644
+--- a/include/linux/firmware/qcom/qcom_scm.h
++++ b/include/linux/firmware/qcom/qcom_scm.h
+@@ -172,6 +172,7 @@ int qcom_scm_shm_bridge_delete(u64 handle);
+ int qcom_scm_qseecom_app_get_id(const char *app_name, u32 *app_id);
+ int qcom_scm_qseecom_app_send(u32 app_id, void *req, size_t req_size,
+ 			      void *rsp, size_t rsp_size);
++int qcom_scm_qseecom_app_load(void *img, size_t img_len, u32 *app_id);
+ 
+ #else /* CONFIG_QCOM_QSEECOM */
+ 
+@@ -187,6 +188,12 @@ static inline int qcom_scm_qseecom_app_send(u32 app_id,
+ 	return -EINVAL;
+ }
+ 
++static inline int qcom_scm_qseecom_app_load(void *img, size_t img_len,
++					    u32 *app_id)
++{
++	return -EINVAL;
++}
++
+ #endif /* CONFIG_QCOM_QSEECOM */
+ 
+ int qcom_scm_qtee_invoke_smc(phys_addr_t inbuf, size_t inbuf_size,
 diff --git a/net/qrtr/ns.c b/net/qrtr/ns.c
 index bcb090ee7..e46977b8b 100644
 --- a/net/qrtr/ns.c
