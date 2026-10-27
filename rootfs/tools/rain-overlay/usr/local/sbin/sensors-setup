@@ -37,22 +37,21 @@ if ! mountpoint -q "$PERSIST_MP"; then
 fi
 
 if [ -d "$PERSIST_MP/sensors/registry/registry" ]; then
-	mkdir -p "$R/sensors/registry" "$R/mnt_persist/sensors/registry"
+	mkdir -p "$R/sensors/registry"
 	cp -a "$PERSIST_MP/sensors/registry/registry/." "$R/sensors/registry/" 2>/dev/null
 	cp -a "$PERSIST_MP/sensors/registry/sns_reg_config" "$R/sensors/sns_reg.conf" 2>/dev/null
 	cp -a "$PERSIST_MP/sensors/registry/sns_reg_version" "$R/sensors/" 2>/dev/null
 	cp -a "$PERSIST_MP/sensors/sensors_list.txt" "$R/sensors/" 2>/dev/null
-	# The DSP resolves some files via the real /mnt/vendor/persist path, and
-	# persist files are only readable by uid 1000, so serve readable copies.
-	cp -a "$PERSIST_MP/sensors/registry/registry" "$R/mnt_persist/sensors/registry/" 2>/dev/null
-	cp -a "$PERSIST_MP/sensors/registry/sns_reg_version" "$R/mnt_persist/sensors/registry/" 2>/dev/null
+	# hexagonrpcd 0.5.0 serves this directory as both /persist and
+	# /mnt/vendor/persist itself, so one readable copy is enough: persist
+	# is mode 600 owned by uid 1000 and the daemon runs as fastrpc.
 	log "registry staged: $(ls "$R/sensors/registry" 2>/dev/null | wc -l) files"
 fi
 printf 'END:AP\n' > "$R/sensors/sns_reg_ctrl"
 
 # hexagonrpcd runs as the unprivileged fastrpc user.
 chmod -R a+rX "$R"
-chown -R fastrpc:fastrpc "$R/mnt_persist" "$R/sensors/sns_reg_ctrl" 2>/dev/null || true
+chown -R fastrpc:fastrpc "$R/sensors" 2>/dev/null || true
 
 # socinfo files the sensor PD reads.  soc_id/revision come from the kernel
 # (drivers/soc/qcom/socinfo.c -> /sys/devices/soc0); the platform fields are
@@ -65,10 +64,9 @@ echo fog     > "$R/socinfo/platform_subtype"
 echo 0       > "$R/socinfo/platform_subtype_id"
 echo 0x10000 > "$R/socinfo/platform_version"
 
-# Files the DSP resolves through the real filesystem.
-[ -L /mnt/vendor ] && rm -f /mnt/vendor
-mkdir -p /mnt/vendor
-[ -e /mnt/vendor/persist ] || ln -s "$R/mnt_persist" /mnt/vendor/persist 2>/dev/null
+# hexagonrpcd 0.5.0 builds /mnt/vendor/persist, /persist, /system/vendor and
+# /sys/devices/soc0 inside its virtual filesystem, so no host-side symlink is
+# needed any more.  Only the LCM type is still read straight from the root.
 [ -f /ro.boot.lcmtype ] || echo 1 > /ro.boot.lcmtype
 
 # fastrpc is built-in (=y) since 2026-10-18, so /dev/fastrpc-adsp appears

@@ -185,6 +185,13 @@ fi
 # hexagonrpcd-adsp-sensorspd.service passes on the command line).
 if [ -n "$REDMI" ] && [ -d "$REDMI/sensors" ]; then
   sudo install -m755 "$REDMI"/sensors/bin/* "$RF/usr/bin/"
+  # hexagonrpcd is built from source (tools/build-hexagonrpcd.sh) and links
+  # against glibc + libhexagonrpc, so it needs no musl.  ssccli is still the
+  # musl build, hence the musl runtime stays.
+  if [ -d "$REDMI/sensors/lib-glibc" ]; then
+    sudo install -m755 "$REDMI"/sensors/lib-glibc/* "$RF/usr/lib/"
+    sudo ldconfig -r "$RF" 2>/dev/null || true
+  fi
   sudo install -m755 "$REDMI/sensors/ld-musl-aarch64.so.1" "$RF/usr/lib/ld-musl-aarch64.so.1"
   sudo mkdir -p "$RF/usr/lib/musl"
   sudo rsync -a "$REDMI/sensors/lib-musl/" "$RF/usr/lib/musl/"
