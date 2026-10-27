@@ -84,6 +84,7 @@ apt-get install -y --no-install-recommends \
   bluez pulseaudio pulseaudio-module-bluetooth pulseaudio-utils \
   alsa-utils dbus-x11 python3-dbus adbd \
   gnss-share \
+  libprotobuf-c1 \
   gcc libqmi-glib-dev pkg-config \
   v4l-utils \
   fastboot upower fake-hwclock
@@ -192,9 +193,14 @@ if [ -n "$REDMI" ] && [ -d "$REDMI/sensors" ]; then
     sudo install -m755 "$REDMI"/sensors/lib-glibc/* "$RF/usr/lib/"
     sudo ldconfig -r "$RF" 2>/dev/null || true
   fi
-  sudo install -m755 "$REDMI/sensors/ld-musl-aarch64.so.1" "$RF/usr/lib/ld-musl-aarch64.so.1"
-  sudo mkdir -p "$RF/usr/lib/musl"
-  sudo rsync -a "$REDMI/sensors/lib-musl/" "$RF/usr/lib/musl/"
+  # Musl runtime: only needed for the postmarketOS binaries.  After
+  # tools/build-hexagonrpcd.sh + tools/build-libssc.sh both are glibc, so the
+  # payload is gone and this block is skipped.
+  if [ -f "$REDMI/sensors/ld-musl-aarch64.so.1" ]; then
+    sudo install -m755 "$REDMI/sensors/ld-musl-aarch64.so.1" "$RF/usr/lib/ld-musl-aarch64.so.1"
+    sudo mkdir -p "$RF/usr/lib/musl"
+    sudo rsync -a "$REDMI/sensors/lib-musl/" "$RF/usr/lib/musl/"
+  fi
   sudo mkdir -p "$RF/usr/share/qcom"
   [ -d "$REDMI/vendor-qcom/qcom" ] && \
     sudo rsync -a "$REDMI/vendor-qcom/qcom/" "$RF/usr/share/qcom/"

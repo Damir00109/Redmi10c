@@ -31,11 +31,27 @@ userspace: hexagonrpcd  ->  поднимает sensor PD и отдаёт ей в
 | Слой | Происхождение |
 |---|---|
 | `adsp.mbn`, реестр SNS на `persist`, ACDB | вендор (Qualcomm/Xiaomi), из стоковых разделов |
-| `hexagonrpcd` | **собираем сами** из linux-msm/hexagonrpc (GPL-3.0), см. ниже |
-| `ssccli`, `libssc`, musl-рантайм | pmOS/libssc, пока берём бинарями из релиза |
+| `hexagonrpcd` | **собираем сами** из linux-msm/hexagonrpc (GPL-3.0) |
+| `ssccli`, `libssc` | **собираем сами** из codeberg.org/DylanVanAssche/libssc (GPL-3.0) |
+| musl-рантайм | **больше не нужен** — оба бинарника теперь glibc |
 | `sensors-setup`, `rain-sensor-bridge.py`, `rain-sensor-{suspend,resume}.sh`, юниты, udev-правила | наши |
 
-## hexagonrpcd собирается из исходников
+## Вся userspace-часть собирается из исходников
+
+| Скрипт | Что собирает | Куда кладёт |
+|---|---|---|
+| `tools/build-hexagonrpcd.sh` | `hexagonrpcd` (linux-msm/hexagonrpc 0.5.0) | `sensors/bin/hexagonrpcd`, `sensors/lib-glibc/libhexagonrpc.so.*` |
+| `tools/build-libssc.sh` | `ssccli` + `libssc` (libssc 0.4.4) | `sensors/bin/ssccli`, `sensors/lib-glibc/libssc.so.*` |
+
+Зависимости: `meson`, `ninja`, `aarch64-linux-gnu-gcc`, ядерный UAPI
+(`out/src/linux/include/uapi/misc/fastrpc.h`) и aarch64-пакеты
+`libglib2.0-dev`, `libqmi-glib-dev`, `libprotobuf-c-dev` (для libssc).
+В rootfs нужен `libprotobuf-c1` — он добавлен в список пакетов `build-rootfs.sh`.
+
+После обеих сборок `sensors/lib-musl` и musl-загрузчик удаляются: оба бинарника
+glibc, а лишний `monitor-sensor` из pmOS-пейлоада не используется.
+
+## hexagonrpcd: почему из исходников
 
 `tools/build-hexagonrpcd.sh` клонирует linux-msm/hexagonrpc в `cache/`,
 кросс-собирает под aarch64 (glibc) и кладёт результат в `sensors/bin/` +
@@ -44,8 +60,7 @@ userspace: hexagonrpcd  ->  поднимает sensor PD и отдаёт ей в
 
 Почему это лучше pmOS-бинаря:
 
-- **glibc вместо musl** — демону больше не нужен musl-рантайм (он остаётся только
-  ради `ssccli`);
+- **glibc вместо musl** — демону больше не нужен musl-рантайм;
 - версия 0.5.0 **сама строит виртуальное дерево** (`construct_root_dir()`):
   `/mnt/vendor/persist`, `/persist`, `/system/vendor`, `/sys/devices/soc0`.
   Проверено на железе: с удалёнными `mnt_persist` и симлинком `/mnt/vendor/persist`

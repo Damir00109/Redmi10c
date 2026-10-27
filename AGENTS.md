@@ -30,6 +30,7 @@
 
 - `./build.sh` — полный цикл: clone linux v7.1.5 → kernel.patch → Image.gz + dtbs → busybox initramfs (zstd) → `out/boot-display-console-rescue.img`.
 - `tools/fetch-firmware.sh` — скачивает проприетарные блобы из релиза `firmware-2026.09.25` (firmware/ + vendor-qcom/ для hexagonrpcd).
+- `tools/build-hexagonrpcd.sh` / `tools/build-libssc.sh` — собирают userspace SSC (`hexagonrpcd` 0.5.0 и `ssccli`/`libssc` 0.4.4) из исходников в `sensors/bin` + `sensors/lib-glibc`; оба бинарника glibc, поэтому musl-рантайм после них удаляется. Требуют `meson`/`ninja`, aarch64-пакеты `libglib2.0-dev`, `libqmi-glib-dev`, `libprotobuf-c-dev` и ядерный UAPI `misc/fastrpc.h`. Детали — `docs/SENSORS-SSC.md`.
 - `tools/rebuild-rescue.sh` — быстрая пересборка в уже настроенном дереве (initramfs через `zstd -19`, как build.sh — 2026-10-17).
 - `tools/boot-and-check.sh` — загрузка + проверка.
 - `regen-patch.sh` — перегенерация `kernel.patch` из дерева `out/src/linux`.

@@ -9,11 +9,8 @@ Before=iio-sensor-proxy.service
 Type=simple
 User=fastrpc
 Group=fastrpc
-# hexagonrpcd is a musl build: its loader is /usr/lib/ld-musl-aarch64.so.1
-# (the interpreter path /lib/ld-musl-aarch64.so.1 resolves there) and its
-# libraries live in /usr/lib/musl -- deliberately not in /usr/lib, so they
-# cannot shadow the glibc libraries.
-Environment=LD_LIBRARY_PATH=/usr/lib/musl
+# hexagonrpcd is built from source (tools/build-hexagonrpcd.sh): a plain glibc
+# binary linking libhexagonrpc from /usr/lib.
 ExecStart=/usr/bin/hexagonrpcd -f /dev/fastrpc-adsp -d adsp -s -R /usr/share/qcom/sm6225/Xiaomi/rain
 Restart=on-failure
 RestartSec=5
