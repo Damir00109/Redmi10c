@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..e32eb36b7
+index 000000000..d32b8b542
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1358 @@
+@@ -0,0 +1,1346 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -622,11 +622,6 @@ index 000000000..e32eb36b7
 +		line-name = "csi-mux-oe";
 +	};
 +
-+	/*
-+	 * gpio67 is exposed as an LED (root node below) so the CSI mux select
-+	 * can be toggled at runtime while bringing up the depth sensor.
-+	 */
-+
 +	/* NFC IRQ (stock nq@2a qcom,nq-irq = gpio70) */
 +	nfc_int_default: nfc-int-default-state {
 +		pins = "gpio70";
@@ -779,13 +774,6 @@ index 000000000..e32eb36b7
 +			label = "white:flash";
 +			gpios = <&tlmm 68 GPIO_ACTIVE_HIGH>;
 +			/* Keep off at boot: this is the 800mA flash strobe line. */
-+			linux,default-trigger = "none";
-+		};
-+
-+		/* Depth-module CSI mux select, toggled by hand during bring-up. */
-+		csi_mux_sel {
-+			label = "csi-mux-sel";
-+			gpios = <&tlmm 67 GPIO_ACTIVE_HIGH>;
 +			linux,default-trigger = "none";
 +		};
 +	};
@@ -12953,26 +12941,6 @@ index a707cb740..42a044c7d 100644
  		return dev_err_probe(s5kjn1->dev, -EINVAL,
  				     "MCLK clock frequency %lu is not supported\n",
  				     freq);
-diff --git a/drivers/media/platform/qcom/camss/camss-csid-340.c b/drivers/media/platform/qcom/camss/camss-csid-340.c
-index eca3f07b8..ea0f9c88b 100644
---- a/drivers/media/platform/qcom/camss/camss-csid-340.c
-+++ b/drivers/media/platform/qcom/camss/camss-csid-340.c
-@@ -175,10 +175,12 @@ static irqreturn_t csid_isr(int irq, void *dev)
- 	writel_relaxed(val, csid->base + CSID_IRQ_CLEAR);
- 	writel_relaxed(CSID_IRQ_CMD_CLEAR, csid->base + CSID_IRQ_CMD);
- 
--	if (val & CSID_IRQ_MASK_RST_DONE)
-+	if (val & CSID_IRQ_MASK_RST_DONE) {
- 		complete(&csid->reset_complete);
--	else
--		dev_warn_ratelimited(csid->camss->dev, "Spurious CSID interrupt\n");
-+	} else {
-+		dev_warn_ratelimited(csid->camss->dev,
-+				     "CSID%u: irq status %#x\n", csid->id, val);
-+	}
- 
- 	return IRQ_HANDLED;
- }
 diff --git a/drivers/media/platform/qcom/camss/camss-csid.c b/drivers/media/platform/qcom/camss/camss-csid.c
 index 48459b46a..a2dbf3ce6 100644
 --- a/drivers/media/platform/qcom/camss/camss-csid.c
