@@ -1,0 +1,100 @@
+fingerprint: [silead_nl]D[_relay_msg:61] recv IRQ msg
+fingerprint: [silead_msg]V[silfp_msg_send:118] write buf=i, ret=1
+fingerprint: [silead_msg]V[_msg_read_msg:129] buff=i, count=1
+fingerprint: [silead_dev]V[silfp_dev_wait_finger_status:366] wait_finger_status: 1
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x38 (CHECK_ESD) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x38 4(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x3 (NAV_CAPTURE_IMG) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x3 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0xb (NAV_STEP) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0xb 8(SUCCESS) [0x8:0x0:0x0]
+fingerprint: [silead_nav]V[silfp_nav_command:113] *********report key = NAV_KEY_CLICK_DOWN
+fingerprint: [silead_dev]D[silfp_dev_send_key:429] should report key = NAV_KEY_CLICK_DOWN
+fingerprint: [silead_cust]V[silfp_cust_get_sys_charging_state:123] default, not impliment
+fingerprint: [silead_impl]V[_impl_wait_finger_status:217] wait finger status 0(0:0:1:1)
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_dev]V[silfp_dev_clear_irq:312] clear irq
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_msg]V[silfp_msg_clean:157] buff=, ret=-1
+fingerprint: [silead_msg]V[silfp_msg_wait_finger_status:171] poll iduc(0,0,1,1)
+fingerprint: [silead_nl]D[_relay_msg:61] recv IRQ msg
+fingerprint: [silead_msg]V[silfp_msg_send:118] write buf=i, ret=1
+fingerprint: [silead_msg]V[_msg_read_msg:129] buff=i, count=1
+fingerprint: [silead_dev]V[silfp_dev_wait_finger_status:366] wait_finger_status: 1
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x38 (CHECK_ESD) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x38 4(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_cust]D[silfp_cust_finger_up_after_action:129] finger up 1023
+fingerprint: [silead_cust]D[silfp_cust_enroll_timeout:111] register signal sigalrm
+fingerprint: [silead_cust]D[silfp_cust_enroll_timeout:116] alarm ring(0)!!!
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x3 (NAV_CAPTURE_IMG) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x3 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0xb (NAV_STEP) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0xb 9(SUCCESS) [0x9:0x0:0x0]
+fingerprint: [silead_dev]D[silfp_dev_send_key:429] should report key = NAV_KEY_CLICK_UP
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0xc (NAV_END) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0xc 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_worker]I[_worker_set_state_unlock:144] set to STATE_IDLE************
+fingerprint: [silead_nav]D[silfp_nav_command:141] nav finish------------- 9
+fingerprint: [silead_cust]V[silfp_cust_get_sys_charging_state:123] default, not impliment
+fingerprint: [silead_impl]V[_impl_wait_finger_status:217] wait finger status 0(0:0:1:1)
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_dev]V[silfp_dev_clear_irq:312] clear irq
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_msg]V[silfp_msg_clean:157] buff=, ret=-1
+fingerprint: [silead_msg]V[silfp_msg_wait_finger_status:171] poll iduc(0,0,1,1)
+fingerprint: [silead_nl]D[_relay_msg:61] recv IRQ msg
+fingerprint: [silead_msg]V[_msg_read_msg:129] buff=i, count=1
+fingerprint: [silead_msg]V[silfp_msg_send:118] write buf=i, ret=1
+fingerprint: [silead_dev]V[silfp_dev_wait_finger_status:366] wait_finger_status: 1
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x38 (CHECK_ESD) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x38 4(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_cust]D[silfp_cust_finger_up_after_action:129] finger up 1023
+fingerprint: [silead_cust]D[silfp_cust_enroll_timeout:116] alarm ring(0)!!!
+fingerprint: [silead_worker]I[_worker_set_state_unlock:144] set to STATE_NAV************
+fingerprint: [silead_worker]I[_worker_command_loop:250] work STATE_NAV
+fingerprint: [silead_cust]V[silfp_cust_is_optic:238] default, not impliment
+fingerprint: [silead_cmd]I[silfp_cmd_check_broken:893] silfp_cmd_check_broken enter ...state:3
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_fp]D[fp_tac_check_broken:719] enter fp_tac_check_broken
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x60 (CHECK_BROKEN) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x60 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_worker]I[_worker_command_loop:273] dispatch (3) STATE_NAV
+fingerprint: [silead_msg]V[silfp_msg_clean:157] buff=, ret=-1
+fingerprint: [silead_nav]I[silfp_nav_command:96] nav-------------
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0xa (NAV_START) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0xa 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_cust]V[silfp_cust_get_sys_charging_state:123] default, not impliment
+fingerprint: [silead_impl]V[_impl_wait_finger_status:217] wait finger status 2(0:1:0:1)
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_dev]V[silfp_dev_clear_irq:312] clear irq
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x2:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_msg]V[silfp_msg_clean:157] buff=, ret=-1
+fingerprint: [silead_msg]V[silfp_msg_wait_finger_status:171] poll iduc(0,1,0,1)
+fingerprint: [silead_nl]D[_relay_msg:61] recv IRQ msg
+fingerprint: [silead_msg]V[silfp_msg_send:118] write buf=i, ret=1
+fingerprint: [silead_msg]V[_msg_read_msg:129] buff=i, count=1
+fingerprint: [silead_dev]V[silfp_dev_wait_finger_status:366] wait_finger_status: 1
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x38 (CHECK_ESD) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x38 4(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x3 (NAV_CAPTURE_IMG) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x3 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0xb (NAV_STEP) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0xb 8(SUCCESS) [0x8:0x0:0x0]
+fingerprint: [silead_nav]V[silfp_nav_command:113] *********report key = NAV_KEY_CLICK_DOWN
+fingerprint: [silead_dev]D[silfp_dev_send_key:429] should report key = NAV_KEY_CLICK_DOWN
+fingerprint: [silead_cust]V[silfp_cust_get_sys_charging_state:123] default, not impliment
+fingerprint: [silead_impl]V[_impl_wait_finger_status:217] wait finger status 0(0:0:1:1)
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_dev]V[silfp_dev_clear_irq:312] clear irq
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_msg]V[silfp_msg_clean:157] buff=, ret=-1
+fingerprint: [silead_msg]V[silfp_msg_wait_finger_status:171] poll iduc(0,0,1,1)

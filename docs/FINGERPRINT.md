@@ -50,6 +50,10 @@ nav. На FPC-чипе этот протокол не дал бы SUCCESS.
   (376 640 Б) → `/dev/silead_fp` (только питание/reset/IRQ) + TA по QSEECom.
 - Версия silead HAL: `6.3.4(...XM-CAP-C3Q)` — совпадает с SKU устройства
   (`androidboot.product.hardware.sku=c3qn`).
+- **Живое касание** (`docs/fingerprint/silead-touch-trace.txt`): IRQ приходит,
+  `0x3 (NAV_CAPTURE_IMG)` → SUCCESS, `0xb (NAV_STEP)` → SUCCESS, HAL отдаёт
+  `NAV_KEY_CLICK_DOWN/UP`. То есть TA реально снимает кадр с сенсора —
+  команда захвата для будущего клиента: **`0x3`**.
 
 ## 2. Доказательства: FPC здесь ни при чём
 
@@ -115,6 +119,8 @@ libfprint-драйвер для некоторых Silead — но он бесп
 
 - `docs/fingerprint/silead-init-trace.txt` — полный трейс инициализации
   (команды TA с аргументами и статусами).
+- `docs/fingerprint/silead-touch-trace.txt` — трейс касания: IRQ →
+  `NAV_CAPTURE_IMG (0x3)` → `NAV_STEP (0xb)` → key-события.
 - `out/fp-recon/` (не в git): `sileadta.*`, `fpctzapp.*`, HAL-ы, `libsl_fp_impl.so`,
   `libQSEEComAPI.so`, `libion.so`, bionic-рантайм, `tz_a.bin`, `xbl_a.bin`,
   `dtbo_a.img`, `boot_a.img`.
