@@ -84,7 +84,7 @@ apt-get install -y --no-install-recommends \
   bluez pulseaudio pulseaudio-module-bluetooth pulseaudio-utils \
   alsa-utils dbus-x11 python3-dbus adbd \
   gnss-share \
-  libprotobuf-c1 \
+  libprotobuf-c1 libgudev-1.0-0 \
   gcc libqmi-glib-dev pkg-config \
   v4l-utils \
   fastboot upower fake-hwclock
@@ -204,9 +204,17 @@ if [ -n "$REDMI" ] && [ -d "$REDMI/sensors" ]; then
   sudo mkdir -p "$RF/usr/share/qcom"
   [ -d "$REDMI/vendor-qcom/qcom" ] && \
     sudo rsync -a "$REDMI/vendor-qcom/qcom/" "$RF/usr/share/qcom/"
-  echo ">> sensors (hexagonrpcd + musl runtime + -R tree) staged"
+  echo ">> sensors (hexagonrpcd + ssccli + -R tree) staged"
 else
   echo "WARN: no $REDMI/sensors — run $REDMI/tools/fetch-firmware.sh for hexagonrpcd" >&2
+fi
+# iio-sensor-proxy built with the SSC backend (tools/build-iio-sensor-proxy.sh):
+# binary, systemd unit, udev rule, dbus policy and polkit action.
+if [ -d "$REDMI/sensors/iio" ]; then
+  sudo cp -a "$REDMI"/sensors/iio/. "$RF/"
+  echo ">> iio-sensor-proxy (SSC backend) staged"
+else
+  echo "WARN: no $REDMI/sensors/iio - run $REDMI/tools/build-iio-sensor-proxy.sh" >&2
 fi
 sudo chmod 755 "$RF/var/lib/tqftpserv"
 
@@ -295,7 +303,7 @@ systemctl enable ModemManager.service NetworkManager.service NetworkManager-disp
 systemctl enable ssh 2>/dev/null || true
 systemctl enable wpa_supplicant.service 2>/dev/null || true
 # Snapdragon Sensor Core (hexagonrpcd -> ADSP fastrpc)
-systemctl enable sensors-setup.service hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service rain-sensor-bridge.service 2>/dev/null || true
+systemctl enable sensors-setup.service hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service iio-sensor-proxy.service 2>/dev/null || true
 # ASoC/WCD9375 stack (speaker + headset) needs no unit any more: every
 # piece is built-in (=y) and the ADSP auto-boots (adsp_resource_init has
 # auto_boot=true).  rain-stable-boot must still not stop remoteproc1.

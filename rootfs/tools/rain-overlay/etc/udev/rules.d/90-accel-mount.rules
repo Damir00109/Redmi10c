@@ -1,3 +1,5 @@
-# sc7a20 accel on SM6225 reports inverted X/Y (firmware placement matrix is
-# all-zero); rotate 180 deg around Z so iio-sensor-proxy sees correct axes.
-SUBSYSTEM=="misc", KERNEL=="fastrpc-adsp", ENV{ACCEL_MOUNT_MATRIX}="-1, 0, 0; 0, -1, 0; 0, 0, 1"
+# sc7a20 accel on SM6225 reports an all-zero placement matrix from the SSC
+# firmware.  iio-sensor-proxy expects the acceleration vector to point
+# downwards at rest, so invert X/Y (screen rotated 180 deg) and Z as well -
+# this is the same matrix postmarketOS uses for devices with a zero matrix.
+SUBSYSTEM=="misc", KERNEL=="fastrpc-adsp", ENV{ACCEL_MOUNT_MATRIX}="-1, 0, 0; 0, -1, 0; 0, 0, -1"

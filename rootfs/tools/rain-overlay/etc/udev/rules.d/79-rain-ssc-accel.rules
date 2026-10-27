@@ -1,0 +1,6 @@
+# iio-sensor-proxy 3.9 ships an SSC rule that enables only ssc-light and
+# ssc-compass; the accelerometer driver exists but is disabled upstream for
+# now.  Our firmware reports an all-zero mount matrix, which 90-accel-mount.rules
+# corrects, so enable ssc-accel (and proximity) as well - otherwise the desktop
+# gets no AccelerometerOrientation and autorotation never happens.
+SUBSYSTEM=="misc", KERNEL=="fastrpc-adsp*", ENV{IIO_SENSOR_PROXY_TYPE}+="ssc-accel ssc-proximity"

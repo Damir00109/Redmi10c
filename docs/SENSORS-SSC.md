@@ -23,7 +23,7 @@ userspace: hexagonrpcd  ->  поднимает sensor PD и отдаёт ей в
            └─ /usr/lib/qcom/adsp              ->  {prefix}/dsp/adsp
 
 клиент:    libssc / ssccli  ->  значения
-           rain-sensor-bridge.py  ->  D-Bus net.hadess.SensorProxy (для десктопа)
+           iio-sensor-proxy 3.9 (SSC-бэкенд)  ->  D-Bus net.hadess.SensorProxy
 ```
 
 ## Что чьё
@@ -34,7 +34,9 @@ userspace: hexagonrpcd  ->  поднимает sensor PD и отдаёт ей в
 | `hexagonrpcd` | **собираем сами** из linux-msm/hexagonrpc (GPL-3.0) |
 | `ssccli`, `libssc` | **собираем сами** из codeberg.org/DylanVanAssche/libssc (GPL-3.0) |
 | musl-рантайм | **больше не нужен** — оба бинарника теперь glibc |
-| `sensors-setup`, `rain-sensor-bridge.py`, `rain-sensor-{suspend,resume}.sh`, юниты, udev-правила | наши |
+| `iio-sensor-proxy` | **собираем сами** (3.9 с `-Dssc-support=enabled`) |
+| `sensors-setup`, `rain-sensor-{suspend,resume}.sh`, юниты, udev-правила | наши |
+| `rain-sensor-bridge.py` | наши, **больше не включён** — заменён на iio-sensor-proxy (оставлен как fallback) |
 
 ## Вся userspace-часть собирается из исходников
 
@@ -42,6 +44,7 @@ userspace: hexagonrpcd  ->  поднимает sensor PD и отдаёт ей в
 |---|---|---|
 | `tools/build-hexagonrpcd.sh` | `hexagonrpcd` (linux-msm/hexagonrpc 0.5.0) | `sensors/bin/hexagonrpcd`, `sensors/lib-glibc/libhexagonrpc.so.*` |
 | `tools/build-libssc.sh` | `ssccli` + `libssc` (libssc 0.4.4) | `sensors/bin/ssccli`, `sensors/lib-glibc/libssc.so.*` |
+| `tools/build-iio-sensor-proxy.sh` | `iio-sensor-proxy` + `monitor-sensor` (3.9, SSC-бэкенд) | `sensors/iio/` (бинарники, юнит, udev-правило, dbus/polkit) |
 
 Зависимости: `meson`, `ninja`, `aarch64-linux-gnu-gcc`, ядерный UAPI
 (`out/src/linux/include/uapi/misc/fastrpc.h`) и aarch64-пакеты
@@ -95,6 +98,29 @@ fog/rain», а каталог `rain`, поэтому `-R` в юните пока
 - `rain-sensor-resume.service` поднимает их обратно (иначе сенсоры мертвы до
   ребута). В upstream-юните sensorspd это делается через
   `Conflicts/Before=suspend.target` + `Restart=always` — кандидат на упрощение.
+
+## Десктоп: iio-sensor-proxy вместо своего моста
+
+Ubuntu 26.04 несёт `iio-sensor-proxy` 3.8, а поддержка SSC появилась только в
+3.9 (Debian: «Add ssc sensor support», «Enable ssc support on arm64»), поэтому
+пакет не подходит и сервис собирается из исходников с `-Dssc-support=enabled`.
+
+Два подводных камня, которые пришлось обойти:
+
+1. **upstream-правило включает для SSC только `ssc-light ssc-compass`.**
+   Драйвер акселерометра (`ssc-accel`) в коде есть, но в udev-правиле отключён.
+   Наше `79-rain-ssc-accel.rules` добавляет `ssc-accel ssc-proximity`, иначе
+   автоповорота не будет.
+2. **Матрица ориентации.** iio-sensor-proxy ожидает, что вектор ускорения в
+   покое направлен вниз, поэтому `90-accel-mount.rules` теперь инвертирует и Z:
+   `-1, 0, 0; 0, -1, 0; 0, 0, -1` (та же матрица, что pmOS использует для
+   устройств с нулевой матрицей от прошивки).
+
+Проверено на телефоне: сервис активен, `monitor-sensor` показывает живой свет
+(93–95 lux), proximity и tilt `face-up`. `AccelerometerOrientation` при лежащем
+аппарате остаётся `undefined` — это штатно: `orientation_calc()` возвращает
+предыдущее значение, пока оба угла ниже порога (x≈0, y≈0). Ориентация появится,
+когда телефон держат вертикально.
 
 ## Известные ограничения
 
