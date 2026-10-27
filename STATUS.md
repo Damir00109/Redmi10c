@@ -60,7 +60,7 @@
 
 | Компонент | Причина |
 |---|---|
-| Сканер отпечатков | **TEE-only**: шиной QUPv3 SE5 владеет QTEE (TA `fpctzapp` → `qsee_spi(5)`), пины 14–17 — LPASS-остров, регистры SE5 закрыты для AP. Драйвер на mainline не поможет — см. `docs/FINGERPRINT.md` |
+| Сканер отпечатков | **Silead, TEE-only**: HAL `fingerprint.silead` → TA `sileadta` → `qsee_spi` (SET_SPI_DEV 14); пины 14–17 — LPASS-остров, AP-доступ к шине закрыт (probe SE5 вешает SoC). FPC-стек в образе есть, но чипа FPC нет (`FPC_ERROR_NOT_SUPPORTED`). См. `docs/FINGERPRINT.md` |
 | NFC / ИК-порт | Нет в устройстве |
 
 ## Сессия 2026-10-11: что сделано

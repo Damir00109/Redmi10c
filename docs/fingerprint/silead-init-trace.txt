@@ -1,0 +1,111 @@
+fpc_fingerprint_hal: fpc_hal_open failed
+fingerprint: [silead_finger]V[silfp_finger_init:116] init
+fingerprint: [silead_worker]V[silfp_worker_init:304] init
+fingerprint: [silead_comm]V[silfp_common_init:183] init
+fingerprint: [silead_comm]I[silfp_common_init:188] cancel notice (1), below android8 (0)
+fingerprint: [silead_impl]I[silfp_impl_init:850] fp hal version: 6.3.4(220312171248-8.0.0-qsee[XM-CAP-C3Q])idlds
+fingerprint: [silead_dev]V[silfp_dev_init:178] init
+fingerprint: [silead_dev]E[_dev_stub_init:154] open dev:/dev/silead_stub fail (No such file or directory), directly use silead_fp dev
+fingerprint: [silead_dev]I[silfp_dev_init:203] dev_ver version: v0.3.7
+fingerprint: [silead_msg]V[silfp_msg_init:53] init
+fingerprint: [silead_nl]V[silfp_nl_init:265] init: nl_id = 0, fd = 7
+fingerprint: [silead_nl]V[_thr_read:203] Read thread running 7659 .....
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:102] > 0x59 (SEND_CMD_WITH_BUF_GET) [8 4 0x1003:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:106] < 0x59 0 (SUCCESS) [0x8:0x0]
+fingerprint: [silead_debug]V[_dbg_set_log_mode:142] krm = 1, tam = 2, agm = 0
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1f (SET_LOG_MODE) [0x2:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1f 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_dev]V[silfp_dev_enable:86] acq spi
+fingerprint: [silead_dev]I[silfp_dev_enable:90] dev_spi_op not supported!
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:102] > 0x20 (SET_SPI_DEV) [14 0 0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:106] < 0x20 0 (SUCCESS) [0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0xe (INIT) [0x80064:0x493e00:0x64000:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0xe 1(SUCCESS) [0x6135a080:0x6135a080:0x80000000]
+fingerprint: [silead_impl]V[_impl_init:818] chipid=6135a080,6135a080,0 1 (1)
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:102] > 0x59 (SEND_CMD_WITH_BUF_GET) [61440 4 0x1004:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:106] < 0x59 0 (SUCCESS) [0x4e19:0x0]
+fingerprint: [silead_util]V[silfp_util_file_save:453] save /data/vendor/silead/config/6135a080-6135a080-00000000.cfg
+fingerprint: [silead_util]V[silfp_util_file_remove:374] remove /data/vendor/silead/config/6135a080-6135a080-00000000_algo.cfg
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:102] > 0x59 (SEND_CMD_WITH_BUF_GET) [61440 4 0x8004:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:106] < 0x59 -1015 (REQ_CMD_UNSUPPORT) [0xf000:0x0]
+fingerprint: [silead_util]V[silfp_util_file_remove:374] remove /data/vendor/silead/config/6135a080-6135a080-00000000_algo.cfg
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:102] > 0x1b (INIT2) [9 0 0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:106] < 0x1b 0 (SUCCESS) [0x200038:0xe30ff]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:102] > 0x30 (SET_KEY_DATA) [152 0 0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:106] < 0x30 0 (SUCCESS) [0x0:0x0]
+fingerprint: [silead_cust]V[silfp_cust_is_optic:238] default, not impliment
+fingerprint: [silead_cal_norm]V[silfp_cal_normal_init:87] calibrate=1, calibrate2_nofinger=1, calibrate2=1, m_cal_cfg_max_size=16384, reset=0
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x50 (GET_VERSIONS) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x50 0(SUCCESS) [0xf4638:0x1ff:0x0]
+fingerprint: [silead_impl]I[_impl_init2:687] ta version:v511, algo version: v1001016
+fingerprint: [silead_impl]V[_impl_init2:689] store_normal=0, tpl_max_size=930047, need_reinit_after_irq=0
+fingerprint: [silead_impl]V[_impl_init2:690] finger loop=0, avdd=0, optic=0, esd=1, auth retry=0
+fingerprint: [silead_impl]V[_impl_init2:691] ocp=0
+fingerprint: [silead_impl]V[_impl_init2:692] feature=0x200038
+fingerprint: [silead_img]D[silfp_bmp_set_img_encrypt:144] encrypt img type 0
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:102] > 0x59 (SEND_CMD_WITH_BUF_GET) [4 4 0x1013:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:106] < 0x59 -1007 (CONFIG_INVALID) [0x4:0x0]
+fingerprint: [silead_impl]V[_impl_get_ta_feature:727] narrow_flag = 0
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x39 (GET_OTP) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x39 4(SUCCESS) [0x789870a5:0x240000:0x0]
+fingerprint: [silead_impl]I[silfp_impl_get_otp:1109] OTP 0x789870A5 0x00240000 0x00000000
+fingerprint: [silead_cust]I[silfp_cust_otp_setprop:173] otp-n-parse 0x789870A50024000000000000
+fingerprint: [silead_worker]V[silfp_worker_set_screen_state_default:186] screen status:1
+fingerprint: [silead_comm]V[_common_set_screen_callback_mode:92] get screen status from drv
+fingerprint: [silead_cust]V[silfp_cust_is_optic:238] default, not impliment
+fingerprint: [silead_comm]V[_common_set_finger_status_mode:79] finger status mode: 0
+fingerprint: [silead_dev]I[silfp_dev_set_finger_status_mode:347] irq mode: 0
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0xd (NAV_SUPPORT) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0xd 0(SUCCESS) [0x2:0x0:0x0]
+fingerprint: [silead_nav]I[silfp_nav_init:43] nav support:2
+fingerprint: [silead_ext_hub]V[silfp_ext_hub_init:410] init
+fingerprint: [silead_ext_hub]D[_ext_hub_event_register:213] register m_listen_fd=15
+fingerprint: [silead_ext_skt]E[silfp_ext_skt_init:223] get SN/OTP info
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x39 (GET_OTP) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x39 4(SUCCESS) [0x789870a5:0x240000:0x0]
+fingerprint: [silead_ext_skt]D[_ext_skt_test_otp:1293] OTP: 0x789870A5 0x00240000 0x00000000
+fingerprint: [silead_ext_cb]V[silfp_ext_cb_init:72] init
+fingerprint: [silead_notify]V[silfp_notify_set_notify_callback:35] set notify
+android.hardware.biometrics.fingerprint-service.xiaomi: Opened fingerprint HAL, class: silead, module_id: fingerprint
+fingerprint: [silead_worker]V[_worker_command_loop:243] enter
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_util]V[silfp_util_file_get_size:357] getsize /data/vendor/silead/fpconfig.dat
+fingerprint: [silead_util]E[silfp_util_file_get_size:360] getsize /data/vendor/silead/fpconfig.dat failed (2:No such file or directory)
+fingerprint: [silead_cal_norm]D[_cal_normal_get_config_data:145] get /data/vendor/silead/fpconfig.dat size -1
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:102] > 0x36 (CALIBRATE) [4 2 0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_modified_command:106] < 0x36 -1013 (TA_OP_FAILED) [0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x37 (CALIBRATE2) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x37 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_worker]I[_worker_command_loop:250] work STATE_IDLE
+fingerprint: [silead_cust]V[silfp_cust_is_optic:238] default, not impliment
+fingerprint: [silead_worker]I[_worker_set_state_unlock:144] set to STATE_NAV************
+fingerprint: [silead_worker]I[_worker_command_loop:250] work STATE_NAV
+fingerprint: [silead_cust]V[silfp_cust_is_optic:238] default, not impliment
+fingerprint: [silead_cmd]I[silfp_cmd_check_broken:893] silfp_cmd_check_broken enter ...state:3
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_fp]D[fp_tac_check_broken:719] enter fp_tac_check_broken
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x60 (CHECK_BROKEN) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x60 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_worker]I[_worker_command_loop:273] dispatch (3) STATE_NAV
+fingerprint: [silead_msg]V[silfp_msg_clean:157] buff=, ret=-1
+fingerprint: [silead_nav]I[silfp_nav_command:96] nav-------------
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0xa (NAV_START) [0x0:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0xa 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_cust]V[silfp_cust_get_sys_charging_state:123] default, not impliment
+fingerprint: [silead_impl]V[_impl_wait_finger_status:217] wait finger status 2(0:1:0:1)
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x3:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_dev]V[silfp_dev_clear_irq:312] clear irq
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:123] > 0x1 (MODE_DOWNLOAD) [0x2:0x0:0x0:0x0]
+fingerprint: [silead_ca_entry]D[silfp_ca_send_normal_command:127] < 0x1 0(SUCCESS) [0x0:0x0:0x0]
+fingerprint: [silead_msg]V[silfp_msg_clean:157] buff=, ret=-1
+fingerprint: [silead_msg]V[silfp_msg_wait_finger_status:171] poll iduc(0,1,0,1)
+fingerprint: [silead_ext_hub]D[_ext_hub_listen_callback:284] new connection m_command_fd = 17

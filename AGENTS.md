@@ -41,7 +41,7 @@
 
 Работает: экран DSI, USB gadget, UFS+SD, Wi-Fi (ath10k/WCN3990), BT+A2DP, тачскрин FT8006S (SPI), LTE через IPA v4.2/QMAP (~9 Мбит/с), модем+QMI/ModemManager, звук (динамик + гарнитура FSA4480), зарядка SMB1351 + fuel gauge, thermal, cpufreq, GPU Adreno 610 (SMMU/GMU/ZAP, devfreq), сенсоры через SSC/hexagonrpcd, Plasma Mobile + Firefox, вибратор, фонарик, RTC.
 
-Работает также задняя камера S5KJN1 (полный CAMSS-пайплайн, RAW10 4080x3072). В разработке: GPS, iio-sensor-proxy, ACDB, голос/SMS, AE/AWB для камеры (ISP-уровень), передняя камера Hi556. Не работает: сканер отпечатков — **TEE-only** (FPC1020 на QUPv3 SE5, шиной владеет QTEE; см. `docs/FINGERPRINT.md`).
+Работает также задняя камера S5KJN1 (полный CAMSS-пайплайн, RAW10 4080x3072). В разработке: GPS, iio-sensor-proxy, ACDB, голос/SMS, AE/AWB для камеры (ISP-уровень), передняя камера Hi556. Не работает: сканер отпечатков — **Silead, TEE-only** (HAL `fingerprint.silead` → TA `sileadta` → `qsee_spi`; `ro.boot.fpsensor=fpc` от ABL врёт, FPC-чипа нет; см. `docs/FINGERPRINT.md`).
 
 ## Соседняя папка: /mnt/128/rootfs-ubuntu
 
@@ -111,7 +111,8 @@
 - `QCOM_CLK_SMD_RPM` и `SM_GPUCC_6115` обязательны в конфиге — без них всё висит на EPROBE_DEFER.
 - Ноде вибратора (gpio36) нельзя давать pinctrl — gpiod/pinctrl дерутся за пин.
 - devmem-поки по TLMM на этом чипе вешают шину — использовать `vibtest` (EV_FF ioctl).
-- **SE5 (`spi@4a94000`, сканер отпечатка) включать в DT нельзя**: probe `geni-spi` на нём вешает SoC — экран с подсветкой, USB не поднимается, лечится только Power+VolDown с выключенного телефона. Пины 14–17 — LPASS-остров (зарезервированы в `pinctrl-khaje.c`), а шиной владеет QTEE (TA `fpctzapp` → `qsee_spi(5)`). Доказательства и оценка TEE-пути — `docs/FINGERPRINT.md`.
+- **SE5 (`spi@4a94000`, сканер отпечатка) включать в DT нельзя**: probe `geni-spi` на нём вешает SoC — экран с подсветкой, USB не поднимается, лечится только Power+VolDown с выключенного телефона. Пины 14–17 — LPASS-остров (зарезервированы в `pinctrl-khaje.c`), а шиной владеет QTEE (сенсор **Silead**, HAL → TA `sileadta` → `qsee_spi`). Доказательства и оценка TEE-пути — `docs/FINGERPRINT.md`.
+- **Не отвязывать silead_fp на Android** (`echo 0.silead_fp > .../silead_fp/unbind`): мгновенный ребут SoC (проверено 2026-10-27). Драйвер держит reset gpio104 и IRQ gpio83.
 - Магнитометра/компаса в железе нет. devinfo slot byte не работает — слоты переключаются через GPT type GUID + UFS boot LUN.
 - **i2c-geni SE-DMA на Khaje вешает шину на transfer ≥32 байт.** Любой transfer, где `i2c_get_dma_safe_msg_buf(msg, 32)` возвращает буфер (т.е. `len >= 32`), уходит в SE-DMA и никогда не завершается — задача в D-state, shell мёртв (hung-task). FIFO-путь работает. Лечится property `qcom,no-dma` (`drivers/i2c/busses/i2c-qcom-geni.c`, выставлено на `&i2c1` в `sm6225-xiaomi-fog.dts`). Подробности — `docs/FUEL-GAUGE-SH366101.md`.
 - **Fuel gauge SH366101 читает gaugeinfo-блоки (32 B) только через ALTMAC 0x3E → ALTBLOCK 0x40 → ALTCHK 0x60, unseal не нужен**; на i2c1 обязателен `qcom,no-dma` (см. выше). 5 с — SBS, 30 с — блоки; диагностика `cat /d/sh366101/dump`.

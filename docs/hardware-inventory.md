@@ -33,7 +33,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 18 | Акселерометр | **SC7A20** | SSC (SLPI) | Silan | **FULL** — ядерных IIO нет (шина DSP), данные идут через `hexagonrpcd`/libssc и публикуются в приложения мостом `rain-sensor-bridge` (`net.hadess.SensorProxy`) |
 | 19 | ALS + Proximity | **TMD2755** | SSC (SLPI) | ams AG | **FULL** (ALS и proximity — через мост `rain-sensor-bridge`: `LightLevel`, `ProximityNear`) |
 | 20 | SAR-датчик | **ADUX1050** | SSC | Analog Devices | **LOW** — драйвера нет, и через `libssc`/`ssccli` он недоступен: поддерживаются только proximity/light/accelerometer/magnetometer/compass |
-| 21 | Сканер отпечатка | FPC rear (`ro.boot.fpsensor=fpc`, `fp-keys`) | QUPv3 SE5 `4a94000` (secure) | Fingerprint Cards | **NOT SUPPORTED (TEE-only)** — шиной владеет QTEE: TA `fpctzapp` зовёт `qsee_spi_open(5)`; пины 14–17 — LPASS-остров (AP не муксит), регистры SE5 закрыты (probe `geni-spi` вешает SoC). См. `docs/FINGERPRINT.md` |
+| 21 | Сканер отпечатка | **Silead** (chip id `0x6135a080`; `ro.boot.fpsensor=fpc` от ABL не соответствует железу) | TEE SPI (`qsee_spi`, SET_SPI_DEV 14) | Silead | **NOT SUPPORTED (TEE-only)** — HAL `fingerprint.silead` → TA `sileadta`; пины 14–17 — LPASS-остров, AP-доступ к шине закрыт. FPC-стек есть, но чипа FPC нет. См. `docs/FINGERPRINT.md` |
 | 22 | Wi-Fi | **WCN3990** (ath10k SNOC) | c800000.wifi | Qualcomm | **FULL** (~1.1 Гбит AP-режим проверен) |
 | 22a | Bluetooth | тот же WCN3990 (hci_qca) | GENI UART 4a8c000 | Qualcomm | **NORMAL** (A2DP работает; редкий wedge при re-init — известный дебт) |
 | 23 | NFC | **pn8x** (`nq-nci`, PN80T/SN100-класс) | i2c1-002a (наш `&i2c2`) | NXP | **LOW+** — 2026-10-20: включён `CONFIG_NFC_NXP_NCI(_I2C)`, добавлен DT-узел `nfc@2a` (enable=gpio56, firmware=gpio31, IRQ=gpio70). Драйвер привязывается: `3-002a`, `/sys/class/nfc/nfc0`, rfkill-устройство, GPIO заняты драйвером. **Но чип не отвечает по I2C** (`ENXIO` даже при VEN=1 и CLKREQ=1): не хватает NFC-клока от PMIC (линия CLKREQ gpio71 в стоке — обычный GPIO-запрос к PMIC) и/или рельс VDD/VDD_IO. Ручное дёргание gpio71/56 через `/dev/mem` дважды роняло SoC — не повторять без модели клока. Стека NCI в userspace нет (neard из репозиториев убран) |
@@ -117,7 +117,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | Микрофоны ×2 | аналог → WCD937x ADC | основной + шумодав | **LOW** — микшеры есть (`ADC1..3`), но локальная карта **не открывается** (`arecord`/`aplay` → EINVAL) — нет UCM/routing (блок D) |
 | Джек 3.5мм | WCD937x MBHC + FSA4480 | детект + кнопки гарнитуры | **FULL** |
 | Кнопки | pon (pwrkey/resin) + gpio-keys | power, vol± | **FULL** |
-| Fingerprint | FPC rear | биометрия | **NOT SUPPORTED** — TEE-only, см. `docs/FINGERPRINT.md` |
+| Fingerprint | Silead rear (chip id `0x6135a080`) | биометрия | **NOT SUPPORTED** — TEE-only, см. `docs/FINGERPRINT.md` |
 | Вибромотор | qpnp-vibrator-ldo | coin-motor | **FULL** |
 | Вспышка | `camera-flash@0` (CCI0) | LED torch/flash | **NORMAL** — torch проверен (`white:torch`, `max_brightness=1`, вкл/выкл); v4l2-flash API не заведён (интеграция с камерой) |
 | Антенны | main + diversity + check-GPIO | LTE/Wi-Fi приём | **NORMAL** (основной тракт работает; diversity-check GPIO не заведены) |
@@ -164,7 +164,7 @@ ADB/сенсоры/I2C на resume починены.
 | SD | `mmcblk0` 30.4М блоков — карта видна | **FULL** |
 | USB-C | `typec port0` + `port0-partner` | **NORMAL** |
 | Вспышка | `leds/white:torch` + `leds/white:flash` | **NORMAL** (torch = gpio85; flash/enable = gpio68, снят с резерва 2026-10-18, по дефолту off; v4l2-flash API — вне scope) |
-| Fingerprint | нет сервиса/ноды | **NOT SUPPORTED** (TEE-only, см. `docs/FINGERPRINT.md`) |
+| Fingerprint | нет сервиса/ноды | **NOT SUPPORTED** (Silead, TEE-only; см. `docs/FINGERPRINT.md`) |
 | GPIO/TLMM | 3 gpiochip, 80 линий | **FULL** |
 
 ## Сводка поддержки (mainline; boot_b обновлён 2026-10-18 — полный fuel gauge)

@@ -1,232 +1,125 @@
-# Отпечаток пальца (FPC1020): карта, доказательства, вердикт
+# Сканер отпечатка: **Silead**, не FPC — карта, доказательства, вердикт
 
-Обновлено 2026-10-27. Продолжение `docs/FINGERPRINT-HANDOFF.md` — здесь
-закрыт feasibility gate (вопросы A и B) и зафиксирован результат живой
-проверки на устройстве.
+Обновлено 2026-10-27 (вторая итерация). Продолжение
+`docs/FINGERPRINT-HANDOFF.md`. **Важно: предыдущий вывод «FPC1020» для этого
+экземпляра неверен** — живой сенсор Silead. Ниже — доказательства и что это
+значит для mainline.
 
-**Вердикт: на mainline без клиента к TA — NOT SUPPORTED.**
-Шина SPI сенсора принадлежит secure world (QTEE), а не AP; прямая попытка
-поднять `geni-spi` на SE5 из non-secure мира **вешает SoC**. Единственный
-теоретический путь — клиент к TA `fpctzapp` через QSEECom (ветка 4B), это
-большой реверс-проект и в текущем объёме не делается.
+**Вердикт не изменился: на mainline без клиента к TA — NOT SUPPORTED.**
+Шиной владеет secure world, но TA теперь другой: `sileadta`, а не `fpctzapp`.
 
 ---
 
-## 1. Ответ на feasibility gate
+## 0. TL;DR
 
-**Вопрос A: какой QUP/CS использует TA?**
-QUPv3_0 **SE5**, `spi@4a94000`, chip-select 0, `spi-max-frequency` 4.8 МГц.
-Доказано двумя независимыми способами (§3).
-
-**Вопрос B: доступен ли этот QUP из AP?**
-**Нет.** Пины gpio14–17 — island-owned (LPASS), AP не имеет права их муксить
-(наш же `pinctrl-khaje.c` их резервирует: доступ к TLMM сбрасывает SoC).
-Регистры SE5 для non-secure тоже закрыты: probe `geni-spi` на `4a94000`
-намертво вешает SoC (§5, тест 2).
-
-Итог: ветка 4A (свой SPI-драйвер на AP) закрыта аппаратно. Остаётся 4B.
-
----
-
-## 2. Что за железо (подтверждено)
-
-| Факт | Откуда |
+| Что | Итог |
 |---|---|
-| Чип **FPC1020** (варианты A1–A5 в строках TA) | `strings` по `fpctzapp.b02` |
-| `ro.boot.fpsensor=fpc` | `getprop` |
-| HAL — AIDL `android.hardware.biometrics.fingerprint` v4 | `/vendor/etc/vintf/manifest/android.hardware.biometrics.fingerprint-service.xiaomi.xml` |
-| HAL-бинарь `/vendor/lib64/hw/fingerprint.fpc.default.so` (174 984 Б) | устройство |
-| HAL линкует `libQSEEComAPI.so` + `libion.so`, зовёт `QSEECom_start_app` с именем **`fpctzapp`** | `readelf -d` + строки HAL |
-| HAL ↔ ядро только за электрику: sysfs `fpc1020/{power,hw_reset,irq,regulator_enable,...}` | строки HAL (`fpc_sysfs_node_write`), vendor-драйвер |
-| Вендорский драйвер `fpc1020_platform_tee.c` SPI **не трогает** (868 строк, «spi» только про рельс `vcc_spi`) | `drivers/input/fingerprint/fpc/fpc1020_platform_tee.c` |
-| DT (сток): `fpc1020` — IRQ tlmm 83, reset tlmm 104, `fpc,enable-on-boot` | live DT + `khaje-idp.dtsi:238` |
-| Соседний вариант того же места: `silead_fp` с `qcom,qup-id = <0x06>`, `spi-max-frequency = <0x493e00>` | `khaje-idp.dtsi:272` |
-
-Сенсор — обычный SPI-slave: HWID читается как «записать адрес `0xfc`, прочитать
-2 байта», старший байт `0x10` (FPC1020). Это из открытого референсного драйвера
-FPC (`fingerprint-cards/capacitive_device_driver`,
-`mt6797/platform_driver/fpc1022_tee.c: FPC102X_REG_HWID 252`). Референс также
-даёт тайминги reset: high 100 µs → low 5 мс → high 5 мс.
+| Физический сенсор | **Silead** (chip id `0x6135a080`, читается стабильно) |
+| HAL | `fingerprint.silead.default.so` → `libsl_fp_impl.so`, сервис выбирает класс `silead` |
+| TA | `sileadta` (32-bit ARM QSEE TA), app id 6, грузится штатно |
+| Транспорт | HAL → QSEECom → `sileadta` → `qsee_spi` (HAL шлёт `SET_SPI_DEV 14`) |
+| FPC-стек | в образе есть, но **не используется**: `fpc_hal_open failed`, TA вернул `FPC_ERROR_NOT_SUPPORTED` |
+| `ro.boot.fpsensor=fpc` | ставит ABL, **не соответствует** живому железу (cmdline boot-образа пуст — значение не из ROM) |
+| Доступ из AP | закрыт: пины 14–17 — LPASS-остров, регистры SE5 вешают SoC |
 
 ---
 
-## 3. Доказательство A: TA ходит в SPI через secure-сервис, dev_id 5
+## 1. Доказательства: сенсор Silead
 
-### 3.1 Импорты TA
-
-`fpctzapp` — QSEE TA (aarch64 ELF, сегменты `.mdt` + `.b00…b07`).
-В `.dynamic`/`.rela.plt` (сегмент `.b07`) видны импорты secure-мира:
+Живой лог инициализации (полностью — `docs/fingerprint/silead-init-trace.txt`):
 
 ```
-qsee_spi_open, qsee_spi_write, qsee_spi_close, qsee_spi_full_duplex,
-qsee_register_shared_buffer, qsee_prepare_shared_buf_for_secure_read,
-qsee_fts_read_file/write_file/encrypt/decrypt, qsee_hmac, ...
+> 0x20 (SET_SPI_DEV) [14 0 0x0:0x0]      < 0 (SUCCESS)
+> 0xe  (INIT) [0x80064:0x493e00:0x64000] < 1 (SUCCESS) [0x6135a080:0x6135a080:0x80000000]
+[silead_impl] chipid=6135a080,6135a080,0 1 (1)
+> 0x1b (INIT2) [9 0 ...]                 < 0 (SUCCESS) [0x200038:0xe30ff]
+> 0x30 (SET_KEY_DATA)                    < 0 (SUCCESS)
+> 0x50 (GET_VERSIONS)                    < 0 (SUCCESS) [0xf4638:0x1ff:0x0]
+> 0x39 (GET_OTP)                         < 4 (SUCCESS) [0x789870a5:0x240000:0x0]
+> 0xd  (NAV_SUPPORT)                     < 0 (SUCCESS) [0x2]
+> 0xa  (NAV_START)                       < 0 (SUCCESS)
 ```
 
-То есть SPI выполняется **на стороне TEE** (сервис `qsee_spi`), а не через
-ядерный драйвер.
+То есть TA реально разговаривает с чипом: стабильный chip id, OTP, калибровка,
+nav. На FPC-чипе этот протокол не дал бы SUCCESS.
 
-### 3.2 Дизасм: какой dev_id
+Дополнительно:
 
-Код TA — сегмент `.b02` с vaddr 0. PLT-заглушки в начале:
+- `QSEECOM: qseecom_load_app: App with id 6 (sileadta) now loaded` — TA грузится.
+- HAL-цепочка: `fingerprint.silead.default.so` (11 832 Б) → `libsl_fp_impl.so`
+  (376 640 Б) → `/dev/silead_fp` (только питание/reset/IRQ) + TA по QSEECom.
+- Версия silead HAL: `6.3.4(...XM-CAP-C3Q)` — совпадает с SKU устройства
+  (`androidboot.product.hardware.sku=c3qn`).
 
-| stub | GOT | импорт |
-|---|---|---|
-| `0x10` | `0x39b020` | `qsee_spi_write` |
-| `0x20` | `0x39b028` | `qsee_spi_open` |
-| `0x30` | `0x39b030` | `qsee_spi_close` |
-| `0x40` | `0x39b038` | `qsee_spi_full_duplex` |
+## 2. Доказательства: FPC здесь ни при чём
 
-```
-fpc_spi_init   (0x5788): mov w0, #5 ; b 0x20      → qsee_spi_open(5)
-fpc_spi_destroy(0x5790): mov w0, #5 ; b 0x30      → qsee_spi_close(5)
-fpc_pal_spi_write    (0x5734): ... bl 0x10        → qsee_spi_write(5, ...)
-fpc_pal_spi_writeread(0x5798): ... bl 0x40        → qsee_spi_full_duplex(5, ...)
-```
-
-### 3.3 Таблица QUP в образе TEE
-
-`tz_a` (4 194 304 Б, aarch64 ELF) содержит таблицу SE-баз по адресу файла
-`0x11f400`, записи по 32 байта `{idx, base, idx, ptr}`:
-
-```
-idx 0 → 0x04a80000   (SE0)
-idx 1 → 0x04a84000   (SE1)
-idx 2 → 0x04a88000   (SE2)
-idx 3 → 0x04a8c000   (SE3)
-idx 4 → 0x04a90000   (SE4)
-idx 5 → 0x04a94000   (SE5)   ← qsee_spi_open(5)
-idx 6 → 0x0ab80000   (LPASS QUPv3, дальше 0xab84000, …)
-```
-
-Рядом строки `gcc_qupv3_wrap0_s0_clk … s5_clk`, `num_spi_cores`,
-`is_qupv3_ac_stubbed` — это конфиг SPI-ядра TEE (QUP access control).
-
-**Итого A: SE5 = `spi@4a94000`, CS0.** Косвенное подтверждение: у `silead_fp`
-в стоковом DT `qcom,qup-id = <0x06>` — та же нога (тот же footprint, те же
-IRQ 83 / reset 104); нумерация Silead 1-based даёт тот же SE5.
-
----
-
-## 4. Доказательство B: шина закрыта для AP
-
-### 4.1 Пины — LPASS-остров
-
-`drivers/pinctrl/qcom/pinctrl-khaje.c` (наш mainline-драйвер) резервирует
-gpio14–17 навсегда:
-
-> gpio14/15/16/17 (WEST tile) kill the SoC instantly on register access —
-> proven by the Android sysfs export sweep (marker stopped at each of them,
-> instant reboot). Keep them reserved FOREVER: on this SoC they are LPI pins
-> owned by the LPASS audio island (stock DT: `lpi_i2s3_*` under
-> `lpi_pinctrl@ac40000`, `qupv3_se5_spi`); Qualcomm's own downstream khaje
-> driver reserves them too.
-
-То есть даже mux пинов из AP невозможен — любой доступ к TLMM-регистрам этих
-линий роняет SoC. Настраивать их может только остров/secure-мир.
-
-### 4.2 Регистры SE5
-
-XBL-образ содержит карту устройств, где весь блок QUPv3_0 помечен как
-non-secure:
-
-```
-0x04A00000, 0x000D0000, "QUPV3_0_GSI", AddDev, MMAP_IO, UNCACHEABLE, MmIO, NS_DEVICE
-```
-
-но фактически SE5 защищён access control'ом (см. 4.3): TEE держит его как
-свой SPI-контроллер, и non-secure обращение к регистрам вешает фабрику.
-
-### 4.3 Живые тесты (2026-10-27, rescue-образ через `fastboot boot`)
-
-В `sm6225.dtsi` добавлен `spi5: spi@4a94000` (geni-spi, FIFO, GIC_SPI 332),
-в board-DTS — `&spi5 { status = "okay"; spidev@0 … }`.
-
-**Тест 1 — с pinctrl `qup5`:**
-
-```
-[2.904880] khaje-pinctrl 400000.pinctrl: error -EINVAL: pin-14 (4a94000.spi)
-[2.905235] geni_spi 4a94000.spi: error -EINVAL: Error applying setting, reverse things back
-```
-
-`/dev/spidev*` не появился. Это ожидаемо и безопасно: `msm_pinmux_request()`
-отвергает зарезервированные линии **до** записи в TLMM, поэтому SoC не упал.
-
-**Тест 2 — без pinctrl (чтобы дойти до регистров SE):**
-
-SoC **завис** на probe (~2.9 с): экран с подсветкой, USB ACM не поднимается,
-устройство пришлось выводить вручную (Power + Vol Down). То есть первое же
-обращение `geni-spi` к регистрам `4a94000` (чтение `GENI_IF_DISABLE_RO` /
-инициализация SE) не возвращается — блок закрыт для non-secure.
-
-Вывод B: **нет**, ни пины, ни регистры AP недоступны. Ветка 4A закрыта.
-
----
-
-## 5. Почему 4B дорого (оценка)
-
-В Android путь такой:
-
-```
-fingerprint.fpc.default.so ──QSEECom──► fpctzapp (TA) ──qsee_spi(5)──► SE5
-        (AIDL HAL)          (libQSEEComAPI + ion)
-```
-
-Что есть в mainline:
-
-- `qseecom` работает: `drivers/firmware/qcom/qcom_qseecom.c`,
-  `qcom_scm_qseecom_*`; `xiaomi,fog` уже в allowlist (`qcom_scm.c:2338`),
-  UEFI secure app поднимается.
-- Но интерфейс **минимальный**: только `qcom_scm_qseecom_app_get_id()` +
-  `app_send()` (request/response в TZ-памяти) и жёсткий список приложений в
-  драйвере. Нет `APP_LOAD` (загрузка TA из `.mdt`/`.b0x`), нет
-  `register_shared_buffer`, нет ion — а HAL/TA этим пользуются.
-- **Живая проверка (2026-10-27):** временно добавили `fpctzapp` в список
-  qseecom-драйвера и залогировали lookup:
-
+- Сервис перебирает классы (`fortsense`, `silead`, `fpc`, `fpc_fod`, `goodix…`)
+  и останавливается на `silead`.
+- Когда очередь доходит до `fpc`, HAL грузится, но:
   ```
-  qcom_qseecom: FP-DIAG qseecom lookup qcom.tz.uefisecapp -> 0 (app_id 2)
-  qcom_qseecom: FP-DIAG qseecom lookup fpctzapp -> -2 (app_id 0)
+  E fpc_tac : fpc_tac_transfer TA returned error: 0x8cf1c28e (FPC_ERROR_NOT_SUPPORTED)
+  E fpc_tac : sensor_command, Failed to send command: 0 to TA
+  E fpc_fingerprint_hal: fpc_hal_open failed
   ```
+  `fpc_tee_sensor_init()` получает от TA `NOT_SUPPORTED` — FPC-чипа на шине нет.
+  (Оговорка: silead-драйвер держит reset gpio104 и IRQ gpio83, так что
+  FPC-сенсор мог быть и не сброшен; но chip id и полный SUCCESS-протокол
+  silead — независимое и более сильное доказательство.)
+- `ro.boot.fpsensor=fpc` приходит от ABL: cmdline boot-образа пуст (проверено
+  разбором `boot_a.img`), значит значение не из ROM. На этом экземпляре оно
+  не отражает железо (вероятно, дефолт платформы).
 
-  То есть TEE **не знает** `fpctzapp`: в Android его грузит ядерный qseecom
-  из `/vendor/firmware_mnt/image`, а в mainline загрузчика TA нет. Даже
-  «дойти до протокола» нельзя, пока не реализован APP_LOAD.
-- Протокол HAL↔TA — сотни команд (`FPC_TA_*`), поверх них токены и
-  secure storage (`qsee_fts_*`, `qsee_hmac`, `qsee_km_get_encapsulated_key`).
-  Всё это надо реверсить из бинаря HAL и реализовать в своём клиенте.
+## 3. Шина и почему AP не может
 
-Оценка: это отдельный исследовательский проект (недели), с неясным
-результатом на этапе токенов/аттестации. Соотношение цена/результат плохое,
-поэтому по правилу из handoff задача закрывается документом.
+- `silead_fp` в DT: `qcom,qup-id = <6>`, `spi-max-frequency = 0x493e00`
+  (4.8 МГц), пины: avdd gpio100, reset gpio104, irq gpio83.
+- HAL перед INIT шлёт `SET_SPI_DEV 14` — TA открывает SPI через `qsee_spi`
+  (secure-сервис QTEE).
+- Пины **gpio14–17 — LPASS-остров**: `pinctrl-khaje.c` резервирует их навсегда
+  (любой AP-доступ к TLMM этих линий роняет SoC; проверено ранее свипом).
+- AP-side `geni-spi` на SE5 (`spi@4a94000`) вешает SoC на probe — проверено
+  2026-10-27 (см. §5).
 
-Если возвращаться — порядок такой: (1) реализовать APP_LOAD в mainline
-qseecom (образ TA из `.mdt` + `.b0x`, SCM-команда загрузки как в Android
-`qseecom`), (2) убедиться, что `app_get_id("fpctzapp")` отдаёт id,
-(3) только потом реверсить протокол HAL↔TA.
+Итог: как и для FPC, данные идут только через TA. Свой SPI-драйвер на AP
+невозможен.
 
----
+## 4. Что это меняет в плане TZ
 
-## 6. Что сделано в дереве
+Цель клиента — **`sileadta`**, а не `fpctzapp`:
 
-- `arch/arm64/boot/dts/qcom/sm6225.dtsi`: узел `spi5: spi@4a94000` добавлен
-  **disabled** с комментарием-предупреждением (включать нельзя — вешает SoC).
-- `arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts`: `&spi5` намеренно **не**
-  включается; комментарий со ссылкой сюда.
-- `tools/fp-probe.c` — минимальный SPI-пробник FPC1020 (reset через
-  gpio-leds + чтение HWID `0xfc`). Оставлен на случай, если появится
-  легальный доступ к шине; в initramfs собирается, автоматически не
-  запускается.
-- `initramfs/display-console-rescue-init` — без изменений (автозапуск
-  пробы убран).
+- TA проще: 32-bit ARM, 1.2 МБ кода, протокол виден в трейсе
+  (`docs/fingerprint/silead-init-trace.txt`): команды `0x0e INIT`,
+  `0x1b INIT2`, `0x30 SET_KEY_DATA`, `0x50 GET_VERSIONS`, `0x39 GET_OTP`,
+  `0x36/0x37 CALIBRATE`, `0x0d NAV_SUPPORT`, `0x0a NAV_START`,
+  `0x59 SEND_CMD_WITH_BUF_GET` (буферные команды), `0x20 SET_SPI_DEV`.
+- Проблема та же: в mainline `qseecom` нет `APP_LOAD`, а `app_get_id` для
+  незагруженного TA даёт `-ENOENT` (проверено на `fpctzapp`; для `sileadta`
+  будет то же).
+- Дальше — тот же путь: APP_LOAD → UAPI → либо свой клиент, либо шим
+  `libQSEEComAPI` + оригинальный `libsl_fp_impl.so`.
 
-Артефакты разбора (не в git, `out/` генерируемый): `out/fp-recon/` —
-`fpctzapp.*`, `fingerprint.fpc.default.so`, `tz_a.bin`, `xbl_a.bin`.
+Плюс: silead-протокол известен (в отличие от FPC), и в открытом виде есть
+libfprint-драйвер для некоторых Silead — но он бесполезен без доступа к шине.
 
----
+## 5. Живые тесты 2026-10-27 (AP-side)
 
-## 7. Обновление статуса
+1. `spi5` (SE5 `4a94000`) с pinctrl `qup5` → `khaje-pinctrl: error -EINVAL:
+   pin-14 (4a94000.spi)` (пины зарезервированы), probe не дошёл до регистров.
+2. `spi5` без pinctrl → **зависание SoC** на probe (экран с подсветкой, USB не
+   поднимается). Регистры SE5 для non-secure закрыты.
+3. `qcom_scm_qseecom_app_get_id("fpctzapp")` → `-ENOENT` (TA не предзагружен,
+   APP_LOAD в mainline нет).
+4. Unbind silead-драйвера на Android → **ребут SoC**. Не повторять.
 
-`STATUS.md` и `docs/hardware-inventory.md`: строка «Сканер отпечатка» теперь
-**NOT SUPPORTED (TEE-only)** с ссылкой на этот документ — раньше было просто
-«драйвера нет», теперь известно, что драйвер и не поможет: шина не у AP.
+## 6. Артефакты
+
+- `docs/fingerprint/silead-init-trace.txt` — полный трейс инициализации
+  (команды TA с аргументами и статусами).
+- `out/fp-recon/` (не в git): `sileadta.*`, `fpctzapp.*`, HAL-ы, `libsl_fp_impl.so`,
+  `libQSEEComAPI.so`, `libion.so`, bionic-рантайм, `tz_a.bin`, `xbl_a.bin`,
+  `dtbo_a.img`, `boot_a.img`.
+
+## 7. Статус
+
+`STATUS.md` и `docs/hardware-inventory.md`: «сканер отпечатка» — NOT SUPPORTED,
+сенсор **Silead**, шина TEE-only. Предыдущая запись про FPC1020 исправлена.
