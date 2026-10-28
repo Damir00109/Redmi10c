@@ -42,6 +42,36 @@
 3. Команда не `0x52`, а другая (тестовый путь может требовать
    `0x54 TEST_IMAGE_FINISH` до/после или `0x60`-последовательность).
 
+## Обновление (2026-10-28, вечер): протокол найден
+
+Verbose-логи HAL (`log.tag.fingerprint=VERBOSE`) дали полную последовательность
+команд (сохранена в `docs/fingerprint/silead-auth-trace.txt`):
+
+```
+0x1  MODE_DOWNLOAD [3]/[0]/[1]/[2]
+0x2  CAPTURE_IMG        ← захват кадра, ВНУТРИ TA (в userspace не отдаётся)
+0x3  NAV_CAPTURE_IMG
+0x5  AUTH_STEP          → при успехе 0xff0cad64, иначе -1031 AUTH_MISMATCH
+0x6  AUTH_END
+0xa/0xb/0xc  NAV_START/STEP/END
+0x19 GET_AUTH_OBJ [69,2]
+0x38 CHECK_ESD          → 4 (у нас -1035 DETECTED_ESD)
+0x60 CHECK_BROKEN
+```
+
+Вывод: HAL **не получает изображение** — TA сам снимает кадр, обрабатывает и
+матчит. Значит цель «снять картинку в userspace» в вендорской архитектуре
+недостижима; правильная цель — enroll/auth через TA (шаблон хранится
+в `/data/vendor_de/0/fpdata/silead.tpl`, TA его шифрует/расшифровывает).
+
+Что уже проверено на mainline (`ta-load authloop`): полная инициализация +
+`0x36/0x37` калибровка + `0x60/0xa` проходят, `CAPTURE_IMG` вызывается, но
+TA отдаёт **-1018 MOVE_TOO_FAST**, а `AUTH_STEP` — **-1023
+QUALITY_COVERAREA_FAILED**. `CHECK_ESD` у нас -1035 (DETECTED_ESD), на
+Android — 4. То есть кадр снимается, но TA считает его негодным — скорее
+всего из-за состояния ESD/калибровки (у Android драйвер держит IRQ-линию
+gpio83 и делает свой power/reset-цикл перед HAL).
+
 ## План
 
 1. **Снять трейс Android-enroll** (шим уже готов, `tools/qseecom_shim.c`):

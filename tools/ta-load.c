@@ -400,8 +400,54 @@ int main(int argc, char **argv)
 			send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00,
 				 0x64000, 0);
 		}
+	} else if (argc > 3 && !strcmp(argv[3], "authloop")) {
+		int i;
+
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x36, 4, 2);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		printf("TOUCH_NOW\n");
+		for (i = 0; i < 30; i++) {
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x06, 0, 0, 0, 0);
+			sleep_ms(500);
+		}
+		printf("TOUCH_DONE\n");
+	} else if (argc > 3 && !strcmp(argv[3], "auth")) {
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		printf("TOUCH_NOW\n");
+		sleep_ms(3000);
+		send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);   /* CAPTURE_IMG */
+		send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);   /* AUTH_STEP */
+		send_cmd(fd, req.app_id, 0x06, 0, 0, 0, 0);   /* AUTH_END */
 	} else if (argc > 3 && !strcmp(argv[3], "test3")) {
-		static const uint32_t sizes[] = { 0x1000, 0x2000, 0x4000, 0x8000, 0x10000 };
+		static const uint32_t sizes[] = { 0x20000, 0x40000, 0x64000 };
 		unsigned k;
 
 		power_cycle();
