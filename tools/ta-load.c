@@ -12,6 +12,7 @@
  */
 #include <elf.h>
 #include <errno.h>
+#include <time.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -69,6 +70,53 @@ static uint8_t *read_file(const char *path, size_t *len)
 	}
 	*len = st.st_size;
 	return buf;
+}
+
+static int write_str(const char *path, const char *val)
+{
+	int fd = open(path, O_WRONLY);
+	ssize_t n;
+
+	if (fd < 0)
+		return -1;
+	n = write(fd, val, strlen(val));
+	close(fd);
+	return n == (ssize_t)strlen(val) ? 0 : -1;
+}
+
+/* Active-low reset exposed as the gpio-leds "fp:reset" device. */
+static void sleep_ms(long ms)
+{
+	struct timespec ts = { .tv_sec = ms / 1000,
+			       .tv_nsec = (ms % 1000) * 1000000L };
+
+	nanosleep(&ts, NULL);
+}
+
+static void pulse_reset(void)
+{
+	const char *led = "/sys/class/leds/fp:reset/brightness";
+
+	if (access(led, W_OK))
+		return;
+	write_str(led, "1");	/* assert (low) */
+	sleep_ms(5);
+	write_str(led, "0");	/* deassert (high) */
+	sleep_ms(20);
+}
+
+/* Power-cycle the sensor like the vendor driver: AVDD off/on, then reset. */
+static void power_cycle(void)
+{
+	const char *avdd = "/sys/class/leds/fp:avdd/brightness";
+
+	if (!access(avdd, W_OK)) {
+		write_str(avdd, "0");
+		sleep_ms(20);
+		write_str(avdd, "1");
+		sleep_ms(20);
+	}
+	pulse_reset();
 }
 
 static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
@@ -226,7 +274,22 @@ int main(int argc, char **argv)
 	printf("loaded %s: image %zu bytes, app_id %u\n", name, img_len,
 	       req.app_id);
 
-	if (argc > 3 && !strcmp(argv[3], "probe")) {
+	if (argc > 3 && !strcmp(argv[3], "scan")) {
+		uint32_t first = argc > 4 ? strtoul(argv[4], NULL, 0) : 0;
+		uint32_t last = argc > 5 ? strtoul(argv[5], NULL, 0) : 31;
+		uint32_t d;
+
+		power_cycle();
+		for (d = first; d <= last; d++) {
+			uint32_t rsp[6] = { 0 };
+
+			send_cmd(fd, req.app_id, 0x20, d, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00,
+				 0x64000, 0);
+			(void)rsp;
+		}
+	} else if (argc > 3 && !strcmp(argv[3], "probe")) {
+		power_cycle();
 		/* Same order the vendor HAL uses to bring the sensor up. */
 		send_cmd(fd, req.app_id, 0x1f, 0x2, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x20, 14, 0, 0, 0);
