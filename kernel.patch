@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..61146ed5e
+index 000000000..665a11070
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1385 @@
+@@ -0,0 +1,1387 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -202,7 +202,7 @@ index 000000000..61146ed5e
 +	gpio-keys {
 +		compatible = "gpio-keys";
 +		pinctrl-names = "default";
-+		pinctrl-0 = <&vol_up_default>;
++		pinctrl-0 = <&vol_up_default>, <&fp_irq_default>;
 +
 +		vol_up {
 +			label = "volume_up";
@@ -234,6 +234,19 @@ index 000000000..61146ed5e
 +			linux,input-type = <EV_SW>;
 +			linux,code = <SW_RFKILL_ALL>;
 +			debounce-interval = <10>;
++		};
++
++		/*
++		 * Keep the Silead IRQ GPIO requested and IRQ-enabled during the
++		 * TA capture test, matching the vendor driver's request_irq path.
++		 */
++		fp_irq {
++			label = "fingerprint_irq";
++			interrupt-parent = <&tlmm>;
++			interrupts = <83 IRQ_TYPE_EDGE_RISING>;
++			linux,input-type = <EV_KEY>;
++			linux,code = <KEY_F13>;
++			linux,input-value = <1>;
 +		};
 +	};
 +
@@ -788,17 +801,6 @@ index 000000000..61146ed5e
 +			gpios = <&tlmm 104 GPIO_ACTIVE_LOW>;
 +			linux,default-trigger = "none";
 +			default-state = "off";
-+		};
-+
-+		/*
-+		 * Fingerprint IRQ line (gpio83).  The vendor driver keeps it as
-+		 * an input; leave it configured the same way for the TA.
-+		 */
-+		fp-irq-hog {
-+			gpio-hog;
-+			gpios = <83 GPIO_ACTIVE_HIGH>;
-+			input;
-+			line-name = "fp-irq";
 +		};
 +
 +		/* Fingerprint AVDD switch (silead avdd-gpios, gpio100). */
@@ -1637,10 +1639,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..252ea8ed1
+index 000000000..d9dd047dd
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2528 @@
+@@ -0,0 +1,2536 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -2413,6 +2415,14 @@ index 000000000..252ea8ed1
 +				function = "gpio";
 +				drive-strength = <2>;
 +				bias-pull-up;
++				input-enable;
++			};
++
++			fp_irq_default: fp-irq-default-state {
++				pins = "gpio83";
++				function = "gpio";
++				drive-strength = <2>;
++				bias-pull-down;
 +				input-enable;
 +			};
 +
@@ -13936,10 +13946,10 @@ index d4fac2cac..ac24def9e 100644
  		return PTR_ERR(ctx);
 diff --git a/drivers/misc/qseecom_fp.c b/drivers/misc/qseecom_fp.c
 new file mode 100644
-index 000000000..293ea578a
+index 000000000..582448a9a
 --- /dev/null
 +++ b/drivers/misc/qseecom_fp.c
-@@ -0,0 +1,333 @@
+@@ -0,0 +1,358 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * qseecom_fp - minimal QSEECom client for the fingerprint TA experiments.
@@ -13950,9 +13960,13 @@ index 000000000..293ea578a
 + * driver only copies it into TZ memory and issues the SCM calls.
 + */
 +#include <linux/ioctl.h>
++#include <linux/gfp.h>
++#include <linux/mm.h>
 +#include <linux/miscdevice.h>
 +#include <linux/slab.h>
 +#include <linux/uaccess.h>
++
++#include <asm/cacheflush.h>
 +
 +#include <linux/firmware/qcom/qcom_scm.h>
 +#include <linux/firmware/qcom/qcom_tzmem.h>
@@ -14102,6 +14116,9 @@ index 000000000..293ea578a
 +{
 +	phys_addr_t data_phys;
 +	void *rsp = NULL, *msg = NULL, *data = NULL;
++	unsigned int data_order = 0;
++	u64 bridge_handle = 0;
++	bool bridge_created = false;
 +	int ret;
 +
 +	if (!req->req_len || req->req_len > QSEECOM_FP_MAX_MSG ||
@@ -14138,7 +14155,13 @@ index 000000000..293ea578a
 +		}
 +	}
 +
-+	data = qcom_tzmem_alloc(fp->pool, req->data_len, GFP_KERNEL);
++	/*
++	 * Modified QSEECom calls use an ION/dma-buf fd descriptor.  That
++	 * buffer is normal-world memory explicitly exposed through SHM Bridge,
++	 * unlike the TZ request/response buffers above.
++	 */
++	data_order = get_order(req->data_len);
++	data = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, data_order);
 +	if (!data) {
 +		ret = -ENOMEM;
 +		goto out;
@@ -14147,7 +14170,15 @@ index 000000000..293ea578a
 +		ret = -EFAULT;
 +		goto out;
 +	}
-+	data_phys = qcom_tzmem_to_phys(data);
++	data_phys = virt_to_phys(data);
++	ret = qcom_tzmem_shm_bridge_create(data_phys,
++					   PAGE_SIZE << data_order,
++					   &bridge_handle);
++	if (ret)
++		goto out;
++	bridge_created = true;
++	dcache_clean_inval_poc((unsigned long)data,
++			       (unsigned long)data + req->data_len);
 +	memcpy(msg + req->phys_offset, &data_phys, sizeof(u64));
 +
 +	if (!req->rsp_offset) {
@@ -14161,6 +14192,8 @@ index 000000000..293ea578a
 +	ret = qcom_scm_qseecom_app_send(req->app_id, msg, req->req_len,
 +					rsp, req->rsp_len);
 +	if (!ret) {
++		dcache_inval_poc((unsigned long)data,
++				 (unsigned long)data + req->data_len);
 +		/* The TA may write status/state back into the request. */
 +		if (copy_to_user(u64_to_user_ptr(req->req_ptr), msg, req->req_len) ||
 +		    copy_to_user(u64_to_user_ptr(req->rsp_ptr), rsp, req->rsp_len) ||
@@ -14171,8 +14204,10 @@ index 000000000..293ea578a
 +	if (!req->rsp_offset)
 +		qcom_tzmem_free(rsp);
 +out:
++	if (bridge_created)
++		qcom_tzmem_shm_bridge_delete(bridge_handle);
 +	if (data)
-+		qcom_tzmem_free(data);
++		free_pages((unsigned long)data, data_order);
 +	qcom_tzmem_free(msg);
 +	return ret;
 +}

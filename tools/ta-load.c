@@ -11,10 +11,13 @@
  * Usage: ta-load <dir> <name>
  */
 #include <elf.h>
+#include <dirent.h>
 #include <errno.h>
+#include <linux/input.h>
 #include <time.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -133,6 +136,76 @@ static void power_cycle(void)
 	sleep_ms(30);
 }
 
+static int wait_fingerprint_irq(unsigned int timeout_ms)
+{
+	struct dirent *entry;
+	struct pollfd pfd[16];
+	char path[64], name[128];
+	DIR *dir;
+	unsigned int count = 0, i;
+	int fd, ready, ret = -1;
+	struct input_event ev;
+	time_t end = time(NULL) + (timeout_ms + 999) / 1000;
+
+	dir = opendir("/dev/input");
+	if (!dir)
+		return -1;
+
+	while ((entry = readdir(dir)) && count < sizeof(pfd) / sizeof(pfd[0])) {
+		if (strncmp(entry->d_name, "event", 5))
+			continue;
+
+		snprintf(path, sizeof(path), "/dev/input/%s", entry->d_name);
+		fd = open(path, O_RDONLY | O_NONBLOCK);
+		if (fd < 0)
+			continue;
+		memset(name, 0, sizeof(name));
+		if (ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name) < 0 ||
+		    strcmp(name, "gpio-keys")) {
+			close(fd);
+			continue;
+		}
+		pfd[count].fd = fd;
+		pfd[count].events = POLLIN;
+		pfd[count].revents = 0;
+		count++;
+	}
+	closedir(dir);
+	if (!count)
+		return -1;
+
+	printf("waiting for fingerprint IRQ (KEY_F13)...\n");
+	while (time(NULL) < end) {
+		int ms = (int)((end - time(NULL)) * 1000);
+
+		ready = poll(pfd, count, ms > 1000 ? 1000 : ms);
+		if (ready < 0) {
+			if (errno == EINTR)
+				continue;
+			break;
+		}
+		if (!ready)
+			continue;
+		for (i = 0; i < count; i++) {
+			if (!(pfd[i].revents & POLLIN))
+				continue;
+			while (read(pfd[i].fd, &ev, sizeof(ev)) == sizeof(ev)) {
+				if (ev.type == EV_KEY && ev.code == KEY_F13 &&
+				    ev.value == 1) {
+					printf("fingerprint IRQ event received\n");
+					ret = 0;
+					goto out;
+				}
+			}
+		}
+	}
+	printf("fingerprint IRQ wait timed out\n");
+out:
+	for (i = 0; i < count; i++)
+		close(pfd[i].fd);
+	return ret;
+}
+
 /*
  * Modified command: request[0]=cmd, request[4]=phys(shared data) filled by the
  * driver, request[12]=arg; the TA may read/write the shared buffer.
@@ -241,6 +314,8 @@ int main(int argc, char **argv)
 	uint64_t phoff;
 	int elfclass, i, fd, ret;
 	struct load_req req;
+
+	setvbuf(stdout, NULL, _IONBF, 0);
 
 	if (argc < 3) {
 		fprintf(stderr, "usage: %s <dir> <name>\n", argv[0]);
@@ -442,6 +517,177 @@ int main(int argc, char **argv)
 			send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
 		}
+	} else if (argc > 3 && !strcmp(argv[3], "authwait")) {
+		pulse_reset();
+		sleep_ms(30);
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		g_dlen = 152;
+		send_mod(fd, req.app_id, 0x30, 152);
+		g_dlen = 0x1000;
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x36, 4, 2);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0c, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x04, 0, 0, 0, 0);
+		printf("AUTH_STARTED; touch the sensor once, then hold\n");
+		if (!wait_fingerprint_irq(300000)) {
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 1, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x06, 0, 0, 0, 0);
+		}
+	} else if (argc > 3 && !strcmp(argv[3], "authreset")) {
+		pulse_reset();
+		sleep_ms(30);
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 1, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "esdexact")) {
+		pulse_reset();
+		sleep_ms(30);
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		printf("ESD after nav support\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x36, 4, 2);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+		printf("ESD after auth MODE 3/0 (1)\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+		printf("ESD after auth MODE 3/0 (2)\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 1, 0, 0, 0);
+		printf("ESD after auth MODE 3/1\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		printf("TOUCH_NOW\n");
+		send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "esdstep")) {
+		pulse_reset();
+		sleep_ms(30);
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		printf("ESD after INIT\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		printf("ESD after config\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		printf("ESD after INIT2\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		printf("ESD after versions/OTP/nav support\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+		printf("ESD after MODE 3/0\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 1, 0, 0, 0);
+		printf("ESD after MODE 3/1\n");
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "authvendor")) {
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+
+		printf("AUTH_START: vendor MODE_DOWNLOAD sequence\n");
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 1, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		printf("TOUCH_NOW\n");
+		send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x06, 0, 0, 0, 0);
 	} else if (argc > 3 && !strcmp(argv[3], "authloop")) {
 		int i;
 

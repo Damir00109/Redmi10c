@@ -247,3 +247,28 @@ synchronous external abort).
 
 Артефакты: `/dev/qseecom-fp`, `ta-load`, `lib/firmware/qcom/sileadta.*`
 (локально, не в git).
+
+## Обновление: IRQ ожидается перед auth capture
+
+Android `silfp_impl_init()` после `SIFP_IOC_INIT` вызывает
+`SIFP_IOC_RESET(0)`: reset GPIO104 low 5 мс → high, при этом драйвер
+временно включает rising-edge IRQ GPIO83. Mainline теперь регистрирует GPIO83
+как `gpio-keys` IRQ (`KEY_F13`, rising edge; TLMM input с pull-down).
+
+Без физического касания `CHECK_ESD` после полного init возвращает 4; после
+`MODE_DOWNLOAD [3,0]` TA отвечает `INT_INVALID` (-1036), а следующий
+`CHECK_ESD` — `DETECTED_ESD` (-1035). Поэтому старые прогоны без пальца не
+доказывали аппаратную ESD-защёлку. Режим `ta-load ... authwait` ждёт реальный
+IRQ GPIO83 (до 5 минут) перед отправкой Android auth-команд.
+
+`SET_KEY_DATA(0x30)` всё ещё отличается: mainline возвращает
+`SHARED_ALLOC_FAILED` (-1011), Android — SUCCESS. HAL получает 152-байтный
+payload через `silfp_qsee_keymaster_get()`; наш тест пока использует нулевой
+буфер. Следовательно, результаты auth/capture до корректного key-data
+payload считаются предварительными.
+
+В rescue теперь GPIO83 запрошен rising-edge IRQ через `gpio-keys`, код
+`KEY_F13`; `/proc/interrupts` показывает зарегистрированный `msmgpio 83 Edge
+fingerprint_irq`. Probe `authwait` полностью поднимает TA, запускает
+`AUTH_START` и ждёт физический IRQ до 5 минут. Последний прогон завершился по
+таймауту без касания; результата capture после реального IRQ пока нет.
