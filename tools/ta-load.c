@@ -370,6 +370,18 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "scanmod")) {
+		uint32_t first = argc > 4 ? strtoul(argv[4], NULL, 0) : 0;
+		uint32_t last = argc > 5 ? strtoul(argv[5], NULL, 0) : 31;
+		uint32_t d;
+
+		power_cycle();
+		for (d = first; d <= last; d++) {
+			printf("--- dev %u\n", d);
+			send_mod(fd, req.app_id, 0x20, d);
+			send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00,
+				 0x64000, 0);
+		}
 	} else if (argc > 3 && !strcmp(argv[3], "seq")) {
 		/* Vendor init order, as seen in the Android trace. */
 		power_cycle();
