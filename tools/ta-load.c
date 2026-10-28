@@ -401,6 +401,19 @@ int main(int argc, char **argv)
 			send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00,
 				 0x64000, 0);
 		}
+	} else if (argc > 3 && !strcmp(argv[3], "mini")) {
+		int i;
+
+		power_cycle();
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		printf("TOUCH_NOW\n");
+		for (i = 0; i < 20; i++) {
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 2, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
+			sleep_ms(400);
+		}
 	} else if (argc > 3 && !strcmp(argv[3], "speedtest")) {
 		static const uint32_t speeds[] = { 1000000, 2000000, 4800000 };
 		unsigned k;
