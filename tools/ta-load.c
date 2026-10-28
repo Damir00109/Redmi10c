@@ -136,7 +136,8 @@ static void power_cycle(void)
  * Modified command: request[0]=cmd, request[4]=phys(shared data) filled by the
  * driver, request[12]=arg; the TA may read/write the shared buffer.
  */
-static int send_mod(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg)
+static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
+		     uint32_t arg2)
 {
 	uint8_t req[0x40];
 	uint8_t rsp[0x40];
@@ -149,11 +150,12 @@ static int send_mod(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg)
 	memset(req, 0, sizeof(req));
 	memset(rsp, 0, sizeof(rsp));
 	{
-		uint32_t dlen = 0x1000;
+		uint32_t zero = 0;
 
 		memcpy(req, &cmd, 4);
-		memcpy(req + 8, &dlen, 4);
+		memcpy(req + 8, &zero, 4);
 		memcpy(req + 12, &arg, 4);
+		memcpy(req + 16, &arg2, 4);
 	}
 
 	memset(&sreq, 0, sizeof(sreq));
@@ -173,7 +175,7 @@ static int send_mod(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg)
 		free(data);
 		return -1;
 	}
-	printf("mod 0x%02x(%u) -> req[4]=0x%08x rsp:", cmd, arg,
+	printf("mod 0x%02x(%u,%u) -> req[4]=0x%08x rsp:", cmd, arg, arg2,
 	       ((uint32_t *)req)[1]);
 	for (i = 0; i < 6; i++)
 		printf(" 0x%08x", ((uint32_t *)rsp)[i]);
@@ -185,10 +187,15 @@ static int send_mod(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg)
 	return 0;
 }
 
+static int send_mod(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg)
+{
+	return send_mod2(fd, app_id, cmd, arg, 0);
+}
+
 static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
 		    uint32_t a1, uint32_t a2, uint32_t a3)
 {
-	uint32_t tx[8] = { cmd, a0, a1, a2, a3, 0, 0, 0 };
+	uint32_t tx[8] = { cmd, 0, 0, 0, a0, a1, a2, a3 };
 	uint32_t rx[16];
 	struct send_req sreq;
 	int i;
@@ -382,6 +389,27 @@ int main(int argc, char **argv)
 			send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00,
 				 0x64000, 0);
 		}
+	} else if (argc > 3 && !strcmp(argv[3], "full")) {
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x36, 4, 2);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
 	} else if (argc > 3 && !strcmp(argv[3], "seq")) {
 		/* Vendor init order, as seen in the Android trace. */
 		power_cycle();
