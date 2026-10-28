@@ -186,7 +186,19 @@ normal, поэтому SPI-устройство в TA не открывалос�
 3. Нужна иная последовательность power-up (avdd → пауза → reset → пауза).
 
 Проверено и исключено: перебор SPI dev id 0..31, power-cycle (gpio100
-off/on), reset-импульс (gpio104 low 5 мс → high), питание L9 1.8 В.
+off/on), reset-импульс (gpio104 low 5 мс → high), питание L9 1.8 В,
+воспроизведение полной последовательности Android (`0x59` → `0x1f` →
+`0x20` → `0x0e`).
+
+**Новая гипотеза (2026-10-28):** при загрузке через `fastboot boot` ABL
+может не выполнять ту же инициализацию пинов/QUP, что при обычной
+загрузке — тогда как Android (нормальный boot) получает уже
+сконфигурированную шину. Проверить это можно только нормальной
+загрузкой mainline (не `fastboot boot`), что противоречит правилу
+«эксперименты — только `fastboot boot`». Отдельно: island-пины 14–17 в
+LPASS-пинконтроллере `UNCLAIMED`, а основной TLMM инспектировать нельзя —
+`/sys/kernel/debug/gpio` на Android роняет SoC (`msm_gpio_dbg_show`,
+synchronous external abort).
 
 Артефакты: `/dev/qseecom-fp`, `ta-load`, `lib/firmware/qcom/sileadta.*`
 (локально, не в git).
