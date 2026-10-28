@@ -125,11 +125,12 @@ static void power_cycle(void)
 
 	if (!access(avdd, W_OK)) {
 		write_str(avdd, "0");
-		sleep_ms(20);
+		sleep_ms(200);
 		write_str(avdd, "1");
-		sleep_ms(20);
+		sleep_ms(50);
 	}
 	pulse_reset();
+	sleep_ms(30);
 }
 
 /*

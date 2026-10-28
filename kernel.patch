@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..490d26c31
+index 000000000..61146ed5e
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1374 @@
+@@ -0,0 +1,1385 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -788,6 +788,17 @@ index 000000000..490d26c31
 +			gpios = <&tlmm 104 GPIO_ACTIVE_LOW>;
 +			linux,default-trigger = "none";
 +			default-state = "off";
++		};
++
++		/*
++		 * Fingerprint IRQ line (gpio83).  The vendor driver keeps it as
++		 * an input; leave it configured the same way for the TA.
++		 */
++		fp-irq-hog {
++			gpio-hog;
++			gpios = <83 GPIO_ACTIVE_HIGH>;
++			input;
++			line-name = "fp-irq";
 +		};
 +
 +		/* Fingerprint AVDD switch (silead avdd-gpios, gpio100). */
@@ -13925,7 +13936,7 @@ index d4fac2cac..ac24def9e 100644
  		return PTR_ERR(ctx);
 diff --git a/drivers/misc/qseecom_fp.c b/drivers/misc/qseecom_fp.c
 new file mode 100644
-index 000000000..087b5ebd1
+index 000000000..293ea578a
 --- /dev/null
 +++ b/drivers/misc/qseecom_fp.c
 @@ -0,0 +1,333 @@
@@ -13948,7 +13959,7 @@ index 000000000..087b5ebd1
 +
 +#define QSEECOM_FP_MAX_NAME	64
 +#define QSEECOM_FP_MAX_IMG	(8 * 1024 * 1024)
-+#define QSEECOM_FP_MAX_MSG	(64 * 1024)
++#define QSEECOM_FP_MAX_MSG	(1024 * 1024)
 +
 +struct qseecom_fp_load_req {
 +	__u32 name_len;
