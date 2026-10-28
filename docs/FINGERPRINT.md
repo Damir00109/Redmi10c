@@ -210,7 +210,14 @@ modified: [0]=cmd, [4]=phys(sb), аргументы в [12],[16],[20],[24]
 ```
 
 То есть mainline через TA **читает chip id и OTP с реального сенсора**.
-Осталось: NAV/CAPTURE (нужен палец) и userspace-интеграция.
+NAV_START проходит, `NAV_STEP` отвечает; захват кадра требует касания
+(без пальца TA отдаёт пустой ответ) — это следующий шаг, когда телефон
+будет под рукой.
+
+Инструмент трассировки сохранён: `tools/qseecom_shim.c` — шим
+`libQSEEComAPI.so` (Magisk-модуль кладёт его в `/vendor/lib64`, рядом
+`libQSEEComR.so` — оригинал с пропатченным SONAME; лог в
+`/data/local/tmp/qsee-trace.log`).
 
 Проверено и исключено: перебор SPI dev id 0..31, power-cycle (gpio100
 off/on), reset-импульс (gpio104 low 5 мс → high), питание L9 1.8 В,

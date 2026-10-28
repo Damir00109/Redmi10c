@@ -60,7 +60,7 @@
 
 | Компонент | Причина |
 |---|---|
-| Сканер отпечатков | **Silead, TEE-only**: HAL `fingerprint.silead` → TA `sileadta` → `qsee_spi` (SET_SPI_DEV 14); пины 14–17 — LPASS-остров, AP-доступ к шине закрыт (probe SE5 вешает SoC). FPC-стек в образе есть, но чипа FPC нет (`FPC_ERROR_NOT_SUPPORTED`). См. `docs/FINGERPRINT.md` |
+| Сканер отпечатков | **Silead, работает через TEE из mainline**: `/dev/qseecom-fp` + `ta-load` грузят TA `sileadta`, `INIT` читает chip id `0x6135a080`, `GET_OTP` — `0x789870a5`; NAV/захват кадра — следующий шаг (нужен палец). AP-доступ к шине закрыт (island-пины, XPU). См. `docs/FINGERPRINT.md` |
 | NFC / ИК-порт | Нет в устройстве |
 
 ## Сессия 2026-10-11: что сделано

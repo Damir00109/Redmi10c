@@ -41,7 +41,7 @@
 
 Работает: экран DSI, USB gadget, UFS+SD, Wi-Fi (ath10k/WCN3990), BT+A2DP, тачскрин FT8006S (SPI), LTE через IPA v4.2/QMAP (~9 Мбит/с), модем+QMI/ModemManager, звук (динамик + гарнитура FSA4480), зарядка SMB1351 + fuel gauge, thermal, cpufreq, GPU Adreno 610 (SMMU/GMU/ZAP, devfreq), сенсоры через SSC/hexagonrpcd, Plasma Mobile + Firefox, вибратор, фонарик, RTC.
 
-Работает также задняя камера S5KJN1 (полный CAMSS-пайплайн, RAW10 4080x3072). В разработке: GPS, iio-sensor-proxy, ACDB, голос/SMS, AE/AWB для камеры (ISP-уровень), передняя камера Hi556. Не работает: сканер отпечатков — **Silead, TEE-only** (HAL `fingerprint.silead` → TA `sileadta` → `qsee_spi`; `ro.boot.fpsensor=fpc` от ABL врёт, FPC-чипа нет; см. `docs/FINGERPRINT.md`).
+Работает также задняя камера S5KJN1 (полный CAMSS-пайплайн, RAW10 4080x3072). В разработке: GPS, iio-sensor-proxy, ACDB, голос/SMS, AE/AWB для камеры (ISP-уровень), передняя камера Hi556. Сканер отпечатков — **Silead**: из mainline через `/dev/qseecom-fp` TA `sileadta` загружается и читает chip id/OTP (`docs/FINGERPRINT.md`); захват кадра — в работе.
 
 ## Соседняя папка: /mnt/128/rootfs-ubuntu
 
