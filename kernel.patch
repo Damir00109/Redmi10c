@@ -13925,10 +13925,10 @@ index d4fac2cac..ac24def9e 100644
  		return PTR_ERR(ctx);
 diff --git a/drivers/misc/qseecom_fp.c b/drivers/misc/qseecom_fp.c
 new file mode 100644
-index 000000000..4ab33c4ee
+index 000000000..087b5ebd1
 --- /dev/null
 +++ b/drivers/misc/qseecom_fp.c
-@@ -0,0 +1,218 @@
+@@ -0,0 +1,333 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * qseecom_fp - minimal QSEECom client for the fingerprint TA experiments.
@@ -13968,11 +13968,25 @@ index 000000000..4ab33c4ee
 +	__u64 rsp_ptr;
 +};
 +
++struct qseecom_fp_send_mod_req {
++	__u32 app_id;
++	__u32 req_len;
++	__u32 rsp_len;
++	__u32 data_len;
++	__u32 phys_offset;
++	__u32 rsp_offset;	/* 0: separate rsp buffer; else offset in req */
++	__u64 req_ptr;
++	__u64 rsp_ptr;
++	__u64 data_ptr;
++};
++
 +#define QSEECOM_FP_IOC_MAGIC	0xf5
 +#define QSEECOM_FP_IOCTL_LOAD \
 +	_IOWR(QSEECOM_FP_IOC_MAGIC, 1, struct qseecom_fp_load_req)
 +#define QSEECOM_FP_IOCTL_SEND \
 +	_IOWR(QSEECOM_FP_IOC_MAGIC, 2, struct qseecom_fp_send_req)
++#define QSEECOM_FP_IOCTL_SEND_MOD \
++	_IOWR(QSEECOM_FP_IOC_MAGIC, 3, struct qseecom_fp_send_mod_req)
 +
 +struct qseecom_fp {
 +	struct qcom_tzmem_pool *pool;
@@ -14014,8 +14028,15 @@ index 000000000..4ab33c4ee
 +	}
 +
 +	ret = qcom_scm_qseecom_app_load(img, req->img_len, &app_id);
-+	if (ret)
-+		goto out_img;
++	if (ret) {
++		/*
++		 * The app may already be loaded (APP_START then fails): fall
++		 * back to a name lookup so repeated tool runs work.
++		 */
++		ret = qcom_scm_qseecom_app_get_id(name, &app_id);
++		if (ret)
++			goto out_img;
++	}
 +
 +	req->app_id = app_id;
 +	pr_info("qseecom_fp: loaded %s, app_id %u\n", name, app_id);
@@ -14061,6 +14082,90 @@ index 000000000..4ab33c4ee
 +	return ret;
 +}
 +
++/*
++ * QSEECom "modified command": the request carries the physical address of a
++ * shared data buffer at @phys_offset; the TA reads/writes that buffer.
++ */
++static int qseecom_fp_send_mod(struct qseecom_fp *fp,
++			       struct qseecom_fp_send_mod_req *req)
++{
++	phys_addr_t data_phys;
++	void *rsp = NULL, *msg = NULL, *data = NULL;
++	int ret;
++
++	if (!req->req_len || req->req_len > QSEECOM_FP_MAX_MSG ||
++	    req->rsp_len > QSEECOM_FP_MAX_MSG ||
++	    req->data_len > QSEECOM_FP_MAX_MSG)
++		return -EINVAL;
++	if (req->phys_offset + sizeof(u64) > req->req_len)
++		return -EINVAL;
++
++	if (req->rsp_offset) {
++		/*
++		 * The TA may write its response at a fixed offset inside the
++		 * request buffer (the vendor HAL passes rsp = base + 0x500).
++		 * Allocate one buffer and hand out both pointers from it.
++		 */
++		msg = qcom_tzmem_alloc(fp->pool,
++				       req->rsp_offset + req->rsp_len, GFP_KERNEL);
++		if (!msg)
++			return -ENOMEM;
++		rsp = msg + req->rsp_offset;
++		if (copy_from_user(msg, u64_to_user_ptr(req->req_ptr),
++				   req->req_len)) {
++			ret = -EFAULT;
++			goto out;
++		}
++	} else {
++		msg = qcom_tzmem_alloc(fp->pool, req->req_len, GFP_KERNEL);
++		if (!msg)
++			return -ENOMEM;
++		if (copy_from_user(msg, u64_to_user_ptr(req->req_ptr),
++				   req->req_len)) {
++			ret = -EFAULT;
++			goto out;
++		}
++	}
++
++	data = qcom_tzmem_alloc(fp->pool, req->data_len, GFP_KERNEL);
++	if (!data) {
++		ret = -ENOMEM;
++		goto out;
++	}
++	if (copy_from_user(data, u64_to_user_ptr(req->data_ptr), req->data_len)) {
++		ret = -EFAULT;
++		goto out;
++	}
++	data_phys = qcom_tzmem_to_phys(data);
++	memcpy(msg + req->phys_offset, &data_phys, sizeof(u64));
++
++	if (!req->rsp_offset) {
++		rsp = qcom_tzmem_alloc(fp->pool, req->rsp_len, GFP_KERNEL);
++		if (!rsp) {
++			ret = -ENOMEM;
++			goto out;
++		}
++	}
++
++	ret = qcom_scm_qseecom_app_send(req->app_id, msg, req->req_len,
++					rsp, req->rsp_len);
++	if (!ret) {
++		/* The TA may write status/state back into the request. */
++		if (copy_to_user(u64_to_user_ptr(req->req_ptr), msg, req->req_len) ||
++		    copy_to_user(u64_to_user_ptr(req->rsp_ptr), rsp, req->rsp_len) ||
++		    copy_to_user(u64_to_user_ptr(req->data_ptr), data, req->data_len))
++			ret = -EFAULT;
++	}
++
++	if (!req->rsp_offset)
++		qcom_tzmem_free(rsp);
++out:
++	if (data)
++		qcom_tzmem_free(data);
++	qcom_tzmem_free(msg);
++	return ret;
++}
++
 +static long qseecom_fp_ioctl(struct file *file, unsigned int cmd,
 +			     unsigned long arg)
 +{
@@ -14087,6 +14192,16 @@ index 000000000..4ab33c4ee
 +			return -EFAULT;
 +		mutex_lock(&fp->lock);
 +		ret = qseecom_fp_send(fp, &req);
++		mutex_unlock(&fp->lock);
++		return ret;
++	}
++	case QSEECOM_FP_IOCTL_SEND_MOD: {
++		struct qseecom_fp_send_mod_req req;
++
++		if (copy_from_user(&req, (void __user *)arg, sizeof(req)))
++			return -EFAULT;
++		mutex_lock(&fp->lock);
++		ret = qseecom_fp_send_mod(fp, &req);
 +		mutex_unlock(&fp->lock);
 +		return ret;
 +	}

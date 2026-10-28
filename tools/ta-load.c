@@ -40,8 +40,21 @@ struct send_req {
 	uint64_t rsp_ptr;
 };
 
+struct send_mod_req {
+	uint32_t app_id;
+	uint32_t req_len;
+	uint32_t rsp_len;
+	uint32_t data_len;
+	uint32_t phys_offset;
+	uint32_t rsp_offset;
+	uint64_t req_ptr;
+	uint64_t rsp_ptr;
+	uint64_t data_ptr;
+};
+
 #define QSEECOM_FP_IOCTL_LOAD _IOWR(0xf5, 1, struct load_req)
 #define QSEECOM_FP_IOCTL_SEND _IOWR(0xf5, 2, struct send_req)
+#define QSEECOM_FP_IOCTL_SEND_MOD _IOWR(0xf5, 3, struct send_mod_req)
 
 static uint8_t *read_file(const char *path, size_t *len)
 {
@@ -117,6 +130,59 @@ static void power_cycle(void)
 		sleep_ms(20);
 	}
 	pulse_reset();
+}
+
+/*
+ * Modified command: request[0]=cmd, request[4]=phys(shared data) filled by the
+ * driver, request[12]=arg; the TA may read/write the shared buffer.
+ */
+static int send_mod(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg)
+{
+	uint8_t req[0x40];
+	uint8_t rsp[0x40];
+	uint8_t *data = calloc(1, 0x1000);
+	struct send_mod_req sreq;
+	int i;
+
+	if (!data)
+		return -1;
+	memset(req, 0, sizeof(req));
+	memset(rsp, 0, sizeof(rsp));
+	{
+		uint32_t dlen = 0x1000;
+
+		memcpy(req, &cmd, 4);
+		memcpy(req + 8, &dlen, 4);
+		memcpy(req + 12, &arg, 4);
+	}
+
+	memset(&sreq, 0, sizeof(sreq));
+	sreq.app_id = app_id;
+	sreq.req_len = sizeof(req);
+	sreq.rsp_len = sizeof(rsp);
+	sreq.data_len = 0x1000;
+	sreq.phys_offset = 4;
+	sreq.rsp_offset = 0x500;
+	sreq.req_ptr = (uint64_t)(uintptr_t)req;
+	sreq.rsp_ptr = (uint64_t)(uintptr_t)rsp;
+	sreq.data_ptr = (uint64_t)(uintptr_t)data;
+
+	if (ioctl(fd, QSEECOM_FP_IOCTL_SEND_MOD, &sreq)) {
+		printf("mod 0x%02x(%u): ioctl failed: %s\n", cmd, arg,
+		       strerror(errno));
+		free(data);
+		return -1;
+	}
+	printf("mod 0x%02x(%u) -> req[4]=0x%08x rsp:", cmd, arg,
+	       ((uint32_t *)req)[1]);
+	for (i = 0; i < 6; i++)
+		printf(" 0x%08x", ((uint32_t *)rsp)[i]);
+	printf(" | data:");
+	for (i = 0; i < 4; i++)
+		printf(" 0x%08x", ((uint32_t *)data)[i]);
+	printf("\n");
+	free(data);
+	return 0;
 }
 
 static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
@@ -266,9 +332,16 @@ int main(int argc, char **argv)
 
 	ret = ioctl(fd, QSEECOM_FP_IOCTL_LOAD, &req);
 	if (ret) {
-		perror("QSEECOM_FP_IOCTL_LOAD");
-		close(fd);
-		return 1;
+		/* The app stays loaded across tool runs: reuse its id. */
+		if (argc > 3) {
+			printf("load failed (%s), reusing app_id 3\n",
+			       strerror(errno));
+			req.app_id = 3;
+		} else {
+			perror("QSEECOM_FP_IOCTL_LOAD");
+			close(fd);
+			return 1;
+		}
 	}
 
 	printf("loaded %s: image %zu bytes, app_id %u\n", name, img_len,
@@ -297,6 +370,21 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "spi")) {
+		uint32_t dev = argc > 4 ? strtoul(argv[4], NULL, 0) : 14;
+
+		power_cycle();
+		send_mod(fd, req.app_id, 0x20, dev);          /* SET_SPI_DEV */
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);   /* GET_OTP */
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);   /* NAV_SUPPORT */
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "mod")) {
+		uint32_t cmd = argc > 4 ? strtoul(argv[4], NULL, 0) : 0x20;
+		uint32_t arg = argc > 5 ? strtoul(argv[5], NULL, 0) : 14;
+
+		power_cycle();
+		send_mod(fd, req.app_id, cmd, arg);
 	} else if (argc > 3) {
 		uint32_t cmd = strtoul(argv[3], NULL, 0);
 
