@@ -422,7 +422,7 @@ int main(int argc, char **argv)
 		printf("TOUCH_NOW\n");
 		for (i = 0; i < 30; i++) {
 			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
-			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 2, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
