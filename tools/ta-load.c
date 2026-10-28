@@ -136,12 +136,16 @@ static void power_cycle(void)
  * Modified command: request[0]=cmd, request[4]=phys(shared data) filled by the
  * driver, request[12]=arg; the TA may read/write the shared buffer.
  */
+static uint32_t g_dlen = 0x1000;
+static int g_dump;
+static uint32_t g_size8;
+
 static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 		     uint32_t arg2)
 {
 	uint8_t req[0x40];
 	uint8_t rsp[0x40];
-	uint8_t *data = calloc(1, 0x1000);
+	uint8_t *data = calloc(1, g_dlen);
 	struct send_mod_req sreq;
 	int i;
 
@@ -153,7 +157,7 @@ static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 		uint32_t zero = 0;
 
 		memcpy(req, &cmd, 4);
-		memcpy(req + 8, &zero, 4);
+		memcpy(req + 8, &g_size8, 4);
 		memcpy(req + 12, &arg, 4);
 		memcpy(req + 16, &arg2, 4);
 	}
@@ -162,7 +166,7 @@ static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 	sreq.app_id = app_id;
 	sreq.req_len = sizeof(req);
 	sreq.rsp_len = sizeof(rsp);
-	sreq.data_len = 0x1000;
+	sreq.data_len = g_dlen;
 	sreq.phys_offset = 4;
 	sreq.rsp_offset = 0x500;
 	sreq.req_ptr = (uint64_t)(uintptr_t)req;
@@ -180,9 +184,16 @@ static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 	for (i = 0; i < 6; i++)
 		printf(" 0x%08x", ((uint32_t *)rsp)[i]);
 	printf(" | data:");
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < 8; i++)
 		printf(" 0x%08x", ((uint32_t *)data)[i]);
 	printf("\n");
+	if (g_dump) {
+		uint32_t sum = 0, j;
+
+		for (j = 0; j < g_dlen; j++)
+			sum += data[j];
+		printf("  data[0..0x%x] sum=0x%08x\n", g_dlen, sum);
+	}
 	free(data);
 	return 0;
 }
@@ -389,6 +400,105 @@ int main(int argc, char **argv)
 			send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00,
 				 0x64000, 0);
 		}
+	} else if (argc > 3 && !strcmp(argv[3], "test2")) {
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		g_dlen = 0x10000;
+		g_dump = 1;
+		printf("TOUCH_NOW\n");
+		printf("--- variant a: [8]=size\n");
+		g_size8 = 0x10000;
+		send_mod2(fd, req.app_id, 0x52, 0, 0);
+		printf("--- variant b: [12]=size\n");
+		g_size8 = 0;
+		send_mod2(fd, req.app_id, 0x52, 0x10000, 0);
+		printf("--- variant c: normal\n");
+		send_cmd(fd, req.app_id, 0x52, 0, 0, 0, 0);
+		printf("--- variant d: 0x53 modified\n");
+		send_mod2(fd, req.app_id, 0x53, 0, 0);
+		send_cmd(fd, req.app_id, 0x54, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "test")) {
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x56, 0, 0, 0, 0);   /* img info */
+		g_dlen = 0x10000;
+		g_dump = 1;
+		printf("TOUCH_NOW\n");
+		send_mod2(fd, req.app_id, 0x52, 0, 0);        /* TEST_IMAGE_CAPTURE */
+		send_cmd(fd, req.app_id, 0x54, 0, 0, 0, 0);   /* TEST_IMAGE_FINISH */
+	} else if (argc > 3 && !strcmp(argv[3], "scanid")) {
+		uint32_t id;
+
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		for (id = 0; id <= 0x60; id++) {
+			if (id == 0x0e || id == 0x1b || id == 0x20 || id == 0x30 ||
+			    id == 0x50 || id == 0x39 || id == 0x59)
+				continue;
+			send_cmd(fd, req.app_id, id, 0, 0, 0, 0);
+		}
+	} else if (argc > 3 && !strcmp(argv[3], "shot")) {
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		printf("TOUCH_NOW\n");
+		g_dlen = 0x10000;
+		g_dump = 1;
+		{
+			int i;
+
+			for (i = 0; i < 120; i++) {
+				send_cmd(fd, req.app_id, 0x22, 0, 0, 0, 0);
+				send_mod2(fd, req.app_id, 0x23, 0, 0);
+				send_cmd(fd, req.app_id, 0x24, 0, 0, 0, 0);
+				sleep_ms(400);
+			}
+		}
+		printf("TOUCH_DONE\n");
+	} else if (argc > 3 && !strcmp(argv[3], "cap")) {
+		int i;
+
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		printf("TOUCH_NOW\n");
+		for (i = 0; i < 900; i++) {
+			send_cmd(fd, req.app_id, 0x03, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x0b, 0, 0, 0, 0);
+			sleep_ms(200);
+		}
+		printf("TOUCH_DONE\n");
 	} else if (argc > 3 && !strcmp(argv[3], "full")) {
 		power_cycle();
 		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
@@ -410,6 +520,11 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		/* nav poll: capture + step, as the HAL does on a finger IRQ */
+		send_cmd(fd, req.app_id, 0x03, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0b, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x03, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0b, 0, 0, 0, 0);
 	} else if (argc > 3 && !strcmp(argv[3], "seq")) {
 		/* Vendor init order, as seen in the Android trace. */
 		power_cycle();
