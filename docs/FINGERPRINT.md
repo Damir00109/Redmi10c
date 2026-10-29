@@ -253,7 +253,7 @@ synchronous external abort).
 Android `silfp_impl_init()` после `SIFP_IOC_INIT` вызывает
 `SIFP_IOC_RESET(0)`: reset GPIO104 low 5 мс → high, при этом драйвер
 временно включает rising-edge IRQ GPIO83. Mainline теперь регистрирует GPIO83
-как `gpio-keys` IRQ (`KEY_F13`, rising edge; TLMM input с pull-down).
+как `gpio-keys` IRQ (`KEY_F13`, оба фронта; TLMM input с pull-down).
 
 Без физического касания `CHECK_ESD` после полного init возвращает 4; после
 `MODE_DOWNLOAD [3,0]` TA отвечает `INT_INVALID` (-1036), а следующий
@@ -267,8 +267,14 @@ payload через `silfp_qsee_keymaster_get()`; наш тест пока исп
 буфер. Следовательно, результаты auth/capture до корректного key-data
 payload считаются предварительными.
 
-В rescue теперь GPIO83 запрошен rising-edge IRQ через `gpio-keys`, код
-`KEY_F13`; `/proc/interrupts` показывает зарегистрированный `msmgpio 83 Edge
-fingerprint_irq`. Probe `authwait` полностью поднимает TA, запускает
-`AUTH_START` и ждёт физический IRQ до 5 минут. Последний прогон завершился по
-таймауту без касания; результата capture после реального IRQ пока нет.
+В rescue GPIO83 запрошен через `gpio-keys`, код `KEY_F13`;
+`/proc/interrupts` показывает зарегистрированный `msmgpio 83 Edge
+fingerprint_irq`. `authwait` — AP IRQ-тест, но линия не сработала при двух
+попытках касания.
+
+Позже NAV-поллинг (`NAV_CAPTURE_IMG` + `NAV_STEP`) вернул `0x8`/`0x9`,
+подтвердив, что TA видит touch через secure SPI без AP IRQ. Первый `authnav`
+поймал `0x8` сразу после запуска, но все восемь `CAPTURE_IMG` вернули
+`MOVE_TOO_FAST` (-1018); это мог быть стартовый reset edge. Новый `authnav`
+сбрасывает начальные события и ждёт свежего NAV-события; результат текущего
+прогона ещё не прочитан, поскольку `/dev/ttyACM0` занят UltiMaker Cura.

@@ -100,8 +100,10 @@ CONFIG_INVALID), 4.8 МГц — штатная. То есть таймаут н�
   ждёт 3 мс и снова выключает IRQ.
 - `silfp_resource_init()` включает AVDD (GPIO100), просит GPIO83 как IRQ
   `IRQ_TYPE_EDGE_RISING`, сразу выключает IRQ, а reset GPIO104 оставляет high.
-- В mainline GPIO83 теперь действительно запрошен как rising-edge IRQ
-  через `gpio-keys` (KEY_F13), с отдельным TLMM GPIO-input/pull-down pinctrl.
+- В mainline GPIO83 теперь запрошен как IRQ обоих фронтов через `gpio-keys`
+  (KEY_F13), с отдельным TLMM GPIO-input/pull-down pinctrl. Так можно
+  диагностировать неизвестную полярность, но это не копия vendor rising-only
+  request_irq.
   `/proc/interrupts` показывает `msmgpio 83 Edge fingerprint_irq`; до
   физического касания счётчик не растёт.
 
@@ -112,22 +114,34 @@ CONFIG_INVALID), 4.8 МГц — штатная. То есть таймаут н�
 Это не доказывает защёлку ESD или неисправность питания: скорее TA ожидает
 событие пальца, а команда mode 0 отвергается в состоянии idle.
 
-Добавлен `ta-load ... authwait`: выполняет init/calibration, запускает
-`AUTH_START`, ждёт rising-edge KEY_F13 до 5 минут и только после реального
-GPIO83 IRQ посылает Android auth-последовательность. В текущем unattended
+Добавлен `ta-load ... authwait`: он ждёт KEY_F13 от AP IRQ. В unattended
 прогоне GPIO83 был зарегистрирован как `msmgpio 83 Edge fingerprint_irq`,
-но IRQ за 5 минут не пришёл (пальца не прикладывали), поэтому capture в этом
-прогоне **не проверен**. Следующий диагностический тест — запустить rescue с
-актуальным `kernel.patch`, выполнить
-`ta-load /lib/firmware/qcom sileadta authwait`, затем приложить палец после
-появления строки ожидания. Проверить, что IRQ счётчик увеличился, а
-`CHECK_ESD`, `CAPTURE_IMG` и `AUTH_STEP` вернули результат.
+но событие не пришло. Этот путь заменён/дополнен `authnav`, который запускает
+TA NAV-поллинг и ждёт событие `0x8`/`0x9` прямо из TA.
 
 Тонкость протокола: `MODE_DOWNLOAD [2]` соответствует NAV-пути из Android
 init-trace; это не универсальная подготовка к auth. Для auth в Android HAL
 после входа в auth worker видны повторные переходы `[3,0]`, затем `[3,1]`,
 но они наблюдались в активной сессии с касанием. Не использовать отрицательный
 `CHECK_ESD` из теста без IRQ как доказательство неисправности датчика.
+
+## NAV-поллинг и повтор capture
+
+`ta-load ... cap` показал ответ TA `NAV_CAPTURE_IMG=0x8` и
+`NAV_STEP=0x9`, то есть secure TA способен увидеть touch-событие через NAV
+polling. В отдельном пробном `authnav` сразу после старта был `0x8`, но все
+8 capture-попыток вернули `MOVE_TOO_FAST` (-1018). Это мог быть стартовый
+reset/IRQ edge, а не чистое касание, поэтому authnav теперь сбрасывает
+стартовые NAV-события перед ожиданием нового.
+
+Один NAV-поллинг поймал `0x8` и `0x9`; следующая authnav-попытка
+зафиксировала `0x8` сразу после старта, затем все capture попытки вернули
+`MOVE_TOO_FAST` (-1018). Чтобы исключить стартовый reset edge, `authnav`
+теперь очищает начальные NAV-события и ждёт свежего события. Результат
+последнего прогона не удалось прочитать: `/dev/ttyACM0` занят UltiMaker Cura
+(хост посылает `M105` в rescue-консоль). Не открывать TTY параллельно Cura;
+после отключения Cura прочитать `/tmp/authnav3.log`. NAV-поллинг не зависит
+от AP IRQ.
 
 Отдельная ошибка остаётся: `SET_KEY_DATA(0x30)` у mainline отвечает
 `SHARED_ALLOC_FAILED` (-1011), тогда как Android — SUCCESS. В Android HAL

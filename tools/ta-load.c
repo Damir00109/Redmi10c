@@ -212,7 +212,9 @@ out:
  */
 static uint32_t g_dlen = 0x1000;
 static int g_dump;
+static int g_quiet;
 static uint32_t g_size8;
+static uint32_t g_last_rx[16];
 
 static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 		     uint32_t arg2)
@@ -297,11 +299,53 @@ static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
 		printf("cmd 0x%02x: ioctl failed: %s\n", cmd, strerror(errno));
 		return -1;
 	}
-	printf("cmd 0x%02x(%u,%u,%u,%u) ->", cmd, a0, a1, a2, a3);
-	for (i = 0; i < 6; i++)
-		printf(" 0x%08x", rx[i]);
-	printf("\n");
+	memcpy(g_last_rx, rx, sizeof(g_last_rx));
+	if (!g_quiet) {
+		printf("cmd 0x%02x(%u,%u,%u,%u) ->", cmd, a0, a1, a2, a3);
+		for (i = 0; i < 6; i++)
+			printf(" 0x%08x", rx[i]);
+		printf("\n");
+	}
 	return 0;
+}
+
+static int wait_nav_finger(int fd, uint32_t app_id, unsigned int attempts)
+{
+	unsigned int i;
+
+	g_quiet = 1;
+	for (i = 0; i < attempts; i++) {
+		uint32_t capture, step;
+
+		send_cmd(fd, app_id, 0x03, 0, 0, 0, 0);
+		capture = g_last_rx[0];
+		send_cmd(fd, app_id, 0x0b, 0, 0, 0, 0);
+		step = g_last_rx[0];
+		if (capture == 8 || capture == 9 || step == 8 || step == 9) {
+			g_quiet = 0;
+			printf("NAV finger event: capture=%u step=%u after %u polls\n",
+			       capture, step, i + 1);
+			return 0;
+		}
+		sleep_ms(100);
+	}
+	g_quiet = 0;
+	printf("NAV finger wait timed out (%u polls)\n", attempts);
+	return -1;
+}
+
+static void drain_nav_events(int fd, uint32_t app_id)
+{
+	int i;
+
+	g_quiet = 1;
+	for (i = 0; i < 12; i++) {
+		send_cmd(fd, app_id, 0x03, 0, 0, 0, 0);
+		send_cmd(fd, app_id, 0x0b, 0, 0, 0, 0);
+		sleep_ms(100);
+	}
+	g_quiet = 0;
+	printf("discarded startup NAV events; ready for a fresh touch\n");
 }
 
 int main(int argc, char **argv)
@@ -516,6 +560,64 @@ int main(int argc, char **argv)
 			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
+		}
+	} else if (argc > 3 && !strcmp(argv[3], "authnav")) {
+		pulse_reset();
+		sleep_ms(30);
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
+		send_mod(fd, req.app_id, 0x1b, 9);
+		g_dlen = 152;
+		send_mod(fd, req.app_id, 0x30, 152);
+		g_dlen = 0x1000;
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x36, 4, 2);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		drain_nav_events(fd, req.app_id);
+		printf("NAV ready; touch and hold the enrolled finger\n");
+		if (!wait_nav_finger(fd, req.app_id, 1200)) {
+			int attempt;
+
+			send_cmd(fd, req.app_id, 0x0c, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x04, 0, 0, 0, 0);
+			for (attempt = 0; attempt < 8; attempt++) {
+				int capture_status, auth_status;
+
+				send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+				send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
+				capture_status = (int32_t)g_last_rx[4];
+				printf("capture attempt %d status %d\n",
+				       attempt + 1, capture_status);
+				if (!capture_status) {
+					send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
+					auth_status = (int32_t)g_last_rx[4];
+					printf("AUTH_STEP status %d\n", auth_status);
+					if (!auth_status)
+						break;
+				}
+
+				if (attempt != 7) {
+					send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+					send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+					sleep_ms(250);
+				}
+			}
+			send_cmd(fd, req.app_id, 0x06, 0, 0, 0, 0);
 		}
 	} else if (argc > 3 && !strcmp(argv[3], "authwait")) {
 		pulse_reset();
