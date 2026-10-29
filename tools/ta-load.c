@@ -309,6 +309,11 @@ static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
 	return 0;
 }
 
+/*
+ * Plain NAV polling (NAV_CAPTURE_IMG + NAV_STEP, ~200ms apart) is the only
+ * detector proven to see touch events (0x8/0x9) on this sensor.  Inserting
+ * CHECK_ESD / MODE_DOWNLOAD commands between polls masks the event queue.
+ */
 static int wait_nav_finger(int fd, uint32_t app_id, unsigned int attempts)
 {
 	unsigned int i;
@@ -327,7 +332,7 @@ static int wait_nav_finger(int fd, uint32_t app_id, unsigned int attempts)
 			       capture, step, i + 1);
 			return 0;
 		}
-		sleep_ms(100);
+		sleep_ms(200);
 	}
 	g_quiet = 0;
 	printf("NAV finger wait timed out (%u polls)\n", attempts);
@@ -339,13 +344,71 @@ static void drain_nav_events(int fd, uint32_t app_id)
 	int i;
 
 	g_quiet = 1;
-	for (i = 0; i < 12; i++) {
+	for (i = 0; i < 8; i++) {
 		send_cmd(fd, app_id, 0x03, 0, 0, 0, 0);
 		send_cmd(fd, app_id, 0x0b, 0, 0, 0, 0);
-		sleep_ms(100);
+		sleep_ms(200);
 	}
 	g_quiet = 0;
 	printf("discarded startup NAV events; ready for a fresh touch\n");
+}
+
+/*
+ * The sensor drives GPIO83 with a pulse train while a finger is held
+ * (~25 edges/s).  Count the kernel's interrupt counter as a fallback
+ * detector: NAV polling missed touches, but the AP-side IRQ storm is a
+ * reliable touch indication once GPIO83 has pull-up + both edges.
+ */
+static unsigned long read_irq_count(void)
+{
+	static char buf[65536];
+	int fd;
+	ssize_t n = 0, r;
+	char *p;
+
+	fd = open("/proc/interrupts", O_RDONLY);
+	if (fd < 0)
+		return 0;
+	while (n < (ssize_t)sizeof(buf) - 1 &&
+	       (r = read(fd, buf + n, sizeof(buf) - 1 - n)) > 0)
+		n += r;
+	close(fd);
+	if (n <= 0)
+		return 0;
+	buf[n] = 0;
+
+	p = strstr(buf, "fingerprint_irq");
+	if (!p)
+		return 0;
+	for (; p > buf && p[-1] != '\n'; p--)
+		;
+	p = strchr(p, ':');
+	if (!p)
+		return 0;
+	p++;
+	while (*p == ' ')
+		p++;
+	return strtoul(p, NULL, 10);
+}
+
+static int wait_irq_storm(unsigned int timeout_ms)
+{
+	unsigned long start, now, waited = 0;
+
+	start = read_irq_count();
+	printf("waiting for GPIO83 IRQ activity (start=%lu)...\n", start);
+	while (waited < timeout_ms) {
+		sleep_ms(100);
+		waited += 100;
+		now = read_irq_count();
+		if (now > start + 5) {
+			printf("GPIO83 IRQ activity: %lu -> %lu after %lu ms\n",
+			       start, now, waited);
+			return 0;
+		}
+	}
+	printf("GPIO83 IRQ wait timed out\n");
+	return -1;
 }
 
 int main(int argc, char **argv)
@@ -590,7 +653,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
 		drain_nav_events(fd, req.app_id);
 		printf("NAV ready; touch and hold the enrolled finger\n");
-		if (!wait_nav_finger(fd, req.app_id, 1200)) {
+		if (!wait_nav_finger(fd, req.app_id, 900)) {
 			int attempt;
 
 			send_cmd(fd, req.app_id, 0x0c, 0, 0, 0, 0);
