@@ -261,11 +261,16 @@ Android `silfp_impl_init()` после `SIFP_IOC_INIT` вызывает
 доказывали аппаратную ESD-защёлку. Режим `ta-load ... authwait` ждёт реальный
 IRQ GPIO83 (до 5 минут) перед отправкой Android auth-команд.
 
-`SET_KEY_DATA(0x30)` всё ещё отличается: mainline возвращает
-`SHARED_ALLOC_FAILED` (-1011), Android — SUCCESS. HAL получает 152-байтный
-payload через `silfp_qsee_keymaster_get()`; наш тест пока использует нулевой
-буфер. Следовательно, результаты auth/capture до корректного key-data
-payload считаются предварительными.
+`SET_KEY_DATA(0x30)` решён (2026-10-30): QSEECom-шим на Android показал, что
+HAL сначала обращается к резидентному TA `keymaster64` командой `0x205`
+(arg=2); ответ — `[status][offset=0x0c][size=0x98]` + 152-байтный session
+blob (префикс стабилен, хвост меняется между запусками — хардкодить нельзя).
+`ta-load` теперь реплицирует это в `km_get_key_data()`: APP_LOOKUP по имени
+`keymaster64` (образ не нужен, TA резидентный, app_id=1), plain-команда
+`{0x205,2}`, извлечение blob из ответа и подача в shared buffer перед
+`0x30`. Результат на mainline: `keymaster64 app_id 1`, `rsp: status=0 off=12
+size=152`, `SET_KEY_DATA -> 0 (SUCCESS)` — было -1011/-1013 с нулевым
+буфером.
 
 В rescue GPIO83 запрошен через `gpio-keys`, код `KEY_F13`;
 `/proc/interrupts` показывает зарегистрированный `msmgpio 83 Edge
@@ -276,5 +281,14 @@ fingerprint_irq`. `authwait` — AP IRQ-тест, но линия не сраб�
 подтвердив, что TA видит touch через secure SPI без AP IRQ. Первый `authnav`
 поймал `0x8` сразу после запуска, но все восемь `CAPTURE_IMG` вернули
 `MOVE_TOO_FAST` (-1018); это мог быть стартовый reset edge. Новый `authnav`
-сбрасывает начальные события и ждёт свежего NAV-события; результат текущего
-прогона ещё не прочитан, поскольку `/dev/ttyACM0` занят UltiMaker Cura.
+сбрасывает начальные события и ждёт свежего NAV-события.
+
+2026-10-30: `authnav` теперь использует полный init с реальным key-data
+из keymaster64 — `SET_KEY_DATA` возвращает SUCCESS. Осталось дождаться
+свежего касания с этим ключом для проверки `CAPTURE_IMG`/`AUTH_STEP`.
+
+Отдельно найден эксплуатационный нюанс fastboot: если `fastboot boot`
+«зависает» или образ возвращает телефон в fastboot мгновенно после
+`Booting OKAY`, это признак подвешенного состояния, а не битого образа.
+Лечение: `fastboot reboot bootloader` → `fastboot set_active b` →
+`fastboot boot` (см. AGENTS.md).

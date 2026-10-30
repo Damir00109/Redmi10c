@@ -725,7 +725,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
 		drain_nav_events(fd, req.app_id);
 		printf("NAV ready; touch and hold the enrolled finger\n");
-		if (!wait_nav_finger(fd, req.app_id, 900)) {
+		if (!wait_nav_finger(fd, req.app_id, 1800)) {
 			int attempt;
 
 			/* Vendor auth flow after a touch: NAV_END, AUTH_START,

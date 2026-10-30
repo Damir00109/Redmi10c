@@ -35,6 +35,7 @@
 - `tools/boot-and-check.sh` — загрузка + проверка.
 - `regen-patch.sh` — перегенерация `kernel.patch` из дерева `out/src/linux`.
 - Загрузка на устройство: `fastboot set_active b && fastboot reboot bootloader`, затем `fastboot boot out/boot-display-console-rescue.img` (слот B, ничего не прошивается; Android цел на слоте A; rootfs — Ubuntu на разделе `cust`). Лимит `fastboot boot` ~57.5 МиБ.
+- **Подвешенный fastboot (2026-10-30)**: если fastboot-экспорт живёт (`fastboot devices` видит), но команды висят/`Load Error`, либо `fastboot boot` отвечает `Booting OKAY`, а телефон мгновенно падает обратно в fastboot — это подвешенное состояние, а не битый образ. Причина: после неудачных попыток активным остаётся слот A, где запуск кастомного образа невозможен. Порядок восстановления: `fastboot reboot bootloader` → `fastboot set_active b` → `fastboot boot <образ>`. Если и команды не проходят — убить зависшие процессы `pkill -9 fastboot` на хосте и повторить. Slot A восстанавливается `fastboot set_active a` + обычный ребут (Android цел).
 - Консоль на устройстве: USB gadget ACM → `screen /dev/ttyACM0 115200` (иногда нужен Ctrl-C для prompt'а), плюс shell на экране.
 
 ## Статус железа (STATUS.md, обновление 2026-10-06)
