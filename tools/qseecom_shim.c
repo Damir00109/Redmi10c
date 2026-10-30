@@ -8,12 +8,11 @@
  */
 #include <stdint.h>
 
-extern int __android_log_print(int prio, const char *tag, const char *fmt, ...);
 extern void *dlopen(const char *path, int mode);
 extern void *dlsym(void *handle, const char *symbol);
 extern int getpid(void);
 
-#define REAL_LIB "/vendor/lib64/libQSEEComR.so"
+#define REAL_LIB "/vendor/lib64/hw/audio.r_submix.default.so"
 
 #define SYS_openat 56
 #define SYS_close 57
@@ -147,7 +146,8 @@ static void logf(const char *fmt, ...)
 	}
 	__builtin_va_end(ap);
 	*p++ = '\n';
-	fd = (int)sc4(SYS_openat, AT_FDCWD, (long)"/data/local/tmp/qsee-trace.log",
+	fd = (int)sc4(SYS_openat, AT_FDCWD,
+		      (long)"/data/vendor_de/0/fpdata/qsee-trace.log",
 		      01 | 0100 | 02000, 0666);
 	if (fd < 0)
 		return;
@@ -180,8 +180,8 @@ static void dump(const char *tag, const void *p, uint32_t len)
 
 	if (!p || !len)
 		return;
-	if (len > 0x100)
-		len = 0x100;
+	if (len > 0x400)
+		len = 0x400;
 	for (off = 0; off < len; off += 16) {
 		n = len - off > 16 ? 16 : len - off;
 		for (i = 0; i < n; i++) {

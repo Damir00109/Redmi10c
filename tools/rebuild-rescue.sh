@@ -24,7 +24,7 @@ python3 "$OUT/src/mkbootimg/mkbootimg.py" \
   --dtb "$OUT/build/linux-7.3/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dtb" \
   --pagesize 2048 --base 0x0 \
   --kernel_offset 0x8000 --ramdisk_offset 0x1000000 \
-  --tags_offset 0x100 --dtb_offset 0x1f00000 \
+  --tags_offset 0x100 --dtb_offset 0x4000000 \
   --os_version 16.0.0 --os_patch_level 2026-06 \
   --cmdline 'console=tty0 earlycon consoleblank=0 quiet loglevel=3 initcall_debug log_buf_len=2M pd_ignore_unused clk_ignore_unused deferred_probe_timeout=120 fw_devlink=off panic=15 hung_task_panic=1 nmi_watchdog=0 softlockup_panic=0 hardlockup_panic=1' \
   --output "$OUT/boot-display-console-rescue.img"

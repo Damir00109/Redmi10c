@@ -216,6 +216,63 @@ static int g_dump;
 static int g_quiet;
 static uint32_t g_size8;
 static uint32_t g_last_rx[16];
+static const uint8_t *g_data_in;
+static uint32_t g_data_in_len;
+
+/*
+ * Fetch the session key data from the keymaster TA, as the vendor HAL does
+ * in silfp_qsee_keymaster_get(): look up "keymaster64" (resident in TZ, no
+ * image needed), send command 0x205/2 as a plain request and extract the
+ * [status][offset][size][blob] response.  The blob (~152 bytes) is then fed
+ * to the fingerprint TA via SET_KEY_DATA.
+ */
+static int km_get_key_data(int fd, uint8_t *out, uint32_t out_cap,
+			   uint32_t *out_len)
+{
+	struct load_req kreq;
+	uint32_t tx[16] = { 0x205, 0x2 };
+	uint8_t rx[0x200];
+	struct send_req sreq;
+	uint32_t status, off, size;
+	uint8_t dummy[4] = { 0 };
+	int ret;
+
+	memset(&kreq, 0, sizeof(kreq));
+	kreq.name_len = 11;
+	kreq.img_len = sizeof(dummy);
+	kreq.name_ptr = (uint64_t)(uintptr_t)"keymaster64";
+	kreq.img_ptr = (uint64_t)(uintptr_t)dummy;
+
+	ret = ioctl(fd, QSEECOM_FP_IOCTL_LOAD, &kreq);
+	if (ret) {
+		printf("keymaster64 lookup failed: %s\n", strerror(errno));
+		return -1;
+	}
+	printf("keymaster64 app_id %u\n", kreq.app_id);
+
+	memset(rx, 0, sizeof(rx));
+	memset(&sreq, 0, sizeof(sreq));
+	sreq.app_id = kreq.app_id;
+	sreq.req_len = sizeof(tx);
+	sreq.rsp_len = sizeof(rx);
+	sreq.req_ptr = (uint64_t)(uintptr_t)tx;
+	sreq.rsp_ptr = (uint64_t)(uintptr_t)rx;
+	if (ioctl(fd, QSEECOM_FP_IOCTL_SEND, &sreq)) {
+		printf("keymaster cmd: %s\n", strerror(errno));
+		return -1;
+	}
+
+	memcpy(&status, rx, 4);
+	memcpy(&off, rx + 4, 4);
+	memcpy(&size, rx + 8, 4);
+	printf("keymaster rsp: status=%u off=%u size=%u\n",
+	       status, off, size);
+	if (status || !size || off + size > sizeof(rx) || size > out_cap)
+		return -1;
+	memcpy(out, rx + off, size);
+	*out_len = size;
+	return 0;
+}
 
 static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 		     uint32_t arg2)
@@ -228,6 +285,8 @@ static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 
 	if (!data)
 		return -1;
+	if (g_data_in && g_data_in_len <= g_dlen)
+		memcpy(data, g_data_in, g_data_in_len);
 	memset(req, 0, sizeof(req));
 	memset(rsp, 0, sizeof(rsp));
 	{
@@ -649,7 +708,19 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
 		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
 		send_mod(fd, req.app_id, 0x1b, 9);
-		send_mod(fd, req.app_id, 0x30, 152);
+		{
+			static uint8_t key_data[256];
+			uint32_t key_len = 0;
+
+			if (!km_get_key_data(fd, key_data, sizeof(key_data),
+					     &key_len)) {
+				g_data_in = key_data;
+				g_data_in_len = key_len;
+			}
+			send_mod(fd, req.app_id, 0x30, 152);
+			g_data_in = NULL;
+			g_data_in_len = 0;
+		}
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
 		drain_nav_events(fd, req.app_id);
