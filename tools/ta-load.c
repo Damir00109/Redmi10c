@@ -58,6 +58,7 @@ struct send_mod_req {
 #define QSEECOM_FP_IOCTL_LOAD _IOWR(0xf5, 1, struct load_req)
 #define QSEECOM_FP_IOCTL_SEND _IOWR(0xf5, 2, struct send_req)
 #define QSEECOM_FP_IOCTL_SEND_MOD _IOWR(0xf5, 3, struct send_mod_req)
+#define QSEECOM_FP_IOCTL_UNLOAD _IOW(0xf5, 4, struct load_req)
 
 static uint8_t *read_file(const char *path, size_t *len)
 {
@@ -531,6 +532,17 @@ int main(int argc, char **argv)
 	req.name_ptr = (uint64_t)(uintptr_t)name;
 	req.img_ptr = (uint64_t)(uintptr_t)img;
 
+	/*
+	 * A previous run may have left the TA half-configured in TZ (a
+	 * killed process never sends cleanup commands, and later loads
+	 * then re-attach to that stale instance).  Always shut down any
+	 * leftover instance first so each run starts with a fresh TA.
+	 */
+	if (ioctl(fd, QSEECOM_FP_IOCTL_UNLOAD, &req))
+		printf("no stale TA to unload (%s)\n", strerror(errno));
+	else
+		printf("unloaded stale TA instance\n");
+
 	ret = ioctl(fd, QSEECOM_FP_IOCTL_LOAD, &req);
 	if (ret) {
 		/* The app stays loaded across tool runs: reuse its id. */
@@ -625,39 +637,33 @@ int main(int argc, char **argv)
 			send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
 		}
 	} else if (argc > 3 && !strcmp(argv[3], "authnav")) {
-		pulse_reset();
-		sleep_ms(30);
+		/*
+		 * Minimal "cap" init sequence: the extra config/calibration/mode
+		 * commands used by other modes mask the NAV touch events, so
+		 * keep exactly what the working cap mode sends before polling.
+		 */
+		power_cycle();
 		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
 		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
 		send_mod(fd, req.app_id, 0x1b, 9);
-		g_dlen = 152;
 		send_mod(fd, req.app_id, 0x30, 152);
-		g_dlen = 0x1000;
-		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
-		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
-		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
-		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
-		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
-		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
-		send_mod2(fd, req.app_id, 0x36, 4, 2);
-		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
-		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
-		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
-		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
-		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
 		drain_nav_events(fd, req.app_id);
 		printf("NAV ready; touch and hold the enrolled finger\n");
 		if (!wait_nav_finger(fd, req.app_id, 900)) {
 			int attempt;
 
+			/* Vendor auth flow after a touch: NAV_END, AUTH_START,
+			 * mode [3,0]/[3,1] transitions with ESD checks between
+			 * captures. */
 			send_cmd(fd, req.app_id, 0x0c, 0, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x04, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
 			for (attempt = 0; attempt < 8; attempt++) {
 				int capture_status, auth_status;
 

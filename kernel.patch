@@ -5152,7 +5152,7 @@ index eebbc6de2..d42fcbc04 100644
  
  	ret = qcom_cc_really_probe(&pdev->dev, &gpucc_sm6375_desc, regmap);
 diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
-index 3eaa4c9cc..d7bf5d936 100644
+index 3eaa4c9cc..d88a78964 100644
 --- a/drivers/firmware/qcom/qcom_scm.c
 +++ b/drivers/firmware/qcom/qcom_scm.c
 @@ -119,6 +119,15 @@ enum qcom_scm_qseecom_tz_cmd_app {
@@ -5171,7 +5171,7 @@ index 3eaa4c9cc..d7bf5d936 100644
  enum qcom_scm_qseecom_tz_cmd_info {
  	QSEECOM_TZ_CMD_INFO_VERSION		= 3,
  };
-@@ -2295,6 +2304,53 @@ int qcom_scm_qseecom_app_send(u32 app_id, void *req, size_t req_size,
+@@ -2295,6 +2304,86 @@ int qcom_scm_qseecom_app_send(u32 app_id, void *req, size_t req_size,
  }
  EXPORT_SYMBOL_GPL(qcom_scm_qseecom_app_send);
  
@@ -5222,10 +5222,43 @@ index 3eaa4c9cc..d7bf5d936 100644
 +}
 +EXPORT_SYMBOL_GPL(qcom_scm_qseecom_app_load);
 +
++/**
++ * qcom_scm_qseecom_app_shutdown() - Unload a QSEE app from the secure world.
++ * @app_id: The ID of the app to shut down.
++ *
++ * Issues APP_SHUTDOWN so a stale or half-configured app instance does not
++ * keep receiving commands meant for a fresh session.
++ *
++ * Return: Zero on success, nonzero on failure.
++ */
++int qcom_scm_qseecom_app_shutdown(u32 app_id)
++{
++	struct qcom_scm_qseecom_resp res = {};
++	struct qcom_scm_desc desc = {};
++	int status;
++
++	desc.owner = QSEECOM_TZ_OWNER_QSEE_OS;
++	desc.svc = QSEECOM_TZ_SVC_APP_MGR;
++	desc.cmd = QSEECOM_TZ_CMD_APP_SHUTDOWN;
++	desc.arginfo = QCOM_SCM_ARGS(1, QCOM_SCM_VAL);
++	desc.args[0] = app_id;
++
++	status = qcom_scm_qseecom_call(&desc, &res);
++
++	if (status)
++		return status;
++
++	if (res.result != QSEECOM_RESULT_SUCCESS)
++		return -EIO;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(qcom_scm_qseecom_app_shutdown);
++
  /*
   * We do not yet support re-entrant calls via the qseecom interface. To prevent
   + any potential issues with this, only allow validated machines for now.
-@@ -2335,6 +2391,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
+@@ -2335,6 +2424,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
  	{ .compatible = "qcom,x1e80100-crd" },
  	{ .compatible = "qcom,x1e80100-qcp" },
  	{ .compatible = "qcom,x1p42100-crd" },
@@ -13946,10 +13979,10 @@ index d4fac2cac..ac24def9e 100644
  		return PTR_ERR(ctx);
 diff --git a/drivers/misc/qseecom_fp.c b/drivers/misc/qseecom_fp.c
 new file mode 100644
-index 000000000..582448a9a
+index 000000000..b7d897123
 --- /dev/null
 +++ b/drivers/misc/qseecom_fp.c
-@@ -0,0 +1,358 @@
+@@ -0,0 +1,406 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * qseecom_fp - minimal QSEECom client for the fingerprint TA experiments.
@@ -14012,6 +14045,8 @@ index 000000000..582448a9a
 +	_IOWR(QSEECOM_FP_IOC_MAGIC, 2, struct qseecom_fp_send_req)
 +#define QSEECOM_FP_IOCTL_SEND_MOD \
 +	_IOWR(QSEECOM_FP_IOC_MAGIC, 3, struct qseecom_fp_send_mod_req)
++#define QSEECOM_FP_IOCTL_UNLOAD \
++	_IOW(QSEECOM_FP_IOC_MAGIC, 4, struct qseecom_fp_load_req)
 +
 +struct qseecom_fp {
 +	struct qcom_tzmem_pool *pool;
@@ -14068,6 +14103,42 @@ index 000000000..582448a9a
 +out_img:
 +	qcom_tzmem_free(img);
 +out_name:
++	kfree(name);
++	return ret;
++}
++
++/*
++ * Shut down the app instance registered under the given name, if any.
++ * Killed tool runs leave the TA half-configured in TZ, and later commands
++ * then reach that stale instance instead of a fresh one.
++ */
++static int qseecom_fp_unload(struct qseecom_fp *fp,
++			   struct qseecom_fp_load_req *req)
++{
++	char *name;
++	u32 app_id = 0;
++	int ret;
++
++	if (req->name_len == 0 || req->name_len > QSEECOM_FP_MAX_NAME)
++		return -EINVAL;
++
++	name = kzalloc(QSEECOM_FP_MAX_NAME + 1, GFP_KERNEL);
++	if (!name)
++		return -ENOMEM;
++	if (copy_from_user(name, u64_to_user_ptr(req->name_ptr), req->name_len)) {
++		kfree(name);
++		return -EFAULT;
++	}
++
++	ret = qcom_scm_qseecom_app_get_id(name, &app_id);
++	if (ret) {
++		kfree(name);
++		return ret;
++	}
++
++	ret = qcom_scm_qseecom_app_shutdown(app_id);
++	if (!ret)
++		pr_info("qseecom_fp: unloaded %s, app_id %u\n", name, app_id);
 +	kfree(name);
 +	return ret;
 +}
@@ -14248,6 +14319,16 @@ index 000000000..582448a9a
 +			return -EFAULT;
 +		mutex_lock(&fp->lock);
 +		ret = qseecom_fp_send_mod(fp, &req);
++		mutex_unlock(&fp->lock);
++		return ret;
++	}
++	case QSEECOM_FP_IOCTL_UNLOAD: {
++		struct qseecom_fp_load_req req;
++
++		if (copy_from_user(&req, (void __user *)arg, sizeof(req)))
++			return -EFAULT;
++		mutex_lock(&fp->lock);
++		ret = qseecom_fp_unload(fp, &req);
 +		mutex_unlock(&fp->lock);
 +		return ret;
 +	}
@@ -18649,23 +18730,29 @@ index b91a7b460..2cf571166 100644
  /* GCC resets */
  #define GCC_QUSB2PHY_PRIM_BCR					0
 diff --git a/include/linux/firmware/qcom/qcom_scm.h b/include/linux/firmware/qcom/qcom_scm.h
-index 5747bd191..386b844cb 100644
+index 5747bd191..60fa6526e 100644
 --- a/include/linux/firmware/qcom/qcom_scm.h
 +++ b/include/linux/firmware/qcom/qcom_scm.h
-@@ -172,6 +172,7 @@ int qcom_scm_shm_bridge_delete(u64 handle);
+@@ -172,6 +172,8 @@ int qcom_scm_shm_bridge_delete(u64 handle);
  int qcom_scm_qseecom_app_get_id(const char *app_name, u32 *app_id);
  int qcom_scm_qseecom_app_send(u32 app_id, void *req, size_t req_size,
  			      void *rsp, size_t rsp_size);
 +int qcom_scm_qseecom_app_load(void *img, size_t img_len, u32 *app_id);
++int qcom_scm_qseecom_app_shutdown(u32 app_id);
  
  #else /* CONFIG_QCOM_QSEECOM */
  
-@@ -187,6 +188,12 @@ static inline int qcom_scm_qseecom_app_send(u32 app_id,
+@@ -187,6 +189,17 @@ static inline int qcom_scm_qseecom_app_send(u32 app_id,
  	return -EINVAL;
  }
  
 +static inline int qcom_scm_qseecom_app_load(void *img, size_t img_len,
 +					    u32 *app_id)
++{
++	return -EINVAL;
++}
++
++static inline int qcom_scm_qseecom_app_shutdown(u32 app_id)
 +{
 +	return -EINVAL;
 +}
