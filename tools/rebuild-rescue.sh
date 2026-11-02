@@ -14,7 +14,11 @@ aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/ta-load" "$ROOT/tools/ta-load.c"
 if [ -d "$OUT/fp-recon" ]; then
   mkdir -p "$IR/lib/firmware/qcom"
   cp "$OUT"/fp-recon/sileadta.* "$IR/lib/firmware/qcom/" 2>/dev/null || true
-  
+  # Enrolled templates + tpl index pulled from Android (local only):
+  # ta-load re-pushes them into the TA db on every start.
+  mkdir -p "$IR/lib/firmware/fp"
+  cp "$OUT"/fp-recon/android/fpdata/*.dat "$IR/lib/firmware/fp/" 2>/dev/null || true
+  cp "$OUT"/fp-recon/android/fpdata/silead.tpl "$IR/lib/firmware/fp/" 2>/dev/null || true
 fi
 ( cd "$IR" && find . | cpio -o -H newc 2>/dev/null | zstd -19 -T0 -q -f -o "$OUT/build/rescue.cpio.zst" )
 python3 "$OUT/src/mkbootimg/mkbootimg.py" \

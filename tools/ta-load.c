@@ -212,9 +212,11 @@ out:
  * driver, request[12]=arg; the TA may read/write the shared buffer.
  */
 static uint32_t g_dlen = 0x1000;
+static uint32_t g_phys_off = 4;
 static int g_dump;
 static int g_quiet;
 static uint32_t g_size8;
+static double g_last_ms;
 static uint32_t g_last_rx[16];
 static const uint8_t *g_data_in;
 static uint32_t g_data_in_len;
@@ -274,8 +276,8 @@ static int km_get_key_data(int fd, uint8_t *out, uint32_t out_cap,
 	return 0;
 }
 
-static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
-		     uint32_t arg2)
+static int send_mod4(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
+		     uint32_t a1, uint32_t a2, uint32_t a3)
 {
 	uint8_t req[0x40];
 	uint8_t rsp[0x40];
@@ -290,12 +292,11 @@ static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 	memset(req, 0, sizeof(req));
 	memset(rsp, 0, sizeof(rsp));
 	{
-		uint32_t zero = 0;
-
 		memcpy(req, &cmd, 4);
-		memcpy(req + 8, &g_size8, 4);
-		memcpy(req + 12, &arg, 4);
-		memcpy(req + 16, &arg2, 4);
+		memcpy(req + 12, &a0, 4);
+		memcpy(req + 16, &a1, 4);
+		memcpy(req + 20, &a2, 4);
+		memcpy(req + 24, &a3, 4);
 	}
 
 	memset(&sreq, 0, sizeof(sreq));
@@ -303,20 +304,20 @@ static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 	sreq.req_len = sizeof(req);
 	sreq.rsp_len = sizeof(rsp);
 	sreq.data_len = g_dlen;
-	sreq.phys_offset = 4;
+	sreq.phys_offset = g_phys_off;
 	sreq.rsp_offset = 0x500;
 	sreq.req_ptr = (uint64_t)(uintptr_t)req;
 	sreq.rsp_ptr = (uint64_t)(uintptr_t)rsp;
 	sreq.data_ptr = (uint64_t)(uintptr_t)data;
 
 	if (ioctl(fd, QSEECOM_FP_IOCTL_SEND_MOD, &sreq)) {
-		printf("mod 0x%02x(%u): ioctl failed: %s\n", cmd, arg,
+		printf("mod 0x%02x: ioctl failed: %s\n", cmd,
 		       strerror(errno));
 		free(data);
 		return -1;
 	}
-	printf("mod 0x%02x(%u,%u) -> req[4]=0x%08x rsp:", cmd, arg, arg2,
-	       ((uint32_t *)req)[1]);
+	printf("mod 0x%02x(%u,%u,%u,%u) -> req[4]=0x%08x rsp:", cmd,
+	       a0, a1, a2, a3, ((uint32_t *)req)[1]);
 	for (i = 0; i < 6; i++)
 		printf(" 0x%08x", ((uint32_t *)rsp)[i]);
 	printf(" | data:");
@@ -334,9 +335,15 @@ static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
 	return 0;
 }
 
+static int send_mod2(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg,
+		     uint32_t arg2)
+{
+	return send_mod4(fd, app_id, cmd, arg, arg2, 0, 0);
+}
+
 static int send_mod(int fd, uint32_t app_id, uint32_t cmd, uint32_t arg)
 {
-	return send_mod2(fd, app_id, cmd, arg, 0);
+	return send_mod4(fd, app_id, cmd, arg, 0, 0, 0);
 }
 
 static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
@@ -355,13 +362,24 @@ static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
 	sreq.req_ptr = (uint64_t)(uintptr_t)tx;
 	sreq.rsp_ptr = (uint64_t)(uintptr_t)rx;
 
-	if (ioctl(fd, QSEECOM_FP_IOCTL_SEND, &sreq)) {
-		printf("cmd 0x%02x: ioctl failed: %s\n", cmd, strerror(errno));
-		return -1;
+	{
+		struct timespec t0, t1;
+
+		clock_gettime(CLOCK_MONOTONIC, &t0);
+		i = ioctl(fd, QSEECOM_FP_IOCTL_SEND, &sreq);
+		clock_gettime(CLOCK_MONOTONIC, &t1);
+		g_last_ms = (t1.tv_sec - t0.tv_sec) * 1000.0 +
+			    (t1.tv_nsec - t0.tv_nsec) / 1e6;
+		if (i) {
+			printf("cmd 0x%02x: ioctl failed: %s\n", cmd,
+			       strerror(errno));
+			return -1;
+		}
 	}
 	memcpy(g_last_rx, rx, sizeof(g_last_rx));
 	if (!g_quiet) {
-		printf("cmd 0x%02x(%u,%u,%u,%u) ->", cmd, a0, a1, a2, a3);
+		printf("cmd 0x%02x(%u,%u,%u,%u) %5.1fms ->", cmd, a0, a1, a2, a3,
+		       g_last_ms);
 		for (i = 0; i < 6; i++)
 			printf(" 0x%08x", rx[i]);
 		printf("\n");
@@ -378,21 +396,56 @@ static int wait_nav_finger(int fd, uint32_t app_id, unsigned int attempts)
 {
 	unsigned int i;
 
+	/*
+	 * Vendor NAV cadence (silead-auth-trace.txt): per poll the HAL sends
+	 * CHECK_ESD then NAV_CAPTURE_IMG then NAV_STEP.  Mode commands are
+	 * only in the NAV_START setup, never inside the poll loop.
+	 *
+	 * The TA queues events on the touch EDGE (8=down, 9=up) and the
+	 * queue survives NAV_START/re-arm cycles, so the first polls after
+	 * arming often return a stale event with no finger present.  Drain
+	 * a few polls first; any event seen afterwards is a fresh edge.
+	 */
 	g_quiet = 1;
-	for (i = 0; i < attempts; i++) {
-		uint32_t capture, step;
-
+	for (i = 0; i < 3; i++) {
+		send_cmd(fd, app_id, 0x38, 0, 0, 0, 0);
 		send_cmd(fd, app_id, 0x03, 0, 0, 0, 0);
-		capture = g_last_rx[0];
+		send_cmd(fd, app_id, 0x0b, 0, 0, 0, 0);
+		sleep_ms(150);
+	}
+	for (i = 0; i < attempts; i++) {
+		int32_t esd, cap;
+		uint32_t navcap, step;
+
+		send_cmd(fd, app_id, 0x38, 0, 0, 0, 0);
+		esd = (int32_t)g_last_rx[4];
+		send_cmd(fd, app_id, 0x03, 0, 0, 0, 0);
+		cap = (int32_t)g_last_rx[4];
+		navcap = g_last_rx[0];
 		send_cmd(fd, app_id, 0x0b, 0, 0, 0, 0);
 		step = g_last_rx[0];
-		if (capture == 8 || capture == 9 || step == 8 || step == 9) {
+		/*
+		 * A held finger makes the sensor actually respond:
+		 * CHECK_ESD returns 4 and NAV_CAPTURE_IMG returns 0.
+		 * (Idle responses are -1035/-1026; NAV_STEP 8/9 are
+		 * click gestures, not finger presence.)
+		 */
+		if (esd == 4 && cap == 0) {
 			g_quiet = 0;
-			printf("NAV finger event: capture=%u step=%u after %u polls\n",
-			       capture, step, i + 1);
+			printf("NAV finger present: esd=%d cap=%d step=%u after %u polls\n",
+			       esd, cap, step, i + 1);
 			return 0;
 		}
-		sleep_ms(200);
+		if (step == 8 || step == 9 || navcap == 8 || navcap == 9) {
+			g_quiet = 0;
+			printf("NAV gesture event: navcap=%u step=%u after %u polls\n",
+			       navcap, step, i + 1);
+			return 0;
+		}
+		if (!(i % 25))
+			printf("waiting (%u/%u): esd=%d cap=%d step=%u\n",
+			       i, attempts, esd, cap, step);
+		sleep_ms(400);
 	}
 	g_quiet = 0;
 	printf("NAV finger wait timed out (%u polls)\n", attempts);
@@ -603,16 +656,46 @@ int main(int argc, char **argv)
 		printf("unloaded stale TA instance\n");
 
 	ret = ioctl(fd, QSEECOM_FP_IOCTL_LOAD, &req);
+	if (ret && argc > 3) {
+		/*
+		 * A stale instance from a previous tool run is occupying the
+		 * slot (name lookup does not find it, so the unload above
+		 * could not get its id).  Previous loads record their app_id
+		 * in /tmp/ta_app_id: shut that id down and retry the load.
+		 */
+		uint32_t stale_id = 0;
+		FILE *idf = fopen("/tmp/ta_app_id", "r");
+
+		if (idf) {
+			fscanf(idf, "%u", &stale_id);
+			fclose(idf);
+		}
+		if (!stale_id)
+			stale_id = 3;
+		printf("load failed (%s), shutting down app_id %u\n",
+		       strerror(errno), stale_id);
+		for (; stale_id && stale_id < 1024 && ret; stale_id++) {
+			req.app_id = stale_id;
+			if (ioctl(fd, QSEECOM_FP_IOCTL_UNLOAD, &req))
+				printf("unload app_id %u failed (%s)\n",
+				       stale_id, strerror(errno));
+			else
+				printf("unloaded stale app_id %u\n", stale_id);
+			req.app_id = 0;
+			ret = ioctl(fd, QSEECOM_FP_IOCTL_LOAD, &req);
+		}
+	}
 	if (ret) {
-		/* The app stays loaded across tool runs: reuse its id. */
-		if (argc > 3) {
-			printf("load failed (%s), reusing app_id 3\n",
-			       strerror(errno));
-			req.app_id = 3;
-		} else {
-			perror("QSEECOM_FP_IOCTL_LOAD");
-			close(fd);
-			return 1;
+		perror("QSEECOM_FP_IOCTL_LOAD");
+		close(fd);
+		return 1;
+	}
+	{
+		FILE *idf = fopen("/tmp/ta_app_id", "w");
+
+		if (idf) {
+			fprintf(idf, "%u\n", req.app_id);
+			fclose(idf);
 		}
 	}
 
@@ -674,11 +757,25 @@ int main(int argc, char **argv)
 		for (k = 0; k < sizeof(speeds) / sizeof(speeds[0]); k++) {
 			printf("=== speed %u\n", speeds[k]);
 			power_cycle();
-			send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+			{
+				struct timespec ts;
+				static uint8_t msec8[8];
+				uint64_t ms;
+
+				clock_gettime(CLOCK_MONOTONIC, &ts);
+				ms = ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000;
+				ms >>= 8;
+				memcpy(msec8, &ms, 8);
+				g_data_in = msec8;
+				g_data_in_len = 8;
+				send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+				g_data_in = NULL;
+				g_data_in_len = 0;
+			}
 			send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 			send_mod(fd, req.app_id, 0x20, 14);
 			send_cmd(fd, req.app_id, 0x0e, 0x80064, speeds[k], 0x64000, 0);
-			send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+			{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 			send_mod(fd, req.app_id, 0x1b, 9);
 			send_mod(fd, req.app_id, 0x30, 152);
 			send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
@@ -695,69 +792,730 @@ int main(int argc, char **argv)
 			send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
 		}
-	} else if (argc > 3 && !strcmp(argv[3], "authnav")) {
+	} else if (argc > 3 && !strcmp(argv[3], "idlepoll")) {
+		/* Idle statistics WITHOUT a finger: the NAV poll answers
+		 * CHECK_ESD / NAV_CAPTURE / NAV_STEP.  On Android idle
+		 * gives esd=4 cap=0; a latched ESD (-1035) or SPI timeout
+		 * (-1026) means the sensor link itself is unhealthy, which
+		 * would also explain -1023 on real frames.  Also reports
+		 * per-command latency (0x02 scan on Android is ~17ms). */
+		int n = argc > 4 ? atoi(argv[4]) : 100;
+		int i, e_ok = 0, e_esd = 0, e_oth = 0;
+		int c_ok = 0, c_to = 0, c_oth = 0;
+		double t_esd = 0, t_cap = 0, t_step = 0;
+
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
+		send_mod(fd, req.app_id, 0x1b, 9);
+		g_dlen = 152;
+		send_mod(fd, req.app_id, 0x30, 152);
+		g_dlen = 0x1000;
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x36, 4, 2);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 2, 0, 0, 0);
+		printf("IDLE_POLL n=%d\n", n);
+		for (i = 0; i < n; i++) {
+			int esd, cap, step;
+
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			esd = (int32_t)g_last_rx[4];
+			t_esd += g_last_ms;
+			send_cmd(fd, req.app_id, 0x03, 0, 0, 0, 0);
+			cap = (int32_t)g_last_rx[4];
+			t_cap += g_last_ms;
+			send_cmd(fd, req.app_id, 0x0b, 0, 0, 0, 0);
+			step = (int32_t)g_last_rx[4];
+			t_step += g_last_ms;
+			if (esd == 4) e_ok++;
+			else if (esd == -1035) e_esd++;
+			else e_oth++;
+			if (cap == 0) c_ok++;
+			else if (cap == -1026) c_to++;
+			else c_oth++;
+			if (i % 10 == 0 || esd != 4 || cap != 0)
+				printf("  [%d] esd=%d cap=%d step=%d (%.1f/%.1f/%.1fms)\n",
+				       i, esd, cap, step, g_last_ms, g_last_ms, g_last_ms);
+		}
+		printf("IDLE_SUMMARY n=%d esd_ok=%d esd_esd=%d esd_other=%d "
+		       "cap_ok=%d cap_timeout=%d cap_other=%d "
+		       "avg_esd=%.2fms avg_cap=%.2fms avg_step=%.2fms\n",
+		       n, e_ok, e_esd, e_oth, c_ok, c_to, c_oth,
+		       t_esd / n, t_cap / n, t_step / n);
+	} else if (argc > 3 && (!strcmp(argv[3], "authnav") ||
+				!strcmp(argv[3], "navv"))) {
+		static uint8_t key_data[256];
+		uint32_t key_len = 0;
+
+		/*
+		 * Fetch the keymaster blob BEFORE the sileadta session starts:
+		 * invoking another TA between 0x1b and 0x30 would switch the
+		 * secure-world context mid-sequence and break the session.
+		 */
+		km_get_key_data(fd, key_data, sizeof(key_data), &key_len);
+
 		/*
 		 * Minimal "cap" init sequence: the extra config/calibration/mode
 		 * commands used by other modes mask the NAV touch events, so
 		 * keep exactly what the working cap mode sends before polling.
 		 */
 		power_cycle();
-		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
-		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
-		send_mod(fd, req.app_id, 0x20, 14);
-		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
-		send_mod(fd, req.app_id, 0x1b, 9);
 		{
-			static uint8_t key_data[256];
-			uint32_t key_len = 0;
+			struct timespec ts;
+			static uint8_t msec8[8];
+			uint64_t ms;
 
-			if (!km_get_key_data(fd, key_data, sizeof(key_data),
-					     &key_len)) {
-				g_data_in = key_data;
-				g_data_in_len = key_len;
-			}
-			send_mod(fd, req.app_id, 0x30, 152);
+			clock_gettime(CLOCK_MONOTONIC, &ts);
+			ms = ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000;
+			ms >>= 8;
+			memcpy(msec8, &ms, 8);
+			g_data_in = msec8;
+			g_data_in_len = 8;
+			send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
 			g_data_in = NULL;
 			g_data_in_len = 0;
 		}
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
+		send_mod(fd, req.app_id, 0x1b, 9);
+		if (key_len) {
+			g_data_in = key_data;
+			g_data_in_len = key_len;
+		}
+		send_mod(fd, req.app_id, 0x30, 152);
+		g_data_in = NULL;
+		g_data_in_len = 0;
+		/*
+		 * Full vendor init (silead-init-trace.txt): versions, feature
+		 * query, OTP, NAV_SUPPORT, then the download-mode calibration
+		 * block before the sensor enters NAV state.
+		 */
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
-		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
-		drain_nav_events(fd, req.app_id);
-		printf("NAV ready; touch and hold the enrolled finger\n");
-		if (!wait_nav_finger(fd, req.app_id, 1800)) {
-			int attempt;
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x36, 4, 2);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		/*
+		 * Template/GID setup (decoded from libsl_fp_impl.so vtable):
+		 * 0x10 SET_GID(gid, 0xfdca) selects the user group,
+		 * 0x11 LOAD_USER_DB(path) tells the TA the db namespace,
+		 * 0x1c LOAD_TEMPLATE pushes each encrypted .dat into the
+		 * session, 0x18 LOAD_AUTH_ID returns the auth-id list and
+		 * 0x13 GET_DB_COUNT reports how many templates registered.
+		 * Without this the TA has nothing to match against and
+		 * AUTH_STEP answers -1023.
+		 */
+		if (!strcmp(argv[3], "authnav")) {
+			static const char *tpls[] = {
+				"/tmp/fff0cad64.dat",
+				"/tmp/f7f0961aa.dat",
+			};
+			/* silead.tpl record +0x50: 64-bit sec_id shared by
+			 * both enrolled templates (per-user db id). */
+			static const uint8_t sec_id[8] = {
+				0xde, 0xeb, 0x59, 0x46, 0x94, 0xae, 0x57, 0x98,
+			};
+			uint8_t term[2] = { 0xff, 0xff };
+			size_t tl;
+			int t;
 
-			/* Vendor auth flow after a touch: NAV_END, AUTH_START,
-			 * mode [3,0]/[3,1] transitions with ESD checks between
-			 * captures. */
-			send_cmd(fd, req.app_id, 0x0c, 0, 0, 0, 0);
-			send_cmd(fd, req.app_id, 0x04, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x10, 0, 0xfdca, 0, 0);
+			/* Vendor impl_load_user_db(): cmd_load_user_db
+			 * sends 0x11 with the tpl-dir path in the
+			 * buffer and its length in a0.  Bare 0x11
+			 * (a0=0) returns -1012; with pathlen the TA
+			 * accepts it and opens the load session. */
+			{
+				static const char db_path[] =
+					"/data/vendor_de/0/fpdata";
+				g_data_in = (const uint8_t *)db_path;
+				g_data_in_len = sizeof(db_path);
+				g_dlen = g_data_in_len;
+				g_size8 = g_dlen;
+				send_mod2(fd, req.app_id, 0x11,
+					  g_data_in_len, 0);
+				g_data_in = NULL;
+				g_data_in_len = 0;
+				g_dlen = 0x100;
+				g_size8 = 0;
+			}
+			for (t = 0; t < 2; t++) {
+				uint8_t *tp = read_file(tpls[t], &tl);
+				uint8_t *buf;
+
+				if (!tp || !tl) {
+					printf("load_template: %s missing\n",
+					       tpls[t]);
+					continue;
+				}
+				printf("load_template %s %zu bytes\n",
+				       tpls[t], tl);
+				buf = malloc(tl + 8);
+				memcpy(buf, sec_id, 8);
+				memcpy(buf + 8, tp, tl);
+				free(tp);
+				g_data_in = buf;
+				g_data_in_len = tl + 8;
+				g_dlen = tl + 8;
+				g_size8 = g_data_in_len;
+				send_mod2(fd, req.app_id, 0x1c, tl + 8, 0);
+				g_data_in = NULL;
+				g_data_in_len = 0;
+				free(buf);
+			}
+			/* Vendor terminator: 2-byte 0xffff record. */
+			g_data_in = term;
+			g_data_in_len = 2;
+			g_dlen = 2;
+			g_size8 = 2;
+			send_mod2(fd, req.app_id, 0x1c, 2, 0);
+			g_data_in = NULL;
+			g_data_in_len = 0;
+			g_dlen = 0x1000;
+			g_size8 = 0;
+			send_cmd(fd, req.app_id, 0x18, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x13, 0, 0, 0, 0);
+		}
+		/*
+		 * Vendor state machine: AUTH_START opens a long-lived
+		 * session in normal mode BEFORE NAV is armed; on touch the
+		 * loop only does NAV_END + MODE[3] + MODE[0] to re-enter
+		 * capture mode.  Sending 0x04 after NAV_START leaves the
+		 * auth session unopened (MODE[0] then fails INT_INVALID).
+		 */
+		send_cmd(fd, req.app_id, 0x04, 0, 0, 0, 0);
+		/* Vendor NAV setup: ESD, MODE 3, CHECK_BROKEN, NAV_START, MODE 3, MODE 2 */
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 2, 0, 0, 0);
+		printf("NAV ready; touch and hold the enrolled finger\n");
+		if (!strcmp(argv[3], "navv")) {
+			int i;
+
+			for (i = 0; i < 600; i++) {
+				send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+				send_cmd(fd, req.app_id, 0x03, 0, 0, 0, 0);
+				send_cmd(fd, req.app_id, 0x0b, 0, 0, 0, 0);
+				sleep_ms(300);
+			}
+		} else
+		{
+			int round;
+
+			for (round = 0; round < 4; round++) {
+			int attempt, authed = 0;
+
+			if (wait_nav_finger(fd, req.app_id, 1800))
+				break;
+
+			/* Vendor flow (silead-auth-trace.txt): the finger
+			 * stays DOWN from the NAV edge through the whole
+			 * mode dance -- no NAV_END, no reset, no re-press.
+			 * MODE[3]->MODE[0] twice with an ESD check between,
+			 * then MODE[3]->MODE[1] before capture.  Cutting
+			 * power or lifting the finger breaks frame
+			 * continuity and CAPTURE answers -1026. */
+			/* Vendor wait_finger_down(): on finger event it
+			 * calls cmd_wait_finger_status -- a TA "state"
+			 * command.  0x0d/0x39 are the state commands seen
+			 * in the init trace; try them so the TA's finger
+			 * detector is armed before capture. */
+			/* Vendor download_normal(): hw_reset = short
+			 * reset-GPIO pulse (5ms low, 3ms settle), NOT an
+			 * avdd power cycle -- finger stays down. */
+			pulse_reset();
+			sleep_ms(50);
 			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
-			for (attempt = 0; attempt < 8; attempt++) {
-				int capture_status, auth_status;
+			printf("hold the finger down...\n");
+			sleep_ms(300);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			printf("post-mode0 esd %d\n",
+			       (int32_t)g_last_rx[4]);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+			sleep_ms(40);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			printf("post-mode0b esd %d\n",
+			       (int32_t)g_last_rx[4]);
+			/*
+			 * The vendor leaves ~170-300ms between the mode switch
+			 * and CHECK_ESD/CAPTURE (sensor frame baseline must
+			 * settle or CAPTURE returns MOVE_TOO_FAST).
+			 */
+			sleep_ms(300);
+			/*
+			 * Vendor retry cycle (silead-auth-trace.txt lines
+			 * 11-31): after the finger is seen in mode 0 the
+			 * HAL does MODE[3] -> MODE[1] before the winning
+			 * CAPTURE+AUTH_STEP pair.  Mode 1 is the auth
+			 * capture mode; running AUTH_STEP in mode 0 always
+			 * answers -1023.
+			 */
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 1, 0, 0, 0);
+			sleep_ms(170);
+			for (attempt = 0; attempt < 20; attempt++) {
+				int capture_status, auth_status, w;
 
 				send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
-				send_cmd(fd, req.app_id, 0x02, 0, 0, 0, 0);
+				/* Vendor ESD recovery (wait_finger_down):
+				 * CHECK_ESD -1035 means the discharge flag
+				 * is latched -> dev_pwdn(2): avdd off/on
+				 * 200ms, then re-enter the mode dance. */
+				if ((int32_t)g_last_rx[4] == -1035) {
+					printf("ESD latched: avdd power cycle\n");
+					power_cycle();
+					sleep_ms(600);
+					send_cmd(fd, req.app_id, 0x01, 3,
+						 0, 0, 0);
+					send_cmd(fd, req.app_id, 0x01, 1,
+						 0, 0, 0);
+					sleep_ms(170);
+					send_cmd(fd, req.app_id, 0x38,
+						 0, 0, 0, 0);
+				}
+				send_cmd(fd, req.app_id, 0x02, 0,
+					 attempt ? 1 : 0, 0, 0);
 				capture_status = (int32_t)g_last_rx[4];
 				printf("capture attempt %d status %d\n",
 				       attempt + 1, capture_status);
 				if (!capture_status) {
-					send_cmd(fd, req.app_id, 0x05, 0, 0, 0, 0);
+					/* Frame probe: 0x56 GET_IMAGE_INFO
+					 * then 0x57 TEST_DUMP_DATA pull the
+					 * captured frame into the shared
+					 * buffer -- if the sum stays 0 the
+					 * TA is scanning dead SPI lanes
+					 * (explains -1023 on clean frames). */
+					send_cmd(fd, req.app_id, 0x56,
+						 0, 0, 0, 0);
+					g_dlen = 0x8000;
+					g_dump = 1;
+					send_mod4(fd, req.app_id, 0x57,
+						  6, 0, 0, 0);
+					send_mod4(fd, req.app_id, 0x57,
+						  0, 0, 0, 0);
+					g_dump = 0;
+					g_dlen = 0x1000;
+					/* Give the TA time to process the
+					 * frame before polling the verdict. */
+					sleep_ms(120);
+					send_cmd(fd, req.app_id, 0x05, 0, 0,
+						 attempt ? 1 : 0, 0);
 					auth_status = (int32_t)g_last_rx[4];
 					printf("AUTH_STEP status %d\n", auth_status);
-					if (!auth_status)
+					if (!auth_status) {
+						authed = 1;
 						break;
+					}
 				}
-
-				if (attempt != 7) {
+				/*
+				 * Vendor mistouch path (_auth_check_mistouch):
+				 * -1021..-1024 means the algo wants a FRESH
+				 * finger edge, not a retry of the held frame.
+				 * Do the MODE[3]->MODE[0] reset, wait for the
+				 * user to lift and re-press (new ESD edge),
+				 * then MODE[3]->MODE[1] again.
+				 */
+				if (capture_status == 0 &&
+				    (int32_t)g_last_rx[4] == -1023) {
+					printf("mistouch: LIFT and RE-PRESS\n");
 					send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
 					send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
-					sleep_ms(250);
+					for (w = 0; w < 10; w++) {
+						send_cmd(fd, req.app_id, 0x38,
+							 0, 0, 0, 0);
+						if ((int32_t)g_last_rx[4] != 4)
+							break;
+						sleep_ms(200);
+					}
+					for (w = 0; w < 40; w++) {
+						send_cmd(fd, req.app_id, 0x38,
+							 0, 0, 0, 0);
+						if ((int32_t)g_last_rx[4] == 4)
+							break;
+						sleep_ms(250);
+					}
+					printf("fresh edge esd %d\n",
+					       (int32_t)g_last_rx[4]);
+					send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+					send_cmd(fd, req.app_id, 0x01, 1, 0, 0, 0);
+					sleep_ms(170);
+					continue;
 				}
+				sleep_ms(300);
+			}
+			if (authed)
+				break;
+			/* Re-arm NAV for the next touch (vendor order:
+			 * MODE[3], MODE[0], ESD, MODE[3], CHECK_BROKEN,
+			 * NAV_START, MODE[3], MODE[2]).  AUTH_END first:
+			 * leaving the session open makes MODE[2] answer
+			 * INT_INVALID and NAV never re-arms. */
+			send_cmd(fd, req.app_id, 0x06, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x04, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x0c, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 2, 0, 0, 0);
+			printf("NAV re-armed; touch and hold the enrolled finger\n");
+			}
+		}
+	} else if (argc > 3 && !strcmp(argv[3], "dbpath")) {
+		/* Does the TA have its own db (count>0), and does telling it
+		 * the tpl path via mod-0x11(path) make 0x11/0x1c behave like
+		 * the vendor's?  init -> set path -> bare 0x11 flag ->
+		 * 0x13 count before/after pushes. */
+		static const char *paths[] = {
+			"/data/vendor_de/0/fpdata",
+			"/data/vendor_de/0/fpdata/",
+			"/vendor/fpdata",
+			"/fpdata",
+			"/tmp",
+			NULL,
+		};
+		static const uint8_t sec_id2[8] = {
+			0xde, 0xeb, 0x59, 0x46, 0x94, 0xae, 0x57, 0x98,
+		};
+		const char *tpls2[] = { "/tmp/fff0cad64.dat", "/tmp/f7f0961aa.dat" };
+		uint8_t term2[2] = { 0xff, 0xff };
+		uint8_t *tp; size_t tl; int p, t;
+
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
+		send_mod(fd, req.app_id, 0x1b, 9);
+		send_mod(fd, req.app_id, 0x30, 152);
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x10, 0, 0xfdca, 0, 0);
+		printf("=== count before: ");
+		send_cmd(fd, req.app_id, 0x13, 0, 0, 0, 0);
+		for (p = 0; paths[p]; p++) {
+			printf("=== path '%s'\n", paths[p]);
+			g_data_in = (const uint8_t *)paths[p];
+			g_data_in_len = strlen(paths[p]) + 1;
+			g_dlen = g_data_in_len;
+			g_size8 = g_dlen;
+			/* cmd_load_user_db(path, &out): a0 = buffer
+			 * length, buffer = path string.  The a0=0
+			 * we used before gave the TA an empty
+			 * buffer -> -1012. */
+			send_mod2(fd, req.app_id, 0x11,
+				  g_data_in_len, 0);
+			g_data_in = NULL;
+			g_data_in_len = 0;
+			g_dlen = 0x100;
+			g_size8 = 0;
+			printf("--- count ");
+			send_cmd(fd, req.app_id, 0x13, 0, 0, 0, 0);
+		}
+		printf("=== push templates then count ===\n");
+		for (t = 0; t < 2; t++) {
+			uint8_t *buf;
+			tp = read_file(tpls2[t], &tl);
+			if (!tp || !tl) { printf("missing %s\n", tpls2[t]); continue; }
+			buf = malloc(tl + 8);
+			memcpy(buf, sec_id2, 8);
+			memcpy(buf + 8, tp, tl);
+			free(tp);
+			g_data_in = buf; g_data_in_len = tl + 8;
+			g_dlen = tl + 8; g_size8 = tl + 8;
+			send_mod2(fd, req.app_id, 0x1c, tl + 8, 0);
+			g_data_in = NULL; g_data_in_len = 0;
+			free(buf);
+		}
+		g_data_in = term2; g_data_in_len = 2; g_dlen = 2; g_size8 = 2;
+		send_mod2(fd, req.app_id, 0x1c, 2, 0);
+		g_data_in = NULL; g_data_in_len = 0; g_dlen = 0x1000; g_size8 = 0;
+		printf("--- bare 0x11 flag\n");
+		g_dlen = 0x100;
+		send_mod2(fd, req.app_id, 0x11, 0, 0);
+		g_dlen = 0x1000;
+		printf("--- count after: ");
+		send_cmd(fd, req.app_id, 0x13, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "dbtest")) {
+		static uint8_t key_data[256];
+		uint32_t key_len = 0;
+		static const char *paths[] = {
+			"/data/vendor_de/0/fpdata/",
+			"/data/vendor_de/0/fpdata",
+			"/data/vendor/silead",
+			"",
+		};
+		uint32_t gids[] = { 0, 1, 1000 };
+		static const uint32_t fids2[] = { 0xff0cad64, 0x7f0961aa };
+		uint8_t *tp;
+		size_t tl;
+		int p, g;
+
+		km_get_key_data(fd, key_data, sizeof(key_data), &key_len);
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
+		send_mod(fd, req.app_id, 0x1b, 9);
+		if (key_len) {
+			g_data_in = key_data;
+			g_data_in_len = key_len;
+		}
+		send_mod(fd, req.app_id, 0x30, 152);
+		g_data_in = NULL;
+		g_data_in_len = 0;
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		for (g = 0; g < 3; g++) {
+			printf("=== gid %u\n", gids[g]);
+			send_cmd(fd, req.app_id, 0x10, gids[g], 0xfdca, 0, 0);
+			for (p = 0; p < 4; p++) {
+				printf("--- path '%s'\n", paths[p]);
+				g_data_in = (const uint8_t *)paths[p];
+				g_data_in_len = strlen(paths[p]) + 1;
+				g_dlen = g_data_in_len;
+				g_size8 = g_dlen;
+				send_mod2(fd, req.app_id, 0x11, 0, 0);
+				g_data_in = NULL;
+				g_data_in_len = 0;
+			}
+		}
+		tp = read_file("/tmp/fff0cad64.dat", &tl);
+		printf("=== load_template phys_offset sweep\n");
+		send_cmd(fd, req.app_id, 0x10, 0, 0xfdca, 0, 0);
+		if (tp) {
+			static const uint32_t offs[] = { 4, 8, 20, 24, 0 };
+
+			for (p = 0; p < 5; p++) {
+				g_phys_off = offs[p];
+				printf("--- phys_off %u fid@+16\n", offs[p]);
+				g_data_in = tp;
+				g_data_in_len = tl;
+				g_dlen = tl;
+				g_size8 = tl;
+				send_mod2(fd, req.app_id, 0x1c, 0, fids2[0]);
+				printf("--- phys_off %u fid@+12\n", offs[p]);
+				send_mod2(fd, req.app_id, 0x1c, fids2[0], 0);
+				g_data_in = NULL;
+				g_data_in_len = 0;
+			}
+			g_phys_off = 4;
+			printf("=== inline tpl in req (dlen 0)\n");
+			g_dlen = tl;
+			send_mod2(fd, req.app_id, 0x1c, 0, fids2[0]);
+			free(tp);
+		}
+		g_dlen = 0x1000;
+		g_size8 = 0;
+		send_cmd(fd, req.app_id, 0x18, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x13, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "authirq")) {
+		/* Vendor-faithful auth path:
+		 *  init -> load tpl db (0x11 path + 0x1c pushes) ->
+		 *  AUTH_START -> NAV arm -> wait the HARDWARE irq
+		 *  (gpio83, like the Android driver's netlink) ->
+		 *  MODE[3]/MODE[0] x2 with ESD checks -> MODE[1] ->
+		 *  CAPTURE -> AUTH_STEP; on 0: 0x19 GET_AUTH_OBJ,
+		 *  0x06 AUTH_END.  On -1023 (-1069/-1021/-1022) treat
+		 *  as mistouch: return to mode 0 and wait a fresh irq. */
+		static const uint8_t sec_id[8] = {
+			0xde, 0xeb, 0x59, 0x46, 0x94, 0xae, 0x57, 0x98,
+		};
+		static const char *tpls[] = {
+			"/lib/firmware/fp/fff0cad64.dat",
+			"/lib/firmware/fp/f7f0961aa.dat",
+		};
+		uint8_t term[2] = { 0xff, 0xff };
+		static uint8_t key_data[256];
+		uint32_t key_len = 0;
+		size_t tl;
+		int round;
+
+		km_get_key_data(fd, key_data, sizeof(key_data), &key_len);
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
+		send_mod(fd, req.app_id, 0x1b, 9);
+		if (key_len) {
+			g_data_in = key_data;
+			g_data_in_len = key_len;
+		}
+		g_dlen = 152;
+		send_mod(fd, req.app_id, 0x30, 152);
+		g_data_in = NULL;
+		g_data_in_len = 0;
+		g_dlen = 0x1000;
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x36, 4, 2);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+
+		/* Template db: 0x11(path,len) then one 0x1c per .dat. */
+		send_cmd(fd, req.app_id, 0x10, 0, 0xfdca, 0, 0);
+		{
+			static const char db_path[] =
+				"/data/vendor_de/0/fpdata";
+			g_data_in = (const uint8_t *)db_path;
+			g_data_in_len = sizeof(db_path);
+			g_dlen = g_data_in_len;
+			g_size8 = g_dlen;
+			send_mod2(fd, req.app_id, 0x11, g_data_in_len, 0);
+			g_data_in = NULL;
+			g_data_in_len = 0;
+			g_dlen = 0x100;
+			g_size8 = 0;
+		}
+		{
+			int t;
+
+			for (t = 0; t < 2; t++) {
+				uint8_t *tp = read_file(tpls[t], &tl);
+				uint8_t *buf;
+
+				if (!tp || !tl) {
+					printf("tpl missing: %s\n", tpls[t]);
+					continue;
+				}
+				buf = malloc(tl + 8);
+				memcpy(buf, sec_id, 8);
+				memcpy(buf + 8, tp, tl);
+				free(tp);
+				g_data_in = buf;
+				g_data_in_len = tl + 8;
+				g_dlen = tl + 8;
+				g_size8 = g_data_in_len;
+				printf("push tpl %s (%zu bytes)\n", tpls[t], tl);
+				send_mod2(fd, req.app_id, 0x1c, tl + 8, 0);
+				g_data_in = NULL;
+				g_data_in_len = 0;
+				free(buf);
+			}
+			g_data_in = term;
+			g_data_in_len = 2;
+			g_dlen = 2;
+			g_size8 = 2;
+			send_mod2(fd, req.app_id, 0x1c, 2, 0);
+			g_data_in = NULL;
+			g_data_in_len = 0;
+			g_dlen = 0x1000;
+			g_size8 = 0;
+		}
+		send_cmd(fd, req.app_id, 0x18, 0, 0, 0, 0);
+		printf("auth_id rsp: 0x%08x 0x%08x\n",
+		       (uint32_t)g_last_rx[0], (uint32_t)g_last_rx[1]);
+
+		send_cmd(fd, req.app_id, 0x04, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 2, 0, 0, 0);
+		printf("ARMED: touch and HOLD the enrolled finger\n");
+		fflush(stdout);
+
+		for (round = 0; round < 6; round++) {
+			int attempt;
+
+			if (wait_fingerprint_irq(3600000)) {
+				printf("irq wait timed out (re-arming)\n");
+				fflush(stdout);
+				continue;
+			}
+			printf("hw irq seen (round %d)\n", round);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+			sleep_ms(60);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+			sleep_ms(60);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 1, 0, 0, 0);
+			sleep_ms(90);
+			for (attempt = 0; attempt < 8; attempt++) {
+				int cap, st;
+
+				send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+				send_cmd(fd, req.app_id, 0x02, 0,
+					 attempt ? 1 : 0, 0, 0);
+				cap = (int32_t)g_last_rx[4];
+				printf("capture %d -> %d\n", attempt, cap);
+				if (cap)
+					continue;
+				sleep_ms(120);
+				send_cmd(fd, req.app_id, 0x05, 0, 0,
+					 attempt ? 1 : 0, 0);
+				st = (int32_t)g_last_rx[4];
+				printf("AUTH_STEP -> %d\n", st);
+				if (!st) {
+					uint32_t fid = g_last_rx[0];
+
+					printf("AUTH_OK fid=0x%08x\n", fid);
+					g_dlen = 256;
+					send_mod2(fd, req.app_id, 0x19,
+						  69, 2);
+					g_dlen = 0x1000;
+					send_cmd(fd, req.app_id, 0x06,
+						 0, 0, 0, 0);
+					fflush(stdout);
+					return 0;
+				}
+				if (st == -1031)
+					break;
 			}
 			send_cmd(fd, req.app_id, 0x06, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x01, 2, 0, 0, 0);
+			send_cmd(fd, req.app_id, 0x04, 0, 0, 0, 0);
+			printf("RE-ARMED: lift and touch again\n");
+			fflush(stdout);
 		}
 	} else if (argc > 3 && !strcmp(argv[3], "authwait")) {
 		pulse_reset();
@@ -766,8 +1524,8 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		g_dlen = 152;
 		send_mod(fd, req.app_id, 0x30, 152);
@@ -811,7 +1569,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
@@ -837,8 +1595,8 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
@@ -881,10 +1639,10 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
 		printf("ESD after INIT\n");
 		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		printf("ESD after config\n");
 		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		printf("ESD after INIT2\n");
 		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
@@ -908,7 +1666,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
@@ -938,7 +1696,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
@@ -965,7 +1723,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
@@ -985,7 +1743,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
@@ -1012,7 +1770,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		g_dlen = 0x10000;
@@ -1035,7 +1793,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x56, 0, 0, 0, 0);   /* img info */
@@ -1052,7 +1810,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		for (id = 0; id <= 0x60; id++) {
@@ -1067,7 +1825,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
@@ -1093,7 +1851,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
@@ -1111,8 +1869,8 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
 		send_mod(fd, req.app_id, 0x20, 14);
 		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
-		send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x8004); g_dlen = 0x1000; };
 		send_mod(fd, req.app_id, 0x1b, 9);
 		send_mod(fd, req.app_id, 0x30, 152);
 		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
