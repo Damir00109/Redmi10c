@@ -215,6 +215,8 @@ static uint32_t g_dlen = 0x1000;
 static uint32_t g_phys_off = 4;
 static int g_dump;
 static int g_quiet;
+static void esd_recover(int fd, uint32_t app_id);
+
 static uint32_t g_size8;
 static double g_last_ms;
 static uint32_t g_last_rx[16];
@@ -330,6 +332,27 @@ static int send_mod4(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
 		for (j = 0; j < g_dlen; j++)
 			sum += data[j];
 		printf("  data[0..0x%x] sum=0x%08x\n", g_dlen, sum);
+		/* Keep only the latest 64x64 test frame locally for
+		 * analysis; do not follow a pre-existing symlink. */
+		if (cmd == 0x52 && g_dlen == 0x1000) {
+			int outfd = open("/tmp/silead-frame.raw",
+					 O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW,
+					 0600);
+			if (outfd >= 0) {
+				ssize_t written = write(outfd, data, g_dlen);
+
+				if (written == (ssize_t)g_dlen)
+					printf("  saved latest frame (%u bytes)\n",
+					       g_dlen);
+				else
+					printf("  frame save failed: %s\n",
+					       strerror(errno));
+				close(outfd);
+			} else {
+				printf("  frame save open failed: %s\n",
+				       strerror(errno));
+			}
+		}
 	}
 	free(data);
 	return 0;
@@ -392,6 +415,27 @@ static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
  * detector proven to see touch events (0x8/0x9) on this sensor.  Inserting
  * CHECK_ESD / MODE_DOWNLOAD commands between polls masks the event queue.
  */
+/*
+ * Vendor ESD handling (wait_finger_down): CHECK_ESD -1035 means the
+ * discharge flag is latched; the HAL then runs dev_pwdn(2) = avdd
+ * off/on 200ms and re-enters capture mode.  Without this the mode
+ * switches answer -1036 INT_INVALID and CAPTURE times out (-1026).
+ */
+static void esd_recover(int fd, uint32_t app_id)
+{
+	send_cmd(fd, app_id, 0x38, 0, 0, 0, 0);
+	if ((int32_t)g_last_rx[4] != -1035)
+		return;
+	printf("ESD latched -> avdd power cycle\n");
+	power_cycle();
+	sleep_ms(600);
+	send_cmd(fd, app_id, 0x01, 3, 0, 0, 0);
+	send_cmd(fd, app_id, 0x01, 1, 0, 0, 0);
+	sleep_ms(170);
+	send_cmd(fd, app_id, 0x38, 0, 0, 0, 0);
+	printf("post-recovery esd %d\n", (int32_t)g_last_rx[4]);
+}
+
 static int wait_nav_finger(int fd, uint32_t app_id, unsigned int attempts)
 {
 	unsigned int i;
@@ -1476,24 +1520,13 @@ int main(int argc, char **argv)
 			for (attempt = 0; attempt < 8; attempt++) {
 				int cap, st;
 
-				send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+				esd_recover(fd, req.app_id);
 				send_cmd(fd, req.app_id, 0x02, 0,
 					 attempt ? 1 : 0, 0, 0);
 				cap = (int32_t)g_last_rx[4];
 				printf("capture %d -> %d\n", attempt, cap);
 				if (cap)
 					continue;
-				/* Frame probe: pull the captured frame out
-				 * through TEST_GET_IMG_INFO/TEST_DUMP_DATA.
-				 * All-zero data means the TA scanned dead
-				 * lanes, which would explain -1023. */
-				send_cmd(fd, req.app_id, 0x56, 0, 0, 0, 0);
-				g_dlen = 0x8000;
-				g_dump = 1;
-				send_mod4(fd, req.app_id, 0x57, 6, 0, 0, 0);
-				send_mod4(fd, req.app_id, 0x57, 0, 0, 0, 0);
-				g_dump = 0;
-				g_dlen = 0x1000;
 				sleep_ms(120);
 				send_cmd(fd, req.app_id, 0x05, 0, 0,
 					 attempt ? 1 : 0, 0);
@@ -1512,6 +1545,16 @@ int main(int argc, char **argv)
 					fflush(stdout);
 					return 0;
 				}
+				/* Run the diagnostic TEST capture only after
+				 * AUTH_STEP so it cannot change the frame/state
+				 * whose verdict we are measuring. Keep one 64x64
+				 * sample in a mode-0600 temporary file. */
+				g_dlen = 0x1000;
+				g_dump = 1;
+				send_mod4(fd, req.app_id, 0x52,
+					  0x1000, 0, 0, 3);
+				g_dump = 0;
+				g_dlen = 0x1000;
 				if (st == -1031)
 					break;
 			}
@@ -1797,6 +1840,46 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x52, 0, 0, 0, 0);
 		printf("--- variant d: 0x53 modified\n");
 		send_mod2(fd, req.app_id, 0x53, 0, 0);
+		send_cmd(fd, req.app_id, 0x54, 0, 0, 0, 0);
+	} else if (argc > 3 && !strcmp(argv[3], "frameprobe")) {
+		static uint8_t key_data[256];
+		uint32_t key_len = 0;
+
+		/* No-finger reference: capture one test frame while the
+		 * sensor is idle, using the same 0x52 layout as authirq. */
+		km_get_key_data(fd, key_data, sizeof(key_data), &key_len);
+		power_cycle();
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00,
+			 0x64000, 0);
+		{ g_dlen = 0xf000; send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004); g_dlen = 0x1000; };
+		send_mod(fd, req.app_id, 0x1b, 9);
+		if (key_len) {
+			g_data_in = key_data;
+			g_data_in_len = key_len;
+		}
+		g_dlen = 152;
+		send_mod(fd, req.app_id, 0x30, 152);
+		g_data_in = NULL;
+		g_data_in_len = 0;
+		g_dlen = 0x1000;
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x56, 0, 0, 0, 0);
+		printf("no-finger img_info 0x%08x 0x%08x 0x%08x\n",
+		       (uint32_t)g_last_rx[0], (uint32_t)g_last_rx[1],
+		       (uint32_t)g_last_rx[2]);
+		g_dlen = 0x1000;
+		g_dump = 1;
+		send_mod4(fd, req.app_id, 0x52, 0x1000, 0, 0, 3);
+		g_dump = 0;
+		g_dlen = 0x1000;
 		send_cmd(fd, req.app_id, 0x54, 0, 0, 0, 0);
 	} else if (argc > 3 && !strcmp(argv[3], "test")) {
 		power_cycle();
