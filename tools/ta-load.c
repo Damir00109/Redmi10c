@@ -1483,6 +1483,17 @@ int main(int argc, char **argv)
 				printf("capture %d -> %d\n", attempt, cap);
 				if (cap)
 					continue;
+				/* Frame probe: pull the captured frame out
+				 * through TEST_GET_IMG_INFO/TEST_DUMP_DATA.
+				 * All-zero data means the TA scanned dead
+				 * lanes, which would explain -1023. */
+				send_cmd(fd, req.app_id, 0x56, 0, 0, 0, 0);
+				g_dlen = 0x8000;
+				g_dump = 1;
+				send_mod4(fd, req.app_id, 0x57, 6, 0, 0, 0);
+				send_mod4(fd, req.app_id, 0x57, 0, 0, 0, 0);
+				g_dump = 0;
+				g_dlen = 0x1000;
 				sleep_ms(120);
 				send_cmd(fd, req.app_id, 0x05, 0, 0,
 					 attempt ? 1 : 0, 0);
