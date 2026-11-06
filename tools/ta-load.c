@@ -215,11 +215,13 @@ static uint32_t g_dlen = 0x1000;
 static uint32_t g_phys_off = 4;
 static int g_dump;
 static int g_quiet;
-static void esd_recover(int fd, uint32_t app_id);
+static int esd_recover(int fd, uint32_t app_id);
 
 static uint32_t g_size8;
 static double g_last_ms;
 static uint32_t g_last_rx[16];
+static int g_save_frame;
+static uint32_t g_last_data_sum;
 static const uint8_t *g_data_in;
 static uint32_t g_data_in_len;
 
@@ -278,6 +280,58 @@ static int km_get_key_data(int fd, uint8_t *out, uint32_t out_cap,
 	return 0;
 }
 
+static int save_frame_pgm(const uint8_t *data, uint32_t len)
+{
+	struct timespec ts;
+	char path[128], header[32];
+	size_t left;
+	ssize_t n;
+	int fd, header_len;
+
+	if (len != 4096)
+		return -EINVAL;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	snprintf(path, sizeof(path),
+		 "/tmp/silead-frame-%lld-%09ld.pgm",
+		 (long long)ts.tv_sec, ts.tv_nsec);
+	fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+	if (fd < 0)
+		return -errno;
+	header_len = snprintf(header, sizeof(header), "P5\n64 64\n255\n");
+	if (header_len <= 0 || header_len >= (int)sizeof(header)) {
+		close(fd);
+		unlink(path);
+		return -EIO;
+	}
+	left = header_len;
+	while (left) {
+		n = write(fd, header + header_len - left, left);
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
+			close(fd);
+			unlink(path);
+			return -errno;
+		}
+		left -= n;
+	}
+	left = len;
+	while (left) {
+		n = write(fd, data + len - left, left);
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
+			close(fd);
+			unlink(path);
+			return -errno;
+		}
+		left -= n;
+	}
+	close(fd);
+	printf("saved opt-in 64x64 frame: %s\n", path);
+	return 0;
+}
+
 static int send_mod4(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
 		     uint32_t a1, uint32_t a2, uint32_t a3)
 {
@@ -318,41 +372,31 @@ static int send_mod4(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
 		free(data);
 		return -1;
 	}
-	printf("mod 0x%02x(%u,%u,%u,%u) -> req[4]=0x%08x rsp:", cmd,
-	       a0, a1, a2, a3, ((uint32_t *)req)[1]);
-	for (i = 0; i < 6; i++)
-		printf(" 0x%08x", ((uint32_t *)rsp)[i]);
-	printf(" | data:");
-	for (i = 0; i < 8; i++)
-		printf(" 0x%08x", ((uint32_t *)data)[i]);
-	printf("\n");
+	memcpy(g_last_rx, rsp, sizeof(g_last_rx));
+	if (!g_quiet) {
+		printf("mod 0x%02x(%u,%u,%u,%u) -> req[4]=0x%08x rsp:",
+		       cmd, a0, a1, a2, a3, ((uint32_t *)req)[1]);
+		for (i = 0; i < 6; i++)
+			printf(" 0x%08x", ((uint32_t *)rsp)[i]);
+		if (cmd == 0x52 || cmd == 0x57 || cmd == 0x1c || cmd == 0x30)
+			printf(" | data: [redacted]\n");
+		else {
+			printf(" | data:");
+			for (i = 0; i < 8; i++)
+				printf(" 0x%08x", ((uint32_t *)data)[i]);
+			printf("\n");
+		}
+	}
 	if (g_dump) {
 		uint32_t sum = 0, j;
 
 		for (j = 0; j < g_dlen; j++)
 			sum += data[j];
+		g_last_data_sum = sum;
 		printf("  data[0..0x%x] sum=0x%08x\n", g_dlen, sum);
-		/* Keep only the latest 64x64 test frame locally for
-		 * analysis; do not follow a pre-existing symlink. */
-		if (cmd == 0x52 && g_dlen == 0x1000) {
-			int outfd = open("/tmp/silead-frame.raw",
-					 O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW,
-					 0600);
-			if (outfd >= 0) {
-				ssize_t written = write(outfd, data, g_dlen);
-
-				if (written == (ssize_t)g_dlen)
-					printf("  saved latest frame (%u bytes)\n",
-					       g_dlen);
-				else
-					printf("  frame save failed: %s\n",
-					       strerror(errno));
-				close(outfd);
-			} else {
-				printf("  frame save open failed: %s\n",
-				       strerror(errno));
-			}
-		}
+		if (g_save_frame && cmd == 0x52 && g_dlen == 0x1000 &&
+		    sum)
+			save_frame_pgm(data, g_dlen);
 	}
 	free(data);
 	return 0;
@@ -410,6 +454,37 @@ static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
 	return 0;
 }
 
+static int capture_test_frame(int fd, uint32_t app_id, int save)
+{
+	int capture_status;
+
+	g_data_in = NULL;
+	g_data_in_len = 0;
+	g_dlen = 0x1000;
+	g_dump = 1;
+	g_save_frame = save;
+	g_last_data_sum = 0;
+	if (send_mod4(fd, app_id, 0x52, 0x1000, 0, 0, 3)) {
+		g_save_frame = 0;
+		g_dump = 0;
+		g_dlen = 0x1000;
+		return -1;
+	}
+	capture_status = (int32_t)g_last_rx[4];
+	if (g_last_data_sum)
+		printf("0x52 returned nonzero frame data\n");
+	g_save_frame = 0;
+	g_dump = 0;
+	g_dlen = 0x1000;
+	printf("TEST_IMAGE_CAPTURE status %d\n", capture_status);
+	send_cmd(fd, app_id, 0x56, 0, 0, 0, 0);
+	printf("img_info 0x%08x 0x%08x 0x%08x\n",
+	       (uint32_t)g_last_rx[0], (uint32_t)g_last_rx[1],
+	       (uint32_t)g_last_rx[2]);
+	send_cmd(fd, app_id, 0x54, 0, 0, 0, 0);
+	return capture_status;
+}
+
 /*
  * Plain NAV polling (NAV_CAPTURE_IMG + NAV_STEP, ~200ms apart) is the only
  * detector proven to see touch events (0x8/0x9) on this sensor.  Inserting
@@ -421,11 +496,16 @@ static int send_cmd(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
  * off/on 200ms and re-enters capture mode.  Without this the mode
  * switches answer -1036 INT_INVALID and CAPTURE times out (-1026).
  */
-static void esd_recover(int fd, uint32_t app_id)
+static int esd_recover(int fd, uint32_t app_id)
 {
 	send_cmd(fd, app_id, 0x38, 0, 0, 0, 0);
-	if ((int32_t)g_last_rx[4] != -1035)
-		return;
+	if ((int32_t)g_last_rx[4] == 4)
+		return 0;
+	if ((int32_t)g_last_rx[4] != -1035) {
+		printf("CHECK_ESD unexpected status %d; abort this touch\n",
+		       (int32_t)g_last_rx[4]);
+		return -1;
+	}
 	printf("ESD latched -> avdd power cycle\n");
 	power_cycle();
 	sleep_ms(600);
@@ -434,6 +514,7 @@ static void esd_recover(int fd, uint32_t app_id)
 	sleep_ms(170);
 	send_cmd(fd, app_id, 0x38, 0, 0, 0, 0);
 	printf("post-recovery esd %d\n", (int32_t)g_last_rx[4]);
+	return (int32_t)g_last_rx[4] == 4 ? 0 : -1;
 }
 
 static int wait_nav_finger(int fd, uint32_t app_id, unsigned int attempts)
@@ -1406,6 +1487,8 @@ int main(int argc, char **argv)
 		uint32_t key_len = 0;
 		size_t tl;
 		int round;
+		int debug_frame = argc > 4 &&
+			!strcmp(argv[4], "--debug-frame");
 
 		km_get_key_data(fd, key_data, sizeof(key_data), &key_len);
 		power_cycle();
@@ -1520,7 +1603,11 @@ int main(int argc, char **argv)
 			for (attempt = 0; attempt < 8; attempt++) {
 				int cap, st;
 
-				esd_recover(fd, req.app_id);
+				if (esd_recover(fd, req.app_id)) {
+					printf("ESD recovery did not clear; stop "
+					       "retries for this touch\n");
+					break;
+				}
 				send_cmd(fd, req.app_id, 0x02, 0,
 					 attempt ? 1 : 0, 0, 0);
 				cap = (int32_t)g_last_rx[4];
@@ -1545,16 +1632,8 @@ int main(int argc, char **argv)
 					fflush(stdout);
 					return 0;
 				}
-				/* Run the diagnostic TEST capture only after
-				 * AUTH_STEP so it cannot change the frame/state
-				 * whose verdict we are measuring. Keep one 64x64
-				 * sample in a mode-0600 temporary file. */
-				g_dlen = 0x1000;
-				g_dump = 1;
-				send_mod4(fd, req.app_id, 0x52,
-					  0x1000, 0, 0, 3);
-				g_dump = 0;
-				g_dlen = 0x1000;
+				if (debug_frame)
+					capture_test_frame(fd, req.app_id, 1);
 				if (st == -1031)
 					break;
 			}
@@ -1871,16 +1950,8 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
-		send_cmd(fd, req.app_id, 0x56, 0, 0, 0, 0);
-		printf("no-finger img_info 0x%08x 0x%08x 0x%08x\n",
-		       (uint32_t)g_last_rx[0], (uint32_t)g_last_rx[1],
-		       (uint32_t)g_last_rx[2]);
-		g_dlen = 0x1000;
-		g_dump = 1;
-		send_mod4(fd, req.app_id, 0x52, 0x1000, 0, 0, 3);
-		g_dump = 0;
-		g_dlen = 0x1000;
-		send_cmd(fd, req.app_id, 0x54, 0, 0, 0, 0);
+		printf("no-finger frameprobe status %d\n",
+		       capture_test_frame(fd, req.app_id, 1));
 	} else if (argc > 3 && !strcmp(argv[3], "test")) {
 		power_cycle();
 		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
