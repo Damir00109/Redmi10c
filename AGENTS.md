@@ -32,6 +32,7 @@
 - `tools/fetch-firmware.sh` — скачивает проприетарные блобы из релиза `firmware-2026.09.25` (firmware/ + vendor-qcom/ для hexagonrpcd).
 - `tools/build-hexagonrpcd.sh` / `tools/build-libssc.sh` / `tools/build-iio-sensor-proxy.sh` — собирают userspace SSC (`hexagonrpcd` 0.5.0 и `ssccli`/`libssc` 0.4.4) из исходников в `sensors/bin` + `sensors/lib-glibc`; оба бинарника glibc, поэтому musl-рантайм после них удаляется. Требуют `meson`/`ninja`, aarch64-пакеты `libglib2.0-dev`, `libqmi-glib-dev`, `libprotobuf-c-dev` и ядерный UAPI `misc/fastrpc.h`. Третий собирает `iio-sensor-proxy` 3.9 с SSC-бэкендом (заменяет `rain-sensor-bridge.py`). Детали — `docs/SENSORS-SSC.md`.
 - `tools/rebuild-rescue.sh` — быстрая пересборка в уже настроенном дереве (initramfs через `zstd -19`, как build.sh — 2026-10-17).
+- `tools/make-slim-rescue.sh` — «тонкий» rescue (13.9 МБ, влезает в лимит `fastboot boot`): тот же kernel/dtb, initramfs без балк-прошивок (оставлены `qcom/sileadta*` и `fp/`), кладёт `nfc-probe`/`nfc-nci-test`. Воспроизводимая замена ручной сборке, которая терялась в `/tmp`.
 - `tools/boot-and-check.sh` — загрузка + проверка.
 - `regen-patch.sh` — перегенерация `kernel.patch` из дерева `out/src/linux`.
 - Загрузка на устройство: `fastboot set_active b && fastboot reboot bootloader`, затем `fastboot boot out/boot-display-console-rescue.img` (слот B, ничего не прошивается; Android цел на слоте A; rootfs — Ubuntu на разделе `cust`). Лимит `fastboot boot` ~57.5 МиБ.
@@ -42,7 +43,7 @@
 
 Работает: экран DSI, USB gadget, UFS+SD, Wi-Fi (ath10k/WCN3990), BT+A2DP, тачскрин FT8006S (SPI), LTE через IPA v4.2/QMAP (~9 Мбит/с), модем+QMI/ModemManager, звук (динамик + гарнитура FSA4480), зарядка SMB1351 + fuel gauge, thermal, cpufreq, GPU Adreno 610 (SMMU/GMU/ZAP, devfreq), сенсоры через SSC/hexagonrpcd, Plasma Mobile + Firefox, вибратор, фонарик, RTC.
 
-Работает также задняя камера S5KJN1 (полный CAMSS-пайплайн, RAW10 4080x3072). В разработке: GPS, iio-sensor-proxy, ACDB, голос/SMS, AE/AWB для камеры (ISP-уровень), передняя камера Hi556. Сканер отпечатков — **Silead**: из mainline через `/dev/qseecom-fp` TA `sileadta` загружается и читает chip id/OTP (`docs/FINGERPRINT.md`); захват кадра — в работе.
+Работает также задняя камера S5KJN1 (полный CAMSS-пайплайн, RAW10 4080x3072). В разработке: GPS, iio-sensor-proxy, ACDB, голос/SMS, AE/AWB для камеры (ISP-уровень), передняя камера Hi556. Сканер отпечатков — **Silead**: из mainline через `/dev/qseecom-fp` TA `sileadta` загружается и читает chip id/OTP (`docs/FINGERPRINT.md`); с 2026-11-06 есть vendor-совместимый `/dev/silead_fp` (`drivers/misc/silead_fp.c`, IRQ `msmgpio 83`), захват кадра/auth — в работе. NFC — **SN100U**: транспорт работает (`nfc-nci-test up` → `dev_up: OK`), см. `docs/NFC.md`.
 
 ## Соседняя папка: /mnt/128/rootfs-ubuntu
 

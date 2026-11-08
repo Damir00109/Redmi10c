@@ -10,6 +10,9 @@ aarch64-linux-gnu-gcc -static -O2 -I"$OUT/src/tinyalsa/include" \
   "$ROOT/tools/pcm-hold.c" "$OUT/src/tinyalsa/src/libtinyalsa.a" -o "$IR/bin/pcm-hold"
 aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/fp-probe" "$ROOT/tools/fp-probe.c"
 aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/ta-load" "$ROOT/tools/ta-load.c"
+aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/nfc-probe" "$ROOT/tools/nfc-probe.c"
+aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/nfc-nci-test" "$ROOT/tools/nfc-nci-test.c"
+aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/nfc-read" "$ROOT/tools/nfc-read.c"
 # TA images pulled from Android (proprietary, local only — not in git).
 if [ -d "$OUT/fp-recon" ]; then
   mkdir -p "$IR/lib/firmware/qcom"

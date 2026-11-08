@@ -60,6 +60,83 @@ struct send_mod_req {
 #define QSEECOM_FP_IOCTL_SEND_MOD _IOWR(0xf5, 3, struct send_mod_req)
 #define QSEECOM_FP_IOCTL_UNLOAD _IOW(0xf5, 4, struct load_req)
 
+/* /dev/silead_fp — vendor-compatible AP-side ioctls (magic 's') */
+struct fp_dev_init_t {
+	uint8_t mode;
+	uint8_t bits;
+	uint16_t delay;
+	uint32_t speed;
+	char dev[16];
+	uint8_t nl_id;
+	uint8_t dev_id;
+	uint16_t reserve;
+	uint32_t reg;
+	char ta[16];
+};
+
+#define SIFP_IOC_RESET		_IOW('s', 10, uint8_t)
+#define SIFP_IOC_ENABLE_IRQ	_IO('s', 11)
+#define SIFP_IOC_DISABLE_IRQ	_IO('s', 12)
+#define SIFP_IOC_WAIT_IRQ	_IOR('s', 13, uint8_t)
+#define SIFP_IOC_CLR_IRQ	_IO('s', 14)
+#define SIFP_IOC_INIT		_IOR('s', 16, struct fp_dev_init_t)
+#define SIFP_IOC_DEINIT		_IO('s', 17)
+#define SIFP_IOC_IRQ_STATUS	_IOR('s', 18, uint8_t)
+#define SIFP_IOC_PWDN		_IOW('s', 28, uint8_t)
+
+static int fp_fd = -1;
+
+static int fp_open(void)
+{
+	struct fp_dev_init_t init;
+	int r;
+
+	if (fp_fd >= 0)
+		return 0;
+	fp_fd = open("/dev/silead_fp", O_RDWR);
+	if (fp_fd < 0) {
+		printf("open /dev/silead_fp: %s\n", strerror(errno));
+		return -1;
+	}
+	memset(&init, 0, sizeof(init));
+	r = ioctl(fp_fd, SIFP_IOC_INIT, &init);
+	printf("silead_fp INIT ret=%d dev_id=%u speed=%u ta=%s\n",
+	       r, init.dev_id, init.speed, init.ta);
+	if (r)
+		return -1;
+	return 0;
+}
+
+static void fp_reset(uint8_t delay)
+{
+	if (fp_fd >= 0)
+		ioctl(fp_fd, SIFP_IOC_RESET, &delay);
+}
+
+static void fp_irq_enable(void)
+{
+	if (fp_fd >= 0)
+		ioctl(fp_fd, SIFP_IOC_ENABLE_IRQ);
+}
+
+static int fp_wait_irq(void)
+{
+	uint8_t seen = 0;
+	int r;
+
+	if (fp_fd < 0)
+		return -1;
+	r = ioctl(fp_fd, SIFP_IOC_WAIT_IRQ, &seen);
+	printf("WAIT_IRQ ret=%d seen=%u\n", r, seen);
+	return seen ? 0 : -1;
+}
+
+static void fp_pwdn(uint8_t flag)
+{
+	if (fp_fd >= 0)
+		ioctl(fp_fd, SIFP_IOC_PWDN, &flag);
+}
+
 static uint8_t *read_file(const char *path, size_t *len)
 {
 	struct stat st;
@@ -101,7 +178,6 @@ static int write_str(const char *path, const char *val)
 	return n == (ssize_t)strlen(val) ? 0 : -1;
 }
 
-/* Active-low reset exposed as the gpio-leds "fp:reset" device. */
 static void sleep_ms(long ms)
 {
 	struct timespec ts = { .tv_sec = ms / 1000,
@@ -110,31 +186,40 @@ static void sleep_ms(long ms)
 	nanosleep(&ts, NULL);
 }
 
+/*
+ * Sensor power/reset go through /dev/silead_fp ioctls (vendor
+ * SIFP_IOC_* contract).  The gpio-leds nodes (fp:reset/fp:avdd) and
+ * the gpio-keys fingerprint_irq were removed when the real driver
+ * landed — these helpers now just wrap the ioctls.
+ */
 static void pulse_reset(void)
 {
-	const char *led = "/sys/class/leds/fp:reset/brightness";
+	uint8_t d = 0;
 
-	if (access(led, W_OK))
+	if (fp_open())
 		return;
-	write_str(led, "1");	/* assert (low) */
-	sleep_ms(5);
-	write_str(led, "0");	/* deassert (high) */
-	sleep_ms(20);
+	fp_reset(d);
+	sleep_ms(30);
 }
 
-/* Power-cycle the sensor like the vendor driver: AVDD off/on, then reset. */
+/* Power-cycle the sensor: avdd off/on 200ms + reset (vendor PWDN 2). */
 static void power_cycle(void)
 {
-	const char *avdd = "/sys/class/leds/fp:avdd/brightness";
-
-	if (!access(avdd, W_OK)) {
-		write_str(avdd, "0");
-		sleep_ms(200);
-		write_str(avdd, "1");
-		sleep_ms(50);
-	}
+	if (fp_open())
+		return;
+	fp_pwdn(2);
 	pulse_reset();
 	sleep_ms(30);
+}
+
+static int wait_fingerprint_irq(unsigned int timeout_ms);
+
+/* Prefer the real /dev/silead_fp WAIT_IRQ; fall back to gpio-keys evdev. */
+static int wait_irq_any(unsigned int timeout_ms)
+{
+	if (!fp_open())
+		return fp_wait_irq();
+	return wait_fingerprint_irq(timeout_ms);
 }
 
 static int wait_fingerprint_irq(unsigned int timeout_ms)
@@ -224,6 +309,8 @@ static int g_save_frame;
 static uint32_t g_last_data_sum;
 static const uint8_t *g_data_in;
 static uint32_t g_data_in_len;
+/* If set, send_mod4 copies the shared buffer here (caller sizes it). */
+static uint8_t *g_frame_out;
 
 /*
  * Fetch the session key data from the keymaster TA, as the vendor HAL does
@@ -387,6 +474,8 @@ static int send_mod4(int fd, uint32_t app_id, uint32_t cmd, uint32_t a0,
 			printf("\n");
 		}
 	}
+	if (g_frame_out)
+		memcpy(g_frame_out, data, g_dlen);
 	if (g_dump) {
 		uint32_t sum = 0, j;
 
@@ -1579,11 +1668,12 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x01, 2, 0, 0, 0);
 		printf("ARMED: touch and HOLD the enrolled finger\n");
 		fflush(stdout);
+		fp_irq_enable();
 
 		for (round = 0; round < 6; round++) {
 			int attempt;
 
-			if (wait_fingerprint_irq(3600000)) {
+			if (wait_irq_any(3600000)) {
 				printf("irq wait timed out (re-arming)\n");
 				fflush(stdout);
 				continue;
@@ -1650,6 +1740,201 @@ int main(int argc, char **argv)
 			printf("RE-ARMED: lift and touch again\n");
 			fflush(stdout);
 		}
+	} else if (argc > 3 && !strcmp(argv[3], "authsnap")) {
+		/*
+		 * Vendor "once" sequence from silead-snap native-lib.cpp:
+		 * full TA init -> template db -> NAV arm -> REAL gpio83 IRQ
+		 * edge -> mode dance -> 8x {CAPTURE, AUTH_STEP, 0x52 dump}.
+		 * Keeps the highest-variance frame in /tmp/silead-auth-frame.raw.
+		 */
+		static const char *tpls3[] = {
+			"/tmp/fff0cad64.dat",
+			"/tmp/f7f0961aa.dat",
+		};
+		static const uint8_t sec_id3[8] = {
+			0xde, 0xeb, 0x59, 0x46, 0x94, 0xae, 0x57, 0x98,
+		};
+		uint8_t term3[2] = { 0xff, 0xff };
+		uint8_t kb[256];
+		uint32_t kb_len = 0;
+		uint8_t *framebuf, *best;
+		uint64_t bestv = 0;
+		size_t tl3;
+		int t, i, got = -1, authed = 0;
+
+		fp_open();
+		fp_irq_enable();
+		km_get_key_data(fd, kb, sizeof(kb), &kb_len);
+
+		/* try_init(dev 14), retry dev 6 on CONFIG_INVALID */
+		send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+		send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+		send_mod(fd, req.app_id, 0x20, 14);
+		send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00, 0x64000, 0);
+		if ((int32_t)g_last_rx[4] == -1007) {
+			printf("INIT CONFIG_INVALID, retry dev 6\n");
+			send_mod2(fd, req.app_id, 0x59, 8, 0x1003);
+			send_cmd(fd, req.app_id, 0x1f, 2, 0, 0, 0);
+			send_mod(fd, req.app_id, 0x20, 6);
+			send_cmd(fd, req.app_id, 0x0e, 0x80064, 0x493e00,
+				 0x64000, 0);
+		}
+		{ g_dlen = 0xf000;
+		  send_mod2(fd, req.app_id, 0x59, 0xf000, 0x1004);
+		  g_dlen = 0x1000; };
+		send_mod(fd, req.app_id, 0x1b, 9);
+		g_data_in = kb;
+		g_data_in_len = kb_len;
+		g_dlen = kb_len ? kb_len : 152;
+		send_mod(fd, req.app_id, 0x30, kb_len ? kb_len : 152);
+		g_data_in = NULL;
+		g_data_in_len = 0;
+		g_dlen = 0x1000;
+		send_cmd(fd, req.app_id, 0x50, 0, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x59, 4, 0x1013);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0d, 0, 0, 0, 0);
+		/* post-init mode dance (vendor order) */
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x39, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_mod2(fd, req.app_id, 0x36, 4, 2);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x37, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x60, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x56, 0, 0, 0, 0);
+
+		/* template db: SET_GID -> LOAD_USER_DB -> LOAD_TEMPLATE x2 -> term */
+		send_cmd(fd, req.app_id, 0x10, 0, 0xfdca, 0, 0);
+		{
+			static const char db_path3[] =
+				"/data/vendor_de/0/fpdata";
+			g_data_in = (const uint8_t *)db_path3;
+			g_data_in_len = sizeof(db_path3);
+			g_dlen = g_data_in_len;
+			g_size8 = g_dlen;
+			send_mod2(fd, req.app_id, 0x11, g_data_in_len, 0);
+			g_data_in = NULL;
+			g_data_in_len = 0;
+			g_dlen = 0x100;
+			g_size8 = 0;
+		}
+		for (t = 0; t < 2; t++) {
+			uint8_t *tp = read_file(tpls3[t], &tl3);
+			uint8_t *buf;
+
+			if (!tp || !tl3) {
+				printf("tpl missing: %s\n", tpls3[t]);
+				continue;
+			}
+			buf = malloc(tl3 + 8);
+			memcpy(buf, sec_id3, 8);
+			memcpy(buf + 8, tp, tl3);
+			free(tp);
+			g_data_in = buf;
+			g_data_in_len = tl3 + 8;
+			g_dlen = tl3 + 8;
+			g_size8 = g_data_in_len;
+			send_mod2(fd, req.app_id, 0x1c, tl3 + 8, 0);
+			g_data_in = NULL;
+			g_data_in_len = 0;
+			free(buf);
+		}
+		g_data_in = term3;
+		g_data_in_len = 2;
+		g_dlen = 2;
+		g_size8 = 2;
+		send_mod2(fd, req.app_id, 0x1c, 2, 0);
+		g_data_in = NULL;
+		g_data_in_len = 0;
+		g_dlen = 0x1000;
+		g_size8 = 0;
+		send_cmd(fd, req.app_id, 0x18, 0, 0, 0, 0);
+		printf("auth_id rsp: 0x%08x 0x%08x\n",
+		       (uint32_t)g_last_rx[0], (uint32_t)g_last_rx[1]);
+
+		/* arm NAV, then block on the real gpio83 edge */
+		fp_reset(0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x0a, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 2, 0, 0, 0);
+		printf("ARMED: touch and HOLD the enrolled finger\n");
+		fflush(stdout);
+		if (fp_wait_irq()) {
+			printf("IRQ wait timed out\n");
+			goto authsnap_done;
+		}
+		printf("hw irq seen — mode dance + capture\n");
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x01, 1, 0, 0, 0);
+		send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
+
+		framebuf = malloc(0x10000);
+		best = malloc(0x1000);
+		if (framebuf && best) {
+			for (i = 0; i < 8; i++) {
+				uint64_t s = 0, s2 = 0, v;
+				int j, cap, st;
+
+				send_cmd(fd, req.app_id, 0x02, 0,
+					 i ? 1 : 0, 0, 0);
+				cap = (int32_t)g_last_rx[4];
+				sleep_ms(120);
+				send_cmd(fd, req.app_id, 0x05, 0, 0,
+					 i ? 1 : 0, 0);
+				st = (int32_t)g_last_rx[4];
+				printf("cap %d -> %d  AUTH_STEP -> %d\n",
+				       i, cap, st);
+				if (!st) {
+					printf("AUTH_OK fid=0x%08x\n",
+					       (uint32_t)g_last_rx[0]);
+					authed = 1;
+				}
+				/* 0x52 test-frame dump into the shared buf */
+				g_dlen = 0x1000;
+				g_dump = 1;
+				g_frame_out = framebuf;
+				send_mod4(fd, req.app_id, 0x52,
+					  0x1000, 0, 0, 3);
+				g_frame_out = NULL;
+				g_dump = 0;
+				for (j = 0; j < 0x1000; j++) {
+					s += framebuf[j];
+					s2 += (uint64_t)framebuf[j] *
+					      framebuf[j];
+				}
+				v = s2 - s * s / 0x1000;
+				printf("  frame %d sum=%llx var=%llx\n", i,
+				       (unsigned long long)s,
+				       (unsigned long long)v);
+				if (v > bestv) {
+					bestv = v;
+					memcpy(best, framebuf, 0x1000);
+					got = 0;
+				}
+			}
+			if (got == 0) {
+				FILE *bf = fopen("/tmp/silead-auth-frame.raw",
+						  "wb");
+				if (bf) {
+					fwrite(best, 1, 0x1000, bf);
+					fclose(bf);
+					printf("best frame -> "
+					       "/tmp/silead-auth-frame.raw\n");
+				}
+			}
+		}
+		free(framebuf);
+		free(best);
+		(void)authed;
+authsnap_done:
+		send_cmd(fd, req.app_id, 0x06, 0, 0, 0, 0);
 	} else if (argc > 3 && !strcmp(argv[3], "authwait")) {
 		pulse_reset();
 		sleep_ms(30);
@@ -1680,7 +1965,7 @@ int main(int argc, char **argv)
 		send_cmd(fd, req.app_id, 0x0c, 0, 0, 0, 0);
 		send_cmd(fd, req.app_id, 0x04, 0, 0, 0, 0);
 		printf("AUTH_STARTED; touch the sensor once, then hold\n");
-		if (!wait_fingerprint_irq(300000)) {
+		if (!wait_irq_any(300000)) {
 			send_cmd(fd, req.app_id, 0x38, 0, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x01, 3, 0, 0, 0);
 			send_cmd(fd, req.app_id, 0x01, 0, 0, 0, 0);

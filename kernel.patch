@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..81b33c5d0
+index 000000000..ebd78e82b
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1394 @@
+@@ -0,0 +1,1392 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -203,7 +203,7 @@ index 000000000..81b33c5d0
 +	gpio-keys {
 +		compatible = "gpio-keys";
 +		pinctrl-names = "default";
-+		pinctrl-0 = <&vol_up_default>, <&fp_irq_default>;
++		pinctrl-0 = <&vol_up_default>;
 +
 +		vol_up {
 +			label = "volume_up";
@@ -237,18 +237,6 @@ index 000000000..81b33c5d0
 +			debounce-interval = <10>;
 +		};
 +
-+		/*
-+		 * Keep the Silead IRQ GPIO requested and IRQ-enabled during the
-+		 * TA capture test, matching the vendor driver's request_irq path.
-+		 */
-+		fp_irq {
-+			label = "fingerprint_irq";
-+			interrupt-parent = <&tlmm>;
-+			interrupts = <83 IRQ_TYPE_EDGE_BOTH>;
-+			linux,input-type = <EV_KEY>;
-+			linux,code = <KEY_F13>;
-+			linux,input-value = <1>;
-+		};
 +	};
 +
 +	chosen {
@@ -798,25 +786,35 @@ index 000000000..81b33c5d0
 +			linux,default-trigger = "none";
 +		};
 +
-+		/*
-+		 * Fingerprint reset (silead sensor, gpio104, active low).
-+		 * Exposed as an LED so userspace can pulse it for the
-+		 * TEE-side SPI bring-up experiments.
-+		 */
-+		fp-reset {
-+			label = "fp:reset";
-+			gpios = <&tlmm 104 GPIO_ACTIVE_LOW>;
-+			linux,default-trigger = "none";
-+			default-state = "off";
-+		};
++	};
++};
 +
-+		/* Fingerprint AVDD switch (silead avdd-gpios, gpio100). */
-+		fp-avdd {
-+			label = "fp:avdd";
-+			gpios = <&tlmm 100 GPIO_ACTIVE_HIGH>;
-+			linux,default-trigger = "none";
-+			default-state = "on";
-+		};
++/*
++ * Silead fingerprint sensor — AP-side wrapper only.  SPI/QUP belongs to
++ * the sileadta TrustZone app; this node feeds power/reset/IRQ to
++ * drivers/misc/silead_fp.c which exposes /dev/silead_fp with the vendor
++ * ioctl contract.  Stock DT: soc/silead_fp (sil,silead_fp), qup-id 6,
++ * 4.8 MHz, avdd/vddio = pm6125_l9, gpios 100/104/83.
++ */
++/ {
++	silead_fp {
++		compatible = "sil,silead_fp";
++		reg = <0>;
++		qcom,qup-id = <6>;
++		spi-max-frequency = <0x493e00>;
++
++		avdd-supply = <&pm6125_l9a>;
++		vddio-supply = <&pm6125_l9a>;
++		avdd-gpios = <&tlmm 100 GPIO_ACTIVE_HIGH>;
++		rst-gpios = <&tlmm 104 GPIO_ACTIVE_HIGH>;
++		irq-gpios = <&tlmm 83 GPIO_ACTIVE_HIGH>;
++
++		interrupt-parent = <&tlmm>;
++		interrupts = <83 IRQ_TYPE_EDGE_RISING>;
++
++		/* No pinctrl-0: khaje-pinctrl and gpiod fight over the pin
++		 * (pinctrl and gpiod cannot claim the same TLMM pin). */
++		status = "okay";
 +	};
 +};
 +
@@ -1646,10 +1644,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..8921f6d1b
+index 000000000..ec54691ec
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2536 @@
+@@ -0,0 +1,2554 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -2431,6 +2429,24 @@ index 000000000..8921f6d1b
 +				drive-strength = <2>;
 +				bias-pull-up;
 +				input-enable;
++			};
++
++			/* Silead AVDD switch (gpio100) — driver raises it on power-on */
++			fp_avdd_default: fp-avdd-default-state {
++				pins = "gpio100";
++				function = "gpio";
++				drive-strength = <2>;
++				bias-disable;
++				output-low;
++			};
++
++			/* Silead reset (gpio104) — idle released (high) */
++			fp_rst_default: fp-rst-default-state {
++				pins = "gpio104";
++				function = "gpio";
++				drive-strength = <2>;
++				bias-disable;
++				output-high;
 +			};
 +
 +			/* Camera CCI I2C (Android rain: qup? no — dedicated CCI pads) */
@@ -13725,10 +13741,10 @@ index 2123f6388..755d02d50 100644
  	.probe = camss_probe,
  	.remove = camss_remove,
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index 7364931da..f99f37750 100644
+index 7364931da..44a4ff36b 100644
 --- a/drivers/misc/Kconfig
 +++ b/drivers/misc/Kconfig
-@@ -586,4 +586,32 @@ source "drivers/misc/keba/Kconfig"
+@@ -586,4 +586,41 @@ source "drivers/misc/keba/Kconfig"
  source "drivers/misc/amd-sbi/Kconfig"
  source "drivers/misc/rp1/Kconfig"
  source "drivers/misc/issei/Kconfig"
@@ -13741,6 +13757,15 @@ index 7364931da..f99f37750 100644
 +	  and exchanges request/response buffers with it.  Used to talk to
 +	  the sileadta fingerprint TA on Xiaomi Redmi 10C (sm6225) from
 +	  mainline.  The image is laid out by userspace.
++
++config SILEAD_FP
++	tristate "Silead fingerprint sensor AP-side driver (minimal)"
++	help
++	  Minimal driver for the Silead fingerprint sensor on Xiaomi
++	  Redmi 10C (sm6225).  The SPI bus belongs to the sileadta TrustZone
++	  application; this driver only handles power rails, reset and the
++	  finger-detect IRQ, exposing the vendor-compatible ioctl contract
++	  (/dev/silead_fp, magic 's') used by tools/ta-load.c.
 +
 +config AW87XXX_MINI
 +	tristate "Awinic AW87xxx speaker PA (minimal)"
@@ -13762,14 +13787,15 @@ index 7364931da..f99f37750 100644
 +
  endmenu
 diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
-index e8d8d5d88..8dc68daa9 100644
+index e8d8d5d88..4f6410324 100644
 --- a/drivers/misc/Makefile
 +++ b/drivers/misc/Makefile
-@@ -71,3 +71,6 @@ obj-y				+= keba/
+@@ -71,3 +71,7 @@ obj-y				+= keba/
  obj-y				+= amd-sbi/
  obj-$(CONFIG_MISC_RP1)		+= rp1/
  obj-$(CONFIG_INTEL_SSEI)	+= issei/
 +obj-$(CONFIG_QSEECOM_FP)		+= qseecom_fp.o
++obj-$(CONFIG_SILEAD_FP)		+= silead_fp.o
 +obj-$(CONFIG_AW87XXX_MINI)		+= aw87xxx-mini.o
 +obj-$(CONFIG_WL2866D)		+= wl2866d.o
 diff --git a/drivers/misc/aw87xxx-mini.c b/drivers/misc/aw87xxx-mini.c
@@ -13986,10 +14012,10 @@ index d4fac2cac..ac24def9e 100644
  		return PTR_ERR(ctx);
 diff --git a/drivers/misc/qseecom_fp.c b/drivers/misc/qseecom_fp.c
 new file mode 100644
-index 000000000..da118a6ce
+index 000000000..7561bb249
 --- /dev/null
 +++ b/drivers/misc/qseecom_fp.c
-@@ -0,0 +1,415 @@
+@@ -0,0 +1,595 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * qseecom_fp - minimal QSEECom client for the fingerprint TA experiments.
@@ -14045,6 +14071,34 @@ index 000000000..da118a6ce
 +	__u64 data_ptr;
 +};
 +
++/*
++ * Multi-buffer variant of SEND_MOD, matching the vendor
++ * QSEECOM_IOCTL_SEND_MODFD_CMD_REQ layout conceptually: up to 4
++ * normal-world buffers whose physical addresses are written into the
++ * request at the given offsets (the TA then reads/writes them through
++ * SHM Bridge).  Used by commands that take more than one shared buffer
++ * (e.g. template save/load paths in sileadta).
++ */
++#define QSEECOM_FP_MAX_BUFS	4
++
++struct qseecom_fp_bufdesc {
++	__u64 ptr;	/* userspace buffer */
++	__u32 len;
++	__u32 offset;	/* offset in req for the phys u64; 0 = skip */
++};
++
++struct qseecom_fp_send_modfd_req {
++	__u32 app_id;
++	__u32 req_len;
++	__u32 rsp_len;
++	__u32 rsp_offset;
++	__u32 nbuf;
++	__u32 reserved;
++	__u64 req_ptr;
++	__u64 rsp_ptr;
++	struct qseecom_fp_bufdesc bufs[QSEECOM_FP_MAX_BUFS];
++};
++
 +#define QSEECOM_FP_IOC_MAGIC	0xf5
 +#define QSEECOM_FP_IOCTL_LOAD \
 +	_IOWR(QSEECOM_FP_IOC_MAGIC, 1, struct qseecom_fp_load_req)
@@ -14054,6 +14108,8 @@ index 000000000..da118a6ce
 +	_IOWR(QSEECOM_FP_IOC_MAGIC, 3, struct qseecom_fp_send_mod_req)
 +#define QSEECOM_FP_IOCTL_UNLOAD \
 +	_IOW(QSEECOM_FP_IOC_MAGIC, 4, struct qseecom_fp_load_req)
++#define QSEECOM_FP_IOCTL_SEND_MODFD \
++	_IOWR(QSEECOM_FP_IOC_MAGIC, 5, struct qseecom_fp_send_modfd_req)
 +
 +struct qseecom_fp {
 +	struct qcom_tzmem_pool *pool;
@@ -14299,6 +14355,146 @@ index 000000000..da118a6ce
 +	return ret;
 +}
 +
++struct qseecom_fp_mapped_buf {
++	void *virt;
++	void *user;
++	phys_addr_t phys;
++	u32 len;
++	unsigned int order;
++	u64 bridge;
++	bool mapped;
++};
++
++/*
++ * Map one normal-world buffer through SHM Bridge and write its physical
++ * address into the request at @offset.  Returns 0 on success; the caller
++ * unmaps via qseecom_fp_unmap_buf().
++ */
++static int qseecom_fp_map_buf(struct qseecom_fp *fp, void *msg,
++			      const struct qseecom_fp_bufdesc *desc,
++			      struct qseecom_fp_mapped_buf *mb)
++{
++	int ret;
++
++	memset(mb, 0, sizeof(*mb));
++	mb->user = u64_to_user_ptr(desc->ptr);
++	mb->len = desc->len;
++	mb->order = get_order(desc->len);
++	mb->virt = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
++					    mb->order);
++	if (!mb->virt)
++		return -ENOMEM;
++	if (copy_from_user(mb->virt, mb->user, desc->len)) {
++		free_pages((unsigned long)mb->virt, mb->order);
++		mb->virt = NULL;
++		return -EFAULT;
++	}
++	mb->phys = virt_to_phys(mb->virt);
++	ret = qcom_tzmem_shm_bridge_create(mb->phys, PAGE_SIZE << mb->order,
++					   &mb->bridge);
++	if (ret) {
++		free_pages((unsigned long)mb->virt, mb->order);
++		mb->virt = NULL;
++		return ret;
++	}
++	mb->mapped = true;
++	dcache_clean_inval_poc((unsigned long)mb->virt,
++			       (unsigned long)mb->virt + desc->len);
++	memcpy(msg + desc->offset, &mb->phys, sizeof(mb->phys));
++	return 0;
++}
++
++static void qseecom_fp_unmap_buf(struct qseecom_fp_mapped_buf *mb)
++{
++	if (!mb->virt)
++		return;
++	if (mb->mapped)
++		qcom_tzmem_shm_bridge_delete(mb->bridge);
++	free_pages((unsigned long)mb->virt, mb->order);
++	mb->virt = NULL;
++}
++
++static int qseecom_fp_send_modfd(struct qseecom_fp *fp,
++				 struct qseecom_fp_send_modfd_req *req)
++{
++	struct qseecom_fp_mapped_buf mbufs[QSEECOM_FP_MAX_BUFS];
++	void *rsp = NULL, *msg = NULL;
++	bool send_ok = false;
++	u32 i;
++	int ret = 0;
++
++	memset(mbufs, 0, sizeof(mbufs));
++	if (!req->req_len || req->req_len > QSEECOM_FP_MAX_MSG ||
++	    req->rsp_len > QSEECOM_FP_MAX_MSG ||
++	    req->nbuf > QSEECOM_FP_MAX_BUFS)
++		return -EINVAL;
++	for (i = 0; i < req->nbuf; i++) {
++		struct qseecom_fp_bufdesc *d = &req->bufs[i];
++
++		if (!d->offset || !d->len || d->len > QSEECOM_FP_MAX_MSG ||
++		    d->offset + sizeof(u64) > req->req_len)
++			return -EINVAL;
++	}
++
++	if (req->rsp_offset) {
++		msg = qcom_tzmem_alloc(fp->pool,
++				       req->rsp_offset + req->rsp_len,
++				       GFP_KERNEL);
++		if (!msg)
++			return -ENOMEM;
++		rsp = msg + req->rsp_offset;
++	} else {
++		msg = qcom_tzmem_alloc(fp->pool, req->req_len, GFP_KERNEL);
++		if (!msg)
++			return -ENOMEM;
++	}
++	if (copy_from_user(msg, u64_to_user_ptr(req->req_ptr),
++			   req->req_len)) {
++		ret = -EFAULT;
++		goto out;
++	}
++	/* Reserve tail room for the separate rsp buffer copy below. */
++	if (!req->rsp_offset) {
++		rsp = qcom_tzmem_alloc(fp->pool, req->rsp_len, GFP_KERNEL);
++		if (!rsp) {
++			ret = -ENOMEM;
++			goto out;
++		}
++	}
++
++	for (i = 0; i < req->nbuf; i++) {
++		ret = qseecom_fp_map_buf(fp, msg, &req->bufs[i], &mbufs[i]);
++		if (ret)
++			goto out_unmap;
++	}
++
++	ret = qcom_scm_qseecom_app_send(req->app_id, msg, req->req_len,
++					rsp, req->rsp_len);
++	if (ret)
++		goto out_unmap;
++	send_ok = true;
++
++	if (copy_to_user(u64_to_user_ptr(req->req_ptr), msg, req->req_len) ||
++	    copy_to_user(u64_to_user_ptr(req->rsp_ptr), rsp, req->rsp_len))
++		ret = -EFAULT;
++	for (i = 0; i < req->nbuf && send_ok; i++) {
++		struct qseecom_fp_mapped_buf *mb = &mbufs[i];
++
++		dcache_inval_poc((unsigned long)mb->virt,
++				 (unsigned long)mb->virt + mb->len);
++		if (copy_to_user(mb->user, mb->virt, mb->len))
++			ret = -EFAULT;
++	}
++out_unmap:
++	for (i = 0; i < req->nbuf; i++)
++		qseecom_fp_unmap_buf(&mbufs[i]);
++	if (!req->rsp_offset)
++		qcom_tzmem_free(rsp);
++out:
++	qcom_tzmem_free(msg);
++	return ret;
++}
++
 +static long qseecom_fp_ioctl(struct file *file, unsigned int cmd,
 +			     unsigned long arg)
 +{
@@ -14345,6 +14541,16 @@ index 000000000..da118a6ce
 +			return -EFAULT;
 +		mutex_lock(&fp->lock);
 +		ret = qseecom_fp_unload(fp, &req);
++		mutex_unlock(&fp->lock);
++		return ret;
++	}
++	case QSEECOM_FP_IOCTL_SEND_MODFD: {
++		struct qseecom_fp_send_modfd_req req;
++
++		if (copy_from_user(&req, (void __user *)arg, sizeof(req)))
++			return -EFAULT;
++		mutex_lock(&fp->lock);
++		ret = qseecom_fp_send_modfd(fp, &req);
 +		mutex_unlock(&fp->lock);
 +		return ret;
 +	}
@@ -14404,6 +14610,378 @@ index 000000000..da118a6ce
 +device_initcall(qseecom_fp_init);
 +
 +MODULE_DESCRIPTION("Minimal QSEECom client for fingerprint TA experiments");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/misc/silead_fp.c b/drivers/misc/silead_fp.c
+new file mode 100644
+index 000000000..504481821
+--- /dev/null
++++ b/drivers/misc/silead_fp.c
+@@ -0,0 +1,366 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * silead_fp - minimal AP-side driver for the Silead fingerprint sensor
++ * on Xiaomi Redmi 10C (sm6225, "fog"/"rain").
++ *
++ * The sensor's SPI bus is owned by the sileadta TrustZone application;
++ * this driver only does what the vendor drivers/input/fingerprint/silead
++ * driver does on the AP side: power rails, reset GPIO and the
++ * finger-detect IRQ line.  It deliberately keeps the vendor ioctl
++ * contract (magic 's') so tools/ta-load.c and the vendor HAL sequence
++ * work unchanged:
++ *
++ *   SIFP_IOC_RESET       _IOW('s', 10, u8)
++ *   SIFP_IOC_ENABLE_IRQ  _IO('s', 11)
++ *   SIFP_IOC_DISABLE_IRQ _IO('s', 12)
++ *   SIFP_IOC_WAIT_IRQ    _IOR('s', 13, u8)
++ *   SIFP_IOC_CLR_IRQ     _IO('s', 14)
++ *   SIFP_IOC_INIT        _IOR('s', 16, struct fp_dev_init_t)
++ *   SIFP_IOC_DEINIT      _IO('s', 17)
++ *   SIFP_IOC_IRQ_STATUS  _IOR('s', 18, u8)
++ *   SIFP_IOC_PWDN        _IOW('s', 28, u8)
++ *
++ * Differences from the vendor driver, all deliberate:
++ *  - IRQ is requested EDGE_BOTH instead of EDGE_RISING: the exact
++ *    polarity of the sensor line is not yet confirmed on mainline and
++ *    any edge is a valid finger-detect wakeup for WAIT_IRQ.
++ *  - WAIT_IRQ uses a 120 s timeout instead of an infinite wait so a
++ *    missed edge cannot hang the tool forever; the u8 result reports
++ *    whether an edge was seen.
++ *  - No netlink/uinput sideband: userspace polls WAIT_IRQ directly.
++ */
++#include <linux/completion.h>
++#include <linux/delay.h>
++#include <linux/err.h>
++#include <linux/gpio/consumer.h>
++#include <linux/interrupt.h>
++#include <linux/ioctl.h>
++#include <linux/miscdevice.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/regulator/consumer.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++#include <linux/uaccess.h>
++
++#define SIFP_IOC_MAGIC	's'
++
++struct fp_dev_init_t {
++	__u8 mode;
++	__u8 bits;
++	__u16 delay;
++	__u32 speed;
++	char dev[16];
++	__u8 nl_id;
++	__u8 dev_id;
++	__u16 reserve;
++	__u32 reg;
++	char ta[16];
++};
++
++#define SIFP_IOC_RESET		_IOW(SIFP_IOC_MAGIC, 10, __u8)
++#define SIFP_IOC_ENABLE_IRQ	_IO(SIFP_IOC_MAGIC, 11)
++#define SIFP_IOC_DISABLE_IRQ	_IO(SIFP_IOC_MAGIC, 12)
++#define SIFP_IOC_WAIT_IRQ	_IOR(SIFP_IOC_MAGIC, 13, __u8)
++#define SIFP_IOC_CLR_IRQ	_IO(SIFP_IOC_MAGIC, 14)
++#define SIFP_IOC_INIT		_IOR(SIFP_IOC_MAGIC, 16, struct fp_dev_init_t)
++#define SIFP_IOC_DEINIT		_IO(SIFP_IOC_MAGIC, 17)
++#define SIFP_IOC_IRQ_STATUS	_IOR(SIFP_IOC_MAGIC, 18, __u8)
++#define SIFP_IOC_PWDN		_IOW(SIFP_IOC_MAGIC, 28, __u8)
++
++/* vendor SIFP_PWDN_* flags */
++#define SIFP_PWDN_NONE		0
++#define SIFP_PWDN_POWEROFF	1
++#define SIFP_PWDN_FLASH		2
++
++#define FP_WAIT_IRQ_TIMEOUT_MS	120000
++
++struct silead_fp {
++	struct device *dev;
++	struct mutex lock;
++	struct completion done;
++
++	struct regulator *avdd;
++	struct regulator *vddio;
++	struct gpio_desc *avdd_gpio;
++	struct gpio_desc *rst_gpio;
++	struct gpio_desc *irq_gpio;
++	int irq;
++
++	u32 qup_id;
++	u32 max_speed;
++
++	bool powered;
++	bool irq_armed;
++	bool irq_ignore;
++};
++
++static irqreturn_t silead_fp_irq(int irq, void *data)
++{
++	struct silead_fp *fp = data;
++
++	if (fp->irq_ignore)
++		return IRQ_HANDLED;
++	complete(&fp->done);
++	return IRQ_HANDLED;
++}
++
++static int silead_fp_power_on(struct silead_fp *fp)
++{
++	int ret;
++
++	ret = regulator_enable(fp->avdd);
++	if (ret)
++		return ret;
++	ret = regulator_enable(fp->vddio);
++	if (ret)
++		goto err_vddio;
++	gpiod_set_value_cansleep(fp->avdd_gpio, 1);
++	fp->powered = true;
++	return 0;
++
++err_vddio:
++	regulator_disable(fp->avdd);
++	return ret;
++}
++
++static void silead_fp_power_off(struct silead_fp *fp)
++{
++	if (!fp->powered)
++		return;
++	gpiod_set_value_cansleep(fp->avdd_gpio, 0);
++	regulator_disable(fp->vddio);
++	regulator_disable(fp->avdd);
++	fp->powered = false;
++}
++
++/* vendor silfp_hw_reset: rst low `delay` ms (default 5), high, settle 3 ms */
++static void silead_fp_hw_reset(struct silead_fp *fp, u8 delay)
++{
++	u8 low_ms = delay ? delay : 5;
++	u8 settle_ms = delay ? delay : 3;
++
++	fp->irq_ignore = true;
++	gpiod_set_value_cansleep(fp->rst_gpio, 0);
++	mdelay(low_ms);
++	gpiod_set_value_cansleep(fp->rst_gpio, 1);
++	mdelay(settle_ms);
++	fp->irq_ignore = false;
++}
++
++/* vendor silfp_pwdn: flag selects the power-down flavour */
++static void silead_fp_pwdn(struct silead_fp *fp, u8 flag)
++{
++	if (flag == SIFP_PWDN_FLASH) {
++		silead_fp_power_off(fp);
++		msleep(200);
++		silead_fp_power_on(fp);
++	}
++
++	gpiod_set_value_cansleep(fp->rst_gpio, 0);
++
++	if (flag == SIFP_PWDN_POWEROFF)
++		silead_fp_power_off(fp);
++}
++
++static long silead_fp_ioctl(struct file *file, unsigned int cmd,
++			    unsigned long arg)
++{
++	struct silead_fp *fp = file->private_data;
++	int ret = 0;
++
++	mutex_lock(&fp->lock);
++
++	switch (cmd) {
++	case SIFP_IOC_RESET: {
++		__u8 delay = 0;
++
++		if (arg && copy_from_user(&delay, (void __user *)arg, sizeof(delay))) {
++			ret = -EFAULT;
++			break;
++		}
++		if (!fp->powered)
++			silead_fp_power_on(fp);
++		mdelay(5);
++		silead_fp_hw_reset(fp, delay);
++		break;
++	}
++	case SIFP_IOC_ENABLE_IRQ:
++		if (!fp->irq_armed) {
++			reinit_completion(&fp->done);
++			enable_irq(fp->irq);
++			fp->irq_armed = true;
++		}
++		break;
++	case SIFP_IOC_DISABLE_IRQ:
++		if (fp->irq_armed) {
++			fp->irq_armed = false;
++			disable_irq_nosync(fp->irq);
++		}
++		break;
++	case SIFP_IOC_CLR_IRQ:
++		reinit_completion(&fp->done);
++		break;
++	case SIFP_IOC_WAIT_IRQ: {
++		__u8 seen;
++
++		seen = wait_for_completion_timeout(&fp->done,
++						    msecs_to_jiffies(FP_WAIT_IRQ_TIMEOUT_MS)) ? 1 : 0;
++		if (put_user(seen, (__u8 __user *)arg))
++			ret = -EFAULT;
++		break;
++	}
++	case SIFP_IOC_IRQ_STATUS: {
++		__u8 level;
++
++		level = gpiod_get_value_cansleep(fp->irq_gpio) ? 1 : 0;
++		if (put_user(level, (__u8 __user *)arg))
++			ret = -EFAULT;
++		break;
++	}
++	case SIFP_IOC_INIT: {
++		struct fp_dev_init_t init = {};
++
++		init.mode = 0;
++		init.bits = 8;
++		init.delay = 100;
++		init.speed = fp->max_speed;
++		strscpy(init.dev, "silead_spi", sizeof(init.dev));
++		init.dev_id = fp->qup_id;
++		init.reserve = 4 << 12; /* vendor PKG_SIZE=4 << 12 */
++		strscpy(init.ta, "sileadta", sizeof(init.ta));
++		if (!fp->powered)
++			silead_fp_power_on(fp);
++		if (copy_to_user((void __user *)arg, &init, sizeof(init)))
++			ret = -EFAULT;
++		break;
++	}
++	case SIFP_IOC_DEINIT:
++		silead_fp_power_off(fp);
++		break;
++	case SIFP_IOC_PWDN: {
++		__u8 flag = SIFP_PWDN_NONE;
++
++		if (arg && copy_from_user(&flag, (void __user *)arg, sizeof(flag))) {
++			ret = -EFAULT;
++			break;
++		}
++		silead_fp_pwdn(fp, flag);
++		break;
++	}
++	default:
++		ret = -ENOTTY;
++	}
++
++	mutex_unlock(&fp->lock);
++	return ret;
++}
++
++static struct silead_fp *silead_fp_dev;
++
++static int silead_fp_open(struct inode *inode, struct file *file)
++{
++	file->private_data = silead_fp_dev;
++	return 0;
++}
++
++static const struct file_operations silead_fp_fops = {
++	.owner		= THIS_MODULE,
++	.unlocked_ioctl	= silead_fp_ioctl,
++	.open		= silead_fp_open,
++	.release	= NULL,
++};
++
++static struct miscdevice silead_fp_misc = {
++	.minor	= MISC_DYNAMIC_MINOR,
++	.name	= "silead_fp",
++	.fops	= &silead_fp_fops,
++	.mode	= 0666,
++};
++
++static int silead_fp_probe(struct platform_device *pdev)
++{
++	struct silead_fp *fp;
++	int ret;
++
++	fp = devm_kzalloc(&pdev->dev, sizeof(*fp), GFP_KERNEL);
++	if (!fp)
++		return -ENOMEM;
++	fp->dev = &pdev->dev;
++	mutex_init(&fp->lock);
++	init_completion(&fp->done);
++
++	fp->avdd = devm_regulator_get(&pdev->dev, "avdd");
++	if (IS_ERR(fp->avdd))
++		return dev_err_probe(&pdev->dev, PTR_ERR(fp->avdd),
++				     "failed to get avdd supply\n");
++	fp->vddio = devm_regulator_get(&pdev->dev, "vddio");
++	if (IS_ERR(fp->vddio))
++		return dev_err_probe(&pdev->dev, PTR_ERR(fp->vddio),
++				     "failed to get vddio supply\n");
++
++	fp->avdd_gpio = devm_gpiod_get(&pdev->dev, "avdd", GPIOD_OUT_LOW);
++	if (IS_ERR(fp->avdd_gpio))
++		return dev_err_probe(&pdev->dev, PTR_ERR(fp->avdd_gpio),
++				     "failed to get avdd-gpio\n");
++	fp->rst_gpio = devm_gpiod_get(&pdev->dev, "rst", GPIOD_OUT_HIGH);
++	if (IS_ERR(fp->rst_gpio))
++		return dev_err_probe(&pdev->dev, PTR_ERR(fp->rst_gpio),
++				     "failed to get rst-gpio\n");
++	fp->irq_gpio = devm_gpiod_get(&pdev->dev, "irq", GPIOD_IN);
++	if (IS_ERR(fp->irq_gpio))
++		return dev_err_probe(&pdev->dev, PTR_ERR(fp->irq_gpio),
++				     "failed to get irq-gpio\n");
++
++	fp->irq = gpiod_to_irq(fp->irq_gpio);
++	if (fp->irq < 0)
++		return dev_err_probe(&pdev->dev, fp->irq,
++				     "failed to map irq-gpio\n");
++
++	ret = devm_request_irq(&pdev->dev, fp->irq, silead_fp_irq,
++			       IRQ_TYPE_EDGE_BOTH, "silead_fp", fp);
++	if (ret)
++		return dev_err_probe(&pdev->dev, ret, "request_irq failed\n");
++	disable_irq(fp->irq);
++
++	fp->qup_id = 6;
++	fp->max_speed = 4800000;
++	of_property_read_u32(pdev->dev.of_node, "qcom,qup-id", &fp->qup_id);
++	of_property_read_u32(pdev->dev.of_node, "spi-max-frequency",
++			     &fp->max_speed);
++
++	silead_fp_misc.parent = &pdev->dev;
++	ret = misc_register(&silead_fp_misc);
++	if (ret)
++		return ret;
++
++	platform_set_drvdata(pdev, fp);
++	silead_fp_dev = fp;
++	return 0;
++}
++
++static void silead_fp_remove(struct platform_device *pdev)
++{
++	misc_deregister(&silead_fp_misc);
++}
++
++static const struct of_device_id silead_fp_of_match[] = {
++	{ .compatible = "sil,silead_fp" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, silead_fp_of_match);
++
++static struct platform_driver silead_fp_driver = {
++	.probe	= silead_fp_probe,
++	.remove	= silead_fp_remove,
++	.driver	= {
++		.name		= "silead_fp",
++		.of_match_table	= silead_fp_of_match,
++	},
++};
++module_platform_driver(silead_fp_driver);
++
++MODULE_DESCRIPTION("Minimal AP-side driver for Silead fingerprint sensor");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/misc/wl2866d.c b/drivers/misc/wl2866d.c
 new file mode 100644

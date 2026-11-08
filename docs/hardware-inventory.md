@@ -36,7 +36,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | 21 | Сканер отпечатка | **Silead** (chip id `0x6135a080`) | TEE SPI (`qsee_spi`) | Silead | **PARTIAL** — из mainline через `/dev/qseecom-fp` TA `sileadta` загружается и читает chip id/OTP; NAV и захват кадра — в работе. См. `docs/FINGERPRINT.md` |
 | 22 | Wi-Fi | **WCN3990** (ath10k SNOC) | c800000.wifi | Qualcomm | **FULL** (~1.1 Гбит AP-режим проверен) |
 | 22a | Bluetooth | тот же WCN3990 (hci_qca) | GENI UART 4a8c000 | Qualcomm | **NORMAL** (A2DP работает; редкий wedge при re-init — известный дебт) |
-| 23 | NFC | **pn8x** (`nq-nci`, PN80T/SN100-класс) | i2c1-002a (наш `&i2c2`) | NXP | **LOW+** — 2026-10-20: включён `CONFIG_NFC_NXP_NCI(_I2C)`, добавлен DT-узел `nfc@2a` (enable=gpio56, firmware=gpio31, IRQ=gpio70). Драйвер привязывается: `3-002a`, `/sys/class/nfc/nfc0`, rfkill-устройство, GPIO заняты драйвером. **Но чип не отвечает по I2C** (`ENXIO` даже при VEN=1 и CLKREQ=1): не хватает NFC-клока от PMIC (линия CLKREQ gpio71 в стоке — обычный GPIO-запрос к PMIC) и/или рельс VDD/VDD_IO. Ручное дёргание gpio71/56 через `/dev/mem` дважды роняло SoC — не повторять без модели клока. Стека NCI в userspace нет (neard из репозиториев убран) |
+| 23 | NFC | **SN100U** (`nq-nci`, NXP SN100-класс) | i2c1-002a (наш `&i2c2`) | NXP | **NORMAL** (2026-11-08) — транспорт работает: `NFC_CMD_DEV_UP` проходит `CORE_RESET`/`CORE_INIT` по I2C (`dev_up: OK`), IRQ `msmgpio 70` считает прерывания. Клок 52 МГц даёт PMIC (в стоковом DT узла нет ни `clocks`, ни регуляторов — `pm6125_div_clk1` к NFC не относится), CLKREQ gpio71 только гейтит его. Драйвер держит VEN=0 до открытия устройства — «молчание на голой загрузке» было нормой. rfkill soft-block надо снимать (`/sys/class/rfkill/rfkill0/soft`). RF-обнаружение (`START_POLL`) запускается, на живой карте ещё не проверено. Userspace-стека нет. Детали — `docs/NFC.md` |
 | 24 | Зарядник | **SMB1351** | i2c3-0055 | Summit | **FULL** (2026-10-18: `gpio84` снят с резерва, стейт `smb1351_int_default` + **реальный IRQ** через `interrupt-parent=&tlmm`/`interrupts=<84 EDGE_FALLING>` — msmgpio 84 Edge smb1351-int в /proc/interrupts; IRQ будит poll_work, I2C остаётся в freezable-wq) |
 | 25 | Fuel gauge | **SH366101** | i2c2-0055 | Sinowealth | **FULL** (SBS: SOC/V/I/temp/циклы/STATUS/HEALTH + gaugeinfo-блоки: Qmax→SOH, энергия мВт·ч, OCV, внутр. темпа; требует FIFO на i2c — см. quirks) |
 | 26 | USB-C CC №1 | **FUSB303** | i2c1-0021 | onsemi/Fairchild | **NOT SUPPORTED** — сырой probe по всем 4 AP-шинам (0x21/0x22/0x25) даёт NACK (`ENXIO`); в отличие от WUSB3801/smb1351, которые дают `EBUSY` как занятые драйверами. Драйверу не к чему биндиться |
@@ -121,7 +121,7 @@ DT-модель: `RAIN KHAJE IDP nopmi`.
 | Вибромотор | qpnp-vibrator-ldo | coin-motor | **FULL** |
 | Вспышка | `camera-flash@0` (CCI0) | LED torch/flash | **NORMAL** — torch проверен (`white:torch`, `max_brightness=1`, вкл/выкл); v4l2-flash API не заведён (интеграция с камерой) |
 | Антенны | main + diversity + check-GPIO | LTE/Wi-Fi приём | **NORMAL** (основной тракт работает; diversity-check GPIO не заведены) |
-| NFC-антенна | pn8x | рамка | **LOW** (чип id читается; стека нет) |
+| NFC-антенна | SN100U | рамка | **NORMAL** (NCI-хендшейк проходит, `START_POLL` стартует; карту ещё не прикладывали) |
 
 ## Проверка на живом устройстве (2026-10-18, Ubuntu слот B)
 
@@ -146,7 +146,7 @@ ADB/сенсоры/I2C на resume починены.
 | Звук | `aplay -l` → card0 MultiMedia1; swr-master ×2 + slave ×2 | **FULL** |
 | Wi-Fi | `iw dev` → connected Xiaomi_E4C4 **5GHz/5220MHz**, RX 23 МБ | **FULL** — реальный трафик |
 | BT | `hciconfig` → hci0 **UP RUNNING**, Powered | **NORMAL** |
-| NFC | i2c-карта → nq-nci не пробивается | **LOW** — подтверждено |
+| NFC | `nfc-nci-test up` → `dev_up: OK` (CORE_RESET/CORE_INIT по I2C), IRQ `msmgpio 70` считает | **NORMAL** (2026-11-08, транспорт) |
 | Зарядка/гейдж | `power_supply` → battery `Charging`; `bms`: OCV 4419 мВ, `CHARGE_FULL_DESIGN` 5096 мАч (SOH 93.8%), энергия, внутр. темпа | **FULL** |
 | USB (kernel-owned) | `/proc/iomem` → `04ef8800-04ef8bff : 4ef8800.usb` (QSCRATCH за драйвером), UDC `4e00000.usb` | **FULL** |
 | Suspend/resume | `s2idle` (проверено с пробуждением по WoWLAN magic packet): ADB (`usb-adb-resume`), сенсоры (`rain-sensor-resume`), BT (`rain-bt-suspend/-resume`), I2C-во-сне и **падение ADSP** (`rain-sensor-suspend`) починены; окно сна чистое | **FULL** |
@@ -179,7 +179,7 @@ ADB/сенсоры/I2C на resume починены.
   ADSP/LPASS (стартовый AFE-шум), IPA, CAMSS, interconnect/clk-
   quirks, RTC (read-only), USB-C роли, SIM-1, микрофоны/ресивер,
   вспышка.
-- **LOW**: depth-камера (OV02B1B в графе, gpio66/67 проверены — EPIPE остаётся), SAR ADUX1050, NFC (только
-  id), SIM-2, ant-check GPIO, CDSP-нода.
+- **LOW**: depth-камера (OV02B1B в графе, gpio66/67 проверены — EPIPE остаётся), SAR ADUX1050,
+  SIM-2, ant-check GPIO, CDSP-нода.
 - **NOT SUPPORTED**: сканер отпечатков (FPC), FUSB303, bkl-bl,
   lcm-bias, fs15xx (audio smart-boost — драйвера в дереве нет).

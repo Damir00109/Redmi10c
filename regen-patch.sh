@@ -20,7 +20,8 @@ git add -N \
 	drivers/pinctrl/qcom/pinctrl-khaje.c \
 	drivers/power/supply/sh366101_fg.c \
 	drivers/power/supply/smb1351_charger.c \
-	drivers/misc/qseecom_fp.c
+	drivers/misc/qseecom_fp.c \
+	drivers/misc/silead_fp.c
 git diff > ../../../kernel.patch
 git reset --quiet
 grep -c '^diff' ../../../kernel.patch
