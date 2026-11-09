@@ -252,8 +252,13 @@ int main(int argc, char **argv)
 	printf("NFC_CMD_DEV_UP (CORE_RESET over I2C)...\n");
 	r = nfc_req(fd, fam, NFC_CMD_DEV_UP, dev_idx, 1, NLM_F_ACK, 1);
 	printf("dev_up: %s\n", r ? strerror(-r) : "OK — chip answered NCI");
-	if (r)
+	/* Polling right after a manual `up` is the normal case: the device is
+	 * already open, and a second DEV_UP answers EBUSY.  That is not an
+	 * error for `poll`, so keep going instead of bailing out. */
+	if (r && !((r == -EBUSY || r == -EALREADY) && strcmp(mode, "up"))) {
+		printf("dev_up failed\n");
 		return 1;
+	}
 
 	if (!strcmp(mode, "up"))
 		return 0;
@@ -275,7 +280,11 @@ int main(int argc, char **argv)
 		msg_put(&m, NFC_ATTR_DEVICE_INDEX, &dev_idx, sizeof(dev_idx));
 		msg_put(&m, NFC_ATTR_IM_PROTOCOLS, &im, sizeof(im));
 		{
-			unsigned int rf_mode = NFC_RF_INITIATOR;
+			/* NFC_ATTR_RF_MODE is NLA_U8 in the kernel policy
+			 * (net/nfc/netlink.c): four bytes are rejected and the
+			 * whole START_POLL message is dropped with
+			 * "attribute type 11 has an invalid length". */
+			unsigned char rf_mode = NFC_RF_INITIATOR;
 
 			msg_put(&m, NFC_ATTR_RF_MODE, &rf_mode,
 				sizeof(rf_mode));
@@ -286,11 +295,16 @@ int main(int argc, char **argv)
 			return 1;
 		}
 		printf("polling (tap a card)...\n");
-		for (i = 0; i < 60; i++) {
+		fflush(stdout);
+		/* 600 * 500 ms = 5 minutes: long enough to place a card after
+		 * the console has been attached, without flooding the log. */
+		for (i = 0; i < 600; i++) {
 			char buf[4096];
 			ssize_t n;
 			struct nlmsghdr *nlh;
 
+			if (!(i % 20))
+				printf("."), fflush(stdout);
 			if (poll(&pfd, 1, 500) <= 0)
 				continue;
 			n = recv(fd, buf, sizeof(buf), 0);
@@ -304,6 +318,7 @@ int main(int argc, char **argv)
 				dump_event(nlh);
 			}
 		}
+		printf("\npoll timeout, no target\n");
 	}
 	return 0;
 }

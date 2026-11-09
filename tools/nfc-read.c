@@ -258,7 +258,8 @@ int main(int argc, char **argv)
 		struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
 		unsigned int im = NFC_PROTO_MIFARE_MASK |
 				  NFC_PROTO_ISO14443_MASK;
-		unsigned int rf_mode = NFC_RF_INITIATOR;
+		/* NLA_U8 in the kernel policy, see net/nfc/netlink.c */
+		unsigned char rf_mode = NFC_RF_INITIATOR;
 
 		memset(&m, 0, sizeof(m));
 		m.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
