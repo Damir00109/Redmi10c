@@ -90,6 +90,30 @@ pull-up), `nfc_enable_active` (gpio56+31, pull-up),
 Исходник вендорного драйвера: `docs/nfc/stock/nq-nci.c` (+ `.h`) из
 `iDeadXD/ai-kernel_xiaomi_fog-msm4.19`.
 
+## Драйвер собирается модулем (для быстрых итераций)
+
+`CONFIG_NFC_NXP_NCI=m` + `CONFIG_NFC_NXP_NCI_I2C=m`: `rebuild-rescue.sh` кладёт
+`nxp-nci.ko` / `nxp-nci_i2c.ko` в `/lib/modules` образа. Перезагрузка модуля
+(`rmmod` + `insmod`) даёт чипу чистый цикл VEN и новую NCI-сессию — то, чего не
+даёт повторный `DEV_DOWN`/`DEV_UP` (после него чип отвечает `-121`/таймаутом).
+После `insmod` rfkill-индекс может измениться: NFC — не всегда `rfkill0`,
+проверять `cat /sys/class/rfkill/rfkill*/name`.
+
+`nfc-nci-test poll` теперь печатает вердикт ядра (`START_POLL accepted by the
+kernel` / `rejected: <errno>`) и поддерживает сужение маски: `poll iso`
+(только ISO14443-A), `poll mifare`.
+
+## Контрольный тест в Android (2026-11-10)
+
+Антенна и карта проверены стоком: приложение Mifare Classic Tool (APK с GitHub,
+`de.syss.MifareClassicTool`) видит Тройку без каких-либо действий —
+`UID: 34 02 16 29 0E 73 56` (7 байт). Значит железо в порядке, и проблема
+mainline-стека не в антенне и не в карте.
+
+**Важно:** на хосте не должно быть запущено UltiMaker-Cura — она
+автоподключается к `/dev/ttyACM*` и забивает консоль rescue G-кодом `M105`,
+после чего ввод в консоль не доходит.
+
 ## Дальше
 
 1. Проверить RF-обнаружение на реальной карте (`nfc-nci-test poll`).

@@ -5,7 +5,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/out"
 IR=$OUT/build/initramfs
 make -C "$OUT/src/linux" O="$OUT/build/linux-7.3" ARCH=arm64 \
-  CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs -j"$(nproc)" 2>&1 | tail -3
+  CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs modules -j"$(nproc)" 2>&1 | tail -3
+# NFC is built as a module so the driver can be reloaded for a clean chip
+# state between experiments (rmmod/insmod instead of a full reboot).
+mkdir -p "$IR/lib/modules"
+cp "$OUT"/build/linux-7.3/drivers/nfc/nxp-nci/*.ko "$IR/lib/modules/" 2>/dev/null || true
 aarch64-linux-gnu-gcc -static -O2 -I"$OUT/src/tinyalsa/include" \
   "$ROOT/tools/pcm-hold.c" "$OUT/src/tinyalsa/src/libtinyalsa.a" -o "$IR/bin/pcm-hold"
 aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/fp-probe" "$ROOT/tools/fp-probe.c"

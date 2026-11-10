@@ -230,6 +230,16 @@ int main(int argc, char **argv)
 	unsigned int im = NFC_PROTO_JEWEL_MASK | NFC_PROTO_MIFARE_MASK |
 			  NFC_PROTO_ISO14443_MASK | NFC_PROTO_ISO14443_B_MASK |
 			  NFC_PROTO_FELICA_MASK | NFC_PROTO_ISO15693_MASK;
+
+	/* Narrowing the discovery map is a cheap way to tell "the chip does
+	 * not do RF at all" from "the chip ignores part of the protocol set":
+	 *   poll iso     - ISO14443-A only (MIFARE/Troika class cards)
+	 *   poll mifare  - MIFARE only
+	 */
+	if (argc > 2 && !strcmp(argv[2], "iso"))
+		im = NFC_PROTO_ISO14443_MASK;
+	else if (argc > 2 && !strcmp(argv[2], "mifare"))
+		im = NFC_PROTO_MIFARE_MASK;
 	int fd, fam, r;
 
 	fd = nl_open();
@@ -273,7 +283,11 @@ int main(int argc, char **argv)
 		memset(&m, 0, sizeof(m));
 		m.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
 		m.n.nlmsg_type = fam;
-		m.n.nlmsg_flags = NLM_F_REQUEST;
+		/* Ask for an ACK: without it a rejected START_POLL (for
+		 * example an unsupported protocol in the mask, or a chip that
+		 * refuses RF_DISCOVER) is indistinguishable from a silent
+		 * poll that simply never finds a target. */
+		m.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
 		m.n.nlmsg_seq = 3;
 		m.g.cmd = NFC_CMD_START_POLL;
 		m.g.version = 1;
@@ -293,6 +307,26 @@ int main(int argc, char **argv)
 			   sizeof(addr)) < 0) {
 			perror("START_POLL");
 			return 1;
+		}
+		{
+			char abuf[512];
+			struct nlmsghdr *nlh;
+			ssize_t n;
+
+			if (poll(&pfd, 1, 1000) > 0 &&
+			    (n = recv(fd, abuf, sizeof(abuf), 0)) > 0) {
+				nlh = (struct nlmsghdr *)abuf;
+				if (nlh->nlmsg_type == NLMSG_ERROR) {
+					struct nlmsgerr *e =
+						(struct nlmsgerr *)NLMSG_DATA(nlh);
+
+					if (e->error)
+						printf("START_POLL rejected: %s (%d)\n",
+						       strerror(-e->error), e->error);
+					else
+						printf("START_POLL accepted by the kernel\n");
+				}
+			}
 		}
 		printf("polling (tap a card)...\n");
 		fflush(stdout);
