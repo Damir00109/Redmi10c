@@ -100,6 +100,89 @@ static int genl_family_id(int fd)
 	return id;
 }
 
+/*
+ * Join the family's multicast group.
+ *
+ * Without this the socket only ever sees ACKs: NFC_EVENT_TARGETS_FOUND is a
+ * multicast notification, so poll() used to sit on a target that the kernel
+ * had already reported (visible only in dmesg as "nfc_targets_found").
+ */
+static int genl_join_mcast(int fd, const char *family, const char *group)
+{
+	struct {
+		struct nlmsghdr n;
+		struct genlmsghdr g;
+		char attrs[64];
+	} req;
+	struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
+	struct nlmsghdr *nlh;
+	char buf[8192];
+	ssize_t r;
+	int gid = -1;
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
+	req.n.nlmsg_type = GENL_ID_CTRL;
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_seq = 2;
+	req.g.cmd = CTRL_CMD_GETFAMILY;
+	req.g.version = 1;
+	{
+		struct nlattr *na = (struct nlattr *)((char *)&req +
+						NLMSG_ALIGN(req.n.nlmsg_len));
+
+		na->nla_type = CTRL_ATTR_FAMILY_NAME;
+		na->nla_len = NLA_HDRLEN + strlen(family) + 1;
+		memcpy((char *)na + NLA_HDRLEN, family, strlen(family) + 1);
+		req.n.nlmsg_len = NLMSG_ALIGN(req.n.nlmsg_len) +
+				  NLA_ALIGN(na->nla_len);
+	}
+	if (sendto(fd, &req, req.n.nlmsg_len, 0, (struct sockaddr *)&addr,
+		   sizeof(addr)) < 0)
+		return -1;
+	r = recv(fd, buf, sizeof(buf), 0);
+	if (r <= 0)
+		return -1;
+
+	for (nlh = (struct nlmsghdr *)buf; NLMSG_OK(nlh, (unsigned int)r);
+	     nlh = NLMSG_NEXT(nlh, r)) {
+		struct genlmsghdr *gh = NLMSG_DATA(nlh);
+		int len = nlh->nlmsg_len - NLMSG_LENGTH(GENL_HDRLEN);
+		struct nlattr *na = (struct nlattr *)((char *)gh + GENL_HDRLEN);
+
+		for (; NLA_OK(na, len); na = NLA_NEXT(na, len)) {
+			int glen = na->nla_len - NLA_HDRLEN;
+			struct nlattr *g = (struct nlattr *)((char *)na +
+							     NLA_HDRLEN);
+
+			if (na->nla_type != CTRL_ATTR_MCAST_GROUPS)
+				continue;
+			for (; NLA_OK(g, glen); g = NLA_NEXT(g, glen)) {
+				int ilen = g->nla_len - NLA_HDRLEN;
+				struct nlattr *i = (struct nlattr *)((char *)g +
+							     NLA_HDRLEN);
+				const char *name = NULL;
+				unsigned int id = 0;
+
+				for (; NLA_OK(i, ilen); i = NLA_NEXT(i, ilen)) {
+					if (i->nla_type == CTRL_ATTR_MCAST_GRP_NAME)
+						name = (char *)i + NLA_HDRLEN;
+					else if (i->nla_type == CTRL_ATTR_MCAST_GRP_ID)
+						id = *(unsigned int *)((char *)i +
+								       NLA_HDRLEN);
+				}
+				if (name && !strcmp(name, group))
+					gid = id;
+			}
+		}
+	}
+	if (gid < 0)
+		return -1;
+
+	return setsockopt(fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &gid,
+			  sizeof(gid)) < 0 ? -1 : 0;
+}
+
 struct msg {
 	struct nlmsghdr n;
 	struct genlmsghdr g;
@@ -187,6 +270,107 @@ static void hex(const unsigned char *p, int n)
 		printf("%02x", p[i]);
 }
 
+static unsigned int dev_index = 0;
+
+/* NFC_CMD_GET_TARGET is a dump: the kernel answers with one message per
+ * target, each carrying NFC_ATTR_TARGET_INDEX / PROTOCOLS / NFCID1 / SEL_RES. */
+static void dump_targets(unsigned int idx)
+{
+	struct {
+		struct nlmsghdr n;
+		struct genlmsghdr g;
+		char attrs[64];
+	} req;
+	struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
+	char buf[8192];
+	ssize_t r;
+	int fd = nl_open();
+
+	if (fd < 0)
+		return;
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
+	req.n.nlmsg_type = genl_family_id(fd);
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+	req.n.nlmsg_seq = 7;
+	req.g.cmd = NFC_CMD_GET_TARGET;
+	req.g.version = 1;
+	{
+		struct nlattr *na = (struct nlattr *)((char *)&req +
+						NLMSG_ALIGN(req.n.nlmsg_len));
+
+		na->nla_type = NFC_ATTR_DEVICE_INDEX;
+		na->nla_len = NLA_HDRLEN + sizeof(idx);
+		memcpy((char *)na + NLA_HDRLEN, &idx, sizeof(idx));
+		req.n.nlmsg_len = NLMSG_ALIGN(req.n.nlmsg_len) +
+				  NLA_ALIGN(na->nla_len);
+	}
+	if (sendto(fd, &req, req.n.nlmsg_len, 0, (struct sockaddr *)&addr,
+		   sizeof(addr)) < 0) {
+		close(fd);
+		return;
+	}
+
+	while ((r = recv(fd, buf, sizeof(buf), 0)) > 0) {
+		struct nlmsghdr *nlh;
+
+		for (nlh = (struct nlmsghdr *)buf; NLMSG_OK(nlh, (unsigned int)r);
+		     nlh = NLMSG_NEXT(nlh, r)) {
+			struct genlmsghdr *gh;
+			int len;
+			struct nlattr *na;
+			unsigned int t_idx = 0, protos = 0;
+			unsigned char nfcid1[10];
+			int nfcid1_len = 0, sel_res = -1;
+			unsigned short sens_res = 0;
+
+			if (nlh->nlmsg_type == NLMSG_DONE) {
+				close(fd);
+				return;
+			}
+			if (nlh->nlmsg_type == NLMSG_ERROR)
+				continue;
+
+			gh = NLMSG_DATA(nlh);
+			len = nlh->nlmsg_len - NLMSG_LENGTH(GENL_HDRLEN);
+			na = (struct nlattr *)((char *)gh + GENL_HDRLEN);
+			for (; NLA_OK(na, len); na = NLA_NEXT(na, len)) {
+				void *val = (char *)na + NLA_HDRLEN;
+
+				switch (na->nla_type) {
+				case NFC_ATTR_TARGET_INDEX:
+					t_idx = *(unsigned int *)val;
+					break;
+				case NFC_ATTR_PROTOCOLS:
+					protos = *(unsigned int *)val;
+					break;
+				case NFC_ATTR_TARGET_NFCID1:
+					nfcid1_len = na->nla_len - NLA_HDRLEN;
+					memcpy(nfcid1, val,
+					       nfcid1_len > 10 ? 10 : nfcid1_len);
+					break;
+				case NFC_ATTR_TARGET_SENS_RES:
+					sens_res = *(unsigned short *)val;
+					break;
+				case NFC_ATTR_TARGET_SEL_RES:
+					sel_res = *(unsigned char *)val;
+					break;
+				}
+			}
+			printf("  target %u: proto=%s", t_idx, proto_name(protos));
+			if (sens_res)
+				printf(" sens_res=0x%04x", sens_res);
+			if (sel_res >= 0)
+				printf(" sel_res=0x%02x", sel_res);
+			printf(" nfcid1=");
+			hex(nfcid1, nfcid1_len);
+			printf("\n");
+		}
+	}
+	close(fd);
+}
+
 static void dump_event(struct nlmsghdr *nlh)
 {
 	struct genlmsghdr *gh = NLMSG_DATA(nlh);
@@ -200,6 +384,9 @@ static void dump_event(struct nlmsghdr *nlh)
 		void *val = (char *)na + NLA_HDRLEN;
 
 		switch (na->nla_type) {
+		case NFC_ATTR_DEVICE_INDEX:
+			dev_index = *(unsigned int *)val;
+			break;
 		case NFC_ATTR_TARGET_INDEX:
 			target = *(unsigned int *)val;
 			break;
@@ -213,10 +400,10 @@ static void dump_event(struct nlmsghdr *nlh)
 		}
 	}
 	if (gh->cmd == NFC_EVENT_TARGETS_FOUND) {
-		printf("TARGET FOUND idx=%u proto=%s nfcid1=", target,
-		       proto_name(protos));
-		hex(nfcid1, nfcid1_len);
-		printf("\n");
+		printf("TARGET FOUND\n");
+		/* The event carries only the device index; the target itself
+		 * (protocol, nfcid1, sel_res) comes from a GET_TARGET dump. */
+		dump_targets(dev_index);
 	} else {
 		printf("event cmd=%u\n", gh->cmd);
 	}
@@ -252,6 +439,10 @@ int main(int argc, char **argv)
 		printf("nfc genl family not found\n");
 		return 1;
 	}
+	/* Target notifications are multicast; without joining the group the
+	 * socket never sees NFC_EVENT_TARGETS_FOUND. */
+	if (genl_join_mcast(fd, NFC_GENL_NAME, "events") < 0)
+		printf("warning: could not join the nfc event group\n");
 
 	if (!strcmp(mode, "down")) {
 		r = nfc_req(fd, fam, NFC_CMD_DEV_DOWN, dev_idx, 1, NLM_F_ACK, 1);

@@ -1,6 +1,32 @@
 # NFC — NXP SN100U (i2c1-002a, `qcom,nq-nci` на стоке)
 
-## Итог
+## Итог (обновлено 2026-11-10: обнаружение карты работает)
+
+```
+~ # nfc-nci-test poll
+START_POLL accepted by the kernel
+polling (tap a card)...
+TARGET FOUND
+  target 4: proto=MIFARE  sens_res=0x0042 sel_res=0x18 nfcid1=340216290e7356
+```
+
+Тройка (MIFARE Classic) читается в mainline: UID `34 02 16 29 0E 73 56`
+совпадает с тем, что показывает Android. Проверено в Ubuntu-rootfs с драйвером,
+собранным модулем.
+
+### Три бага, из-за которых раньше «ничего не находилось»
+
+1. **`NFC_ATTR_RF_MODE` слался 4 байтами**, а в ядре это `NLA_U8`
+   (`net/nfc/netlink.c`) → netlink отбрасывал всё сообщение
+   (`attribute type 11 has an invalid length`), `START_POLL` до чипа не доходил.
+2. **Не было подписки на multicast-группу** genl-семейства `nfc` (она называется
+   `events`, а не `nfc`): события `NFC_EVENT_TARGETS_FOUND` не доставлялись,
+   хотя ядро их слало (`dmesg`: `nfc: nfc_targets_found ... n_targets=1`).
+3. **Событие несёт только `NFC_ATTR_DEVICE_INDEX`** — сами данные цели
+   (протокол, `nfcid1`, `sel_res`) отдаются отдельным дампом
+   `NFC_CMD_GET_TARGET` с `NLM_F_DUMP`; теперь инструмент его делает.
+
+## Итог (первичный транспорт)
 
 **Транспорт NFC в mainline работает.** 2026-11-08:
 
