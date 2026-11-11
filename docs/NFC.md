@@ -142,8 +142,19 @@ mainline-стека не в антенне и не в карте.
 
 ## Дальше
 
-1. Проверить RF-обнаружение на реальной карте (`nfc-nci-test poll`).
-2. Userspace-стек: `neard` (netlink + AF_NFC) в Ubuntu rootfs; для
-   Type-2 меток нужен разбор `TARGET FOUND` → чтение NDEF.
+1. Проверить RF-обнаружение на реальной карте (`nfc-nci-test poll`,
+   `nfc-read`; карта МИФАР Классик «Тройка» есть — сток её видит).
+2. Userspace-стек: **neard собран и установлен в rootfs-образ** (2026-11-11).
+   В Ubuntu resolute/Debian neard из архивов убрали — собирается из
+   `https://git.kernel.org/pub/scm/network/nfc/neard.git` (meson, systemd=disabled).
+   Установка: `/usr/local/libexec/nfc/neard`, юнит `neard.service` (enabled),
+   D-Bus activation `org.neard.service`, конфиг `/usr/local/etc/neard/main.conf`
+   (`ConstantPoll=true`, `DefaultPowered=true` — адаптер сам включится и будет
+   поллить). Тест-утилита `nfctool` в `/usr/local/bin`. Скрипт:
+   `rootfs/tools/build-neard.sh` (вызывается из `build-rootfs.sh`).
+   Внимание: `libnfc-bin`/`nfc-list` НЕ работают с ядерным NCI-стеком —
+   libnfc говорит с чипом напрямую, а не через netlink; для проверки использовать
+   `nfctool`/`neard` или наши `nfc-*` утилиты.
 3. Прошивка чипа (`NFC_CMD_FW_DOWNLOAD`, blob `libsn100u_fw.so`) —
-   только если понадобится для карт/платежей.
+   только если понадобится для карт/платежей (MIFARE Classic/Type 2 работают
+   на ROM-NCI без прошивки).

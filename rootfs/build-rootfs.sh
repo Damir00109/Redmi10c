@@ -23,7 +23,7 @@ OUT="$ROOT/out"
 CACHE="$ROOT/cache"
 RF="$OUT/rootfs-26.04"
 LOG="$ROOT/logs"
-IMG_SIZE_MB="${IMG_SIZE_MB:-1800}"   # cust is 2 GiB; leave slack for fs
+IMG_SIZE_MB="${IMG_SIZE_MB:-4096}"   # cust is ~19.1G (sda8); 4G leaves room for neard/NFC + growth
 REDMI="${REDMI:-/mnt/128/Redmi10c}"
 
 TAR="$CACHE/ubuntu-26.04-server-cloudimg-arm64-root.tar.xz"
@@ -111,6 +111,14 @@ if [ -f "$ROOT/tools/rain-loc-tool.c" ]; then
   ' 2>&1 | tail -2
 else
   echo "WARN: no $ROOT/tools/rain-loc-tool.c — A-GPS config will not be applied" >&2
+fi
+
+# neard: NFC management daemon. Not in the Ubuntu resolute archives anymore,
+# so tools/build-neard.sh builds it from git.kernel.org inside the chroot.
+if [ -x "$ROOT/tools/build-neard.sh" ]; then
+  sudo "$ROOT/tools/build-neard.sh" "$RF"
+else
+  echo "WARN: no $ROOT/tools/build-neard.sh — NFC stack will be missing" >&2
 fi
 
 echo "=== [3/6] users / hostname / fstab ==="
