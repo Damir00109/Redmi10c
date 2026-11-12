@@ -158,3 +158,37 @@ mainline-стека не в антенне и не в карте.
 3. Прошивка чипа (`NFC_CMD_FW_DOWNLOAD`, blob `libsn100u_fw.so`) —
    только если понадобится для карт/платежей (MIFARE Classic/Type 2 работают
    на ROM-NCI без прошивки).
+
+## Статус 2026-11-12: neard end-to-end + init-последовательность SN100U
+
+**Работает:** neard 0.20 + D-Bus — карта «Москвёнок» (MIFARE Classic,
+UID `1d ba 06 1b 01 00 03`, 7 байт) детектится как `Type 2`/`MIFARE`,
+`ReadOnly: false`, Tag-объекты `/org/neard/nfc0/tag0`, авто-poweron
+через `nfc-poweron.sh` (ExecStartPost neard.service).
+
+**Сырой обмен (AF_NFC) — в отладке:** AUTH_KEY_A и Type2 READ уходят
+в чип (`00 00 LL ...` data-пакеты), но чип отвечает только data-status
+`60 06 03 01 00 01` без полезной нагрузки. `nfc-mfread` переписан:
+отдельный чистый netlink-сокет для GET_TARGET (как в nfc-nci-test),
+учёт 7-байтного UID (Classic auth требует NUID = uid[0..3]).
+
+**Init-последовательность (важно):** стоковый Android после
+CORE_INIT шлёт ~27 команд (PROP_ACT `2f 02 00`, десятки CORE_SET_CONFIG
+включая 4×~250-байтных RF-блока, TVDD_CFG_1, CORE_CONF/EXTN,
+GET_CONFIG, затем повторные RESET+INIT). Всё это снято из logcat
+`NxpNciX` и воспроизводится дословно в `nxp_nci_post_setup()`
+(`nxp_sn100u_init_seq[]` в drivers/nfc/nxp-nci/core.c, параметр
+`seq_enable=1`). Без этих конфигов чип находит карту, но data-exchange
+не возвращает данные — вероятная причина текущего блокера.
+
+**Дедлок remove (исправлен):** `nxp_nci_remove()` держал
+`info->info_lock` поверх `nci_unregister_device()` →
+`nci_close_device()` → `nxp_nci_close()` берёт тот же info_lock
+(не рекурсивный) → взаимная блокировка с IRQ-потоком, rmmod вис
+навсегда. Фикс: info_lock отпускается до unregister; в
+`nxp_nci_i2c_remove` `free_irq()` теперь ДО `nxp_nci_remove()`.
+
+**Грабля с модулями:** в rootfs ДВА пути .ko —
+`/lib/modules/7.3.0-dirty/nxp-nci.ko` (верхний уровень, фактически
+загружается) и `.../kernel/drivers/nfc/nxp-nci/`. Обновлять оба!
+`modules_install` кладёт только второй — верхний копировать руками.
