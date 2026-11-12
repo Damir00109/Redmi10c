@@ -37,7 +37,8 @@ rm -rf /var/lib/apt/lists/*
 '
 
 # systemd unit + D-Bus activation (meson build has systemd support disabled,
-# so the unit is written here)
+# so the unit is written here).  The kernel rfkill device for nfc0 starts
+# soft-blocked; unblock it before neard powers the adapter on.
 sudo tee "$RF/etc/systemd/system/neard.service" >/dev/null <<'EOF'
 [Unit]
 Description=Near Field Communication (NFC) management daemon
@@ -45,13 +46,43 @@ After=dbus.service
 Wants=dbus.service
 
 [Service]
+ExecStartPre=/usr/sbin/rfkill unblock nfc
 ExecStart=/usr/local/libexec/nfc/neard -n
+ExecStartPost=/usr/local/bin/nfc-poweron.sh
 Restart=on-failure
 RestartSec=2
 
 [Install]
 WantedBy=multi-user.target
 EOF
+# neard discovers the adapter but leaves it unpowered; power it on and start
+# the initiator poll loop as soon as the bus name is owned.
+sudo tee "$RF/usr/local/bin/nfc-poweron.sh" >/dev/null <<'EOF'
+#!/bin/sh
+# Power on the NFC adapter and start the initiator poll loop once neard
+# owns its bus name. neard discovers adapters but does not power them
+# by itself at boot, so this runs as neard.service ExecStartPost.
+for i in $(seq 1 30); do
+  gdbus call --system --dest org.freedesktop.DBus \
+    --object-path /org/freedesktop/DBus \
+    --method org.freedesktop.DBus.NameHasOwner org.neard >/dev/null 2>&1 && break
+  sleep 1
+done
+path=$(busctl --system tree org.neard 2>/dev/null | grep -o "/org/neard/nfc[0-9]*" | tail -1)
+[ -z "$path" ] && exit 0
+gdbus call --system --dest org.neard --object-path "$path" \
+  --method org.freedesktop.DBus.Properties.Set org.neard.Adapter Powered "<true>" >/dev/null 2>&1
+sleep 1
+gdbus call --system --dest org.neard --object-path "$path" \
+  --method org.neard.Adapter.StartPollLoop Initiator >/dev/null 2>&1
+EOF
+sudo chmod 755 "$RF/usr/local/bin/nfc-poweron.sh"
+# meson installs the bus policy under /usr/local/etc/dbus-1/system.d, which
+# dbus-daemon does NOT read — the allow rules for org.neard must live in
+# /etc/dbus-1/system.d or neard cannot own its bus name.
+sudo cp "$RF/usr/local/etc/dbus-1/system.d/org.neard.conf" \
+  "$RF/etc/dbus-1/system.d/org.neard.conf"
+sudo chmod 644 "$RF/etc/dbus-1/system.d/org.neard.conf"
 sudo mkdir -p "$RF/usr/share/dbus-1/system-services"
 sudo tee "$RF/usr/share/dbus-1/system-services/org.neard.service" >/dev/null <<'EOF'
 [D-BUS Service]
