@@ -13,6 +13,7 @@ IMG=${1:-$OUT/boot-rescue-slim.img}
 aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/nfc-probe" "$ROOT/tools/nfc-probe.c"
 aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/nfc-nci-test" "$ROOT/tools/nfc-nci-test.c"
 aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/nfc-read" "$ROOT/tools/nfc-read.c"
+aarch64-linux-gnu-gcc -static -O2 -o "$IR/bin/nfc-mfread" "$ROOT/tools/nfc-mfread.c"
 
 rm -rf "$SLIM"
 mkdir -p "$SLIM"
