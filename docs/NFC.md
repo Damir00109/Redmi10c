@@ -243,3 +243,46 @@ TVDD → brown-out PMIC; (в) возможно Android шлёт эти кадр�
 - Баг возврата в chunked-пути исправлен (r=skb->len для check'а).
 - Осталось: MIFARE Classic auth — чип отвечает `60 06 03 01 00 01`,
   данных нет; возможно ключи Москвёнка неизвестны (пробовали MAD/NFC).
+
+## Статус 2026-11-14 (ночь): end-to-end в Ubuntu + полировка
+
+**Проверено в Ubuntu rootfs (systemd + neard 0.20):**
+- neard: адаптер `/org/neard/nfc1` powered, `StartPollLoop` → Initiator,
+  Tag-объект `/org/neard/nfc1/tagN` с Type/Protocol/UID/ReadOnly.
+- Micron A1CB.2 (Type 2 / Ultralight-семейство, UID 7B `3484de318b1d07`):
+  neard корректно читает CC (стр.3); у карты нет валидного NDEF magic
+  (`ff ff ff fc`) → neard помечает proprietary/blank, NDEF-записей нет —
+  это правильное поведение, не баг.
+- Raw-путь подтверждён на железе: READ `30 xx` и WRITE `A2 xx d0..d3`
+  (ACK `0A`) — запись `de ad be ef` на стр.0x10 сохранилась между сессиями.
+- «Москвёнок» = MIFARE Classic 1K с кастомными ключами: 17 частых
+  ключей (A+B) не подошли — карта молчит после AUTH (норма для Classic).
+  Для Classic-чтения нужен либо ключ из MCT/Proxmark, либо darkside.
+
+**Полировка драйвера (для публикации):**
+- `dev_info` hexdump каждого tx/rx кадра → `dev_dbg` (включается через
+  dynamic debug, в dmesg больше нет флуда).
+- Убран debug-параметр `seq_max` (инструмент бисекта); оставлен
+  `seq_enable` — полезный выключатель реплея стоковой init-последовательности.
+- Лог seq-реплея: одна строка `SN100U init sequence replayed (16 frames)`
+  вместо pr_info на каждый кадр.
+- i2c TX: chunked-путь (I2C_M_NOSTART по 32B) **полностью удалён** —
+  он оказался вреден: `i2c_transfer` по NOSTART-цепочке возвращал не
+  `n`, драйвер считал ошибку и делал retry → чип получал кадр дважды
+  (видно по двойному response-бёрсту `40 02 01 05` + `60 08` NTF),
+  большие SET_CONFIG реджектились (`status 05`), а следующий write
+  ловил NAK (-5 EIO). С `qcom,no-dma` одиночные write до 254B работают
+  как в стоке — вернули чистый `i2c_master_send`. Проверено на железе:
+  все 16 кадров → `40 02 02 00 00` (status 0), без единой ошибки.
+- `dev_dbg` hexdump tx/rx оставлен — включается через dynamic debug
+  (`echo 'file i2c.c +p' > /sys/kernel/debug/dynamic_debug/control`),
+  по умолчанию молчит.
+
+**Известные ограничения (не баги):**
+- MIFARE Classic auth: нужен ключ карты; кадр формируется корректно
+  (`60 00` + key + NUID для 7-байт UID), чип отвечает credits-NUFW.
+- После WRITE на Type 2 карточный сокет может вернуть аномальный rx
+  (~218B) и порваться (EPIPE) — запись при этом успешна (ACK+verify
+  на следующей сессии). Вероятно NCI notification, не влияющая на данные.
+- Прошивка SN100U (`libsn100u_fw`) не грузится — для T1T/T2T не нужна;
+  `fw_download` оставлен на будущее.

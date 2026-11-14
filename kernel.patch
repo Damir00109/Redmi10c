@@ -15254,10 +15254,10 @@ index e57588c19..f7f43aece 100644
  	}
  
 diff --git a/drivers/nfc/nxp-nci/core.c b/drivers/nfc/nxp-nci/core.c
-index 448e5a4e7..5a1810f9e 100644
+index 448e5a4e7..1a34ea6d1 100644
 --- a/drivers/nfc/nxp-nci/core.c
 +++ b/drivers/nfc/nxp-nci/core.c
-@@ -123,11 +123,175 @@ static const struct nci_driver_ops nxp_nci_core_ops[] = {
+@@ -123,11 +123,161 @@ static const struct nci_driver_ops nxp_nci_core_ops[] = {
  	},
  };
  
@@ -15357,17 +15357,6 @@ index 448e5a4e7..5a1810f9e 100644
 +		 " replay the stock Android SN100U init sequence");
 +
 +/*
-+ * Cap on the number of SET_CONFIG frames replayed.  Used to bisect which
-+ * frame wedges the I2C bus / resets the SoC: the crash leaves no pstore
-+ * record (watchdog-style reset, not a panic), so we find the culprit by
-+ * prefix length instead of post-mortem logs.
-+ */
-+static int nxp_sn100u_seq_max = 64;
-+module_param_named(seq_max, nxp_sn100u_seq_max, int, 0644);
-+MODULE_PARM_DESC(seq_max,
-+		 " max SET_CONFIG frames to replay from the SN100U sequence");
-+
-+/*
 + * The stock sequence must not be sent from post_setup(): post_setup runs
 + * under req_lock while nci_open_device() still has a pending request, and
 + * every command response (SET_CONFIG_RSP, RESET_RSP, ...) calls
@@ -15391,10 +15380,6 @@ index 448e5a4e7..5a1810f9e 100644
 +		 * asynchronously, both are noise at best. */
 +		if (nxp_sn100u_init_seq[i].oid != 0x02)
 +			continue;
-+		if (sent >= nxp_sn100u_seq_max)
-+			break;
-+		pr_info("nxp-nci: seq frame %d (entry %d) len %u\n", sent, i,
-+			nxp_sn100u_init_seq[i].len);
 +		nci_send_cmd(ndev,
 +			     nci_opcode_pack(NCI_GID_CORE,
 +					    nxp_sn100u_init_seq[i].oid),
@@ -15403,7 +15388,8 @@ index 448e5a4e7..5a1810f9e 100644
 +		sent++;
 +		msleep(50);
 +	}
-+	pr_info("nxp-nci: seq done, sent %d frames\n", sent);
++	dev_info(&ndev->nfc_dev->dev,
++		 "SN100U init sequence replayed (%d frames)\n", sent);
 +}
 +
 +static int nxp_nci_post_setup(struct nci_dev *ndev)
@@ -15415,7 +15401,7 @@ index 448e5a4e7..5a1810f9e 100644
 +	if (rc)
 +		return rc;
 +
-+	if (nxp_sn100u_seq_enable && nxp_sn100u_seq_max > 0)
++	if (nxp_sn100u_seq_enable)
 +		schedule_delayed_work(&info->seq_work,
 +				      msecs_to_jiffies(300));
 +
@@ -15433,7 +15419,7 @@ index 448e5a4e7..5a1810f9e 100644
  	.core_ops = nxp_nci_core_ops,
  	.n_core_ops = ARRAY_SIZE(nxp_nci_core_ops),
  };
-@@ -149,6 +313,7 @@ int nxp_nci_probe(void *phy_id, struct device *pdev,
+@@ -149,6 +299,7 @@ int nxp_nci_probe(void *phy_id, struct device *pdev,
  	info->phy_ops = phy_ops;
  	info->max_payload = max_payload;
  	INIT_WORK(&info->fw_info.work, nxp_nci_fw_work);
@@ -15441,7 +15427,7 @@ index 448e5a4e7..5a1810f9e 100644
  	init_completion(&info->fw_info.cmd_completion);
  	mutex_init(&info->info_lock);
  
-@@ -185,16 +350,22 @@ void nxp_nci_remove(struct nci_dev *ndev)
+@@ -185,16 +336,22 @@ void nxp_nci_remove(struct nci_dev *ndev)
  	if (info->mode == NXP_NCI_MODE_FW)
  		nxp_nci_fw_work_complete(info, -ESHUTDOWN);
  	cancel_work_sync(&info->fw_info.work);
@@ -15467,59 +15453,20 @@ index 448e5a4e7..5a1810f9e 100644
  EXPORT_SYMBOL(nxp_nci_remove);
  
 diff --git a/drivers/nfc/nxp-nci/i2c.c b/drivers/nfc/nxp-nci/i2c.c
-index 92ce096e9..8e679b18d 100644
+index 92ce096e9..9cb5e461a 100644
 --- a/drivers/nfc/nxp-nci/i2c.c
 +++ b/drivers/nfc/nxp-nci/i2c.c
-@@ -30,6 +30,15 @@
- 
- #define NXP_NCI_I2C_MAX_PAYLOAD	32
- 
-+/*
-+ * The SN100U wedges the QCOM i2c controller on single transfers larger
-+ * than ~64 bytes (observed: a 253-byte SET_CONFIG write resets the SoC
-+ * with no panic record).  Stream big frames as chained i2c messages with
-+ * I2C_M_NOSTART so the bus sees one continuous transaction.
-+ */
-+#define NXP_NCI_I2C_CHUNK	32
-+#define NXP_NCI_I2C_MAX_MSGS	16
-+
- struct nxp_nci_i2c_phy {
- 	struct i2c_client *i2c_dev;
- 	struct nci_dev *ndev;
-@@ -67,7 +76,31 @@ static int nxp_nci_i2c_write(void *phy_id, struct sk_buff *skb)
+@@ -67,6 +67,9 @@ static int nxp_nci_i2c_write(void *phy_id, struct sk_buff *skb)
  	if (phy->hard_fault != 0)
  		return phy->hard_fault;
  
--	r = i2c_master_send(client, skb->data, skb->len);
-+	dev_info(&client->dev, "tx %u bytes: %*ph\n", skb->len,
-+		 skb->len, skb->data);
++	dev_dbg(&client->dev, "tx %u bytes: %*ph\n", skb->len,
++		skb->len, skb->data);
 +
-+	if (skb->len > NXP_NCI_I2C_CHUNK &&
-+	    skb->len <= NXP_NCI_I2C_CHUNK * NXP_NCI_I2C_MAX_MSGS) {
-+		struct i2c_msg msg[NXP_NCI_I2C_MAX_MSGS];
-+		int n = 0, off = 0;
-+
-+		while (off < skb->len) {
-+			msg[n].addr = client->addr;
-+			msg[n].flags = n ? I2C_M_NOSTART : 0;
-+			msg[n].len = min_t(int, NXP_NCI_I2C_CHUNK,
-+					   skb->len - off);
-+			msg[n].buf = skb->data + off;
-+			n++;
-+			off += msg[n - 1].len;
-+		}
-+		r = i2c_transfer(client->adapter, msg, n);
-+		if (r == n)
-+			r = skb->len;
-+		else if (r >= 0)
-+			r = -EREMOTEIO;
-+	} else {
-+		r = i2c_master_send(client, skb->data, skb->len);
-+	}
+ 	r = i2c_master_send(client, skb->data, skb->len);
  	if (r < 0) {
  		/* Retry, chip was in standby */
- 		msleep(110);
-@@ -195,6 +228,7 @@ static irqreturn_t nxp_nci_i2c_irq_thread_fn(int irq, void *phy_id)
+@@ -195,6 +198,7 @@ static irqreturn_t nxp_nci_i2c_irq_thread_fn(int irq, void *phy_id)
  
  	struct sk_buff *skb = NULL;
  	int r = 0;
@@ -15527,7 +15474,7 @@ index 92ce096e9..8e679b18d 100644
  
  	if (!phy || !phy->ndev)
  		goto exit_irq_none;
-@@ -214,16 +248,31 @@ static irqreturn_t nxp_nci_i2c_irq_thread_fn(int irq, void *phy_id)
+@@ -214,16 +218,31 @@ static irqreturn_t nxp_nci_i2c_irq_thread_fn(int irq, void *phy_id)
  	if (phy->hard_fault != 0)
  		goto exit_irq_handled;
  
@@ -15569,17 +15516,17 @@ index 92ce096e9..8e679b18d 100644
  	}
  
  	if (r == -EREMOTEIO) {
-@@ -244,6 +293,9 @@ static irqreturn_t nxp_nci_i2c_irq_thread_fn(int irq, void *phy_id)
+@@ -244,6 +263,9 @@ static irqreturn_t nxp_nci_i2c_irq_thread_fn(int irq, void *phy_id)
  		goto exit_irq_handled;
  	}
  
-+	dev_info(&client->dev, "rx %u bytes: %*ph\n", skb->len,
-+		 skb->len, skb->data);
++	dev_dbg(&client->dev, "rx %u bytes: %*ph\n", skb->len,
++		skb->len, skb->data);
 +
  	switch (info->mode) {
  	case NXP_NCI_MODE_NCI:
  		nci_recv_frame(phy->ndev, skb);
-@@ -346,8 +398,13 @@ static void nxp_nci_i2c_remove(struct i2c_client *client)
+@@ -346,8 +368,13 @@ static void nxp_nci_i2c_remove(struct i2c_client *client)
  {
  	struct nxp_nci_i2c_phy *phy = i2c_get_clientdata(client);
  
