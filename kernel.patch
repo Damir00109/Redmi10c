@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..ebd78e82b
+index 000000000..9d728505f
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1392 @@
+@@ -0,0 +1,1400 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -929,6 +929,14 @@ index 000000000..ebd78e82b
 +&i2c2 {
 +	status = "okay";
 +	clock-frequency = <400000>;
++
++	/*
++	 * SE-DMA wedges this serial engine on multi-hundred-byte transfers
++	 * (SN100U SET_CONFIG frames up to 254 B hard-reset the SoC); pin the
++	 * bus to PIO/FIFO mode.  Stock Android streams the same frames over
++	 * i2c-1 @4a88000 fine.
++	 */
++	qcom,no-dma;
 +
 +	smb1351@55 {
 +		compatible = "summit,smb1351";
@@ -15459,7 +15467,7 @@ index 448e5a4e7..5a1810f9e 100644
  EXPORT_SYMBOL(nxp_nci_remove);
  
 diff --git a/drivers/nfc/nxp-nci/i2c.c b/drivers/nfc/nxp-nci/i2c.c
-index 92ce096e9..662d44f66 100644
+index 92ce096e9..8e679b18d 100644
 --- a/drivers/nfc/nxp-nci/i2c.c
 +++ b/drivers/nfc/nxp-nci/i2c.c
 @@ -30,6 +30,15 @@
@@ -15502,7 +15510,7 @@ index 92ce096e9..662d44f66 100644
 +		}
 +		r = i2c_transfer(client->adapter, msg, n);
 +		if (r == n)
-+			r = 0;
++			r = skb->len;
 +		else if (r >= 0)
 +			r = -EREMOTEIO;
 +	} else {
