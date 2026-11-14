@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..d32b8b542
+index 000000000..9d728505f
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1346 @@
+@@ -0,0 +1,1400 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -186,6 +186,7 @@ index 000000000..d32b8b542
 +#include <dt-bindings/input/linux-event-codes.h>
 +#include <dt-bindings/clock/qcom,rpmcc.h>
 +#include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 +
 +/ {
 +	qcom,msm-id = <0x206 0x10000>;
@@ -235,6 +236,7 @@ index 000000000..d32b8b542
 +			linux,code = <SW_RFKILL_ALL>;
 +			debounce-interval = <10>;
 +		};
++
 +	};
 +
 +	chosen {
@@ -423,6 +425,12 @@ index 000000000..d32b8b542
 +			regulator-min-microvolt = <1800000>;
 +			regulator-max-microvolt = <2000000>;
 +			regulator-allow-set-load;
++			/* Stock DT marks the silead rail always-on; without
++			 * it RPM may hold the LDO in low-power mode and the
++			 * sensor browns out during scans (ESD latch + SPI
++			 * timeouts, see docs/FINGERPRINT.md). */
++			regulator-always-on;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 +		};
 +
 +		pm6125_l10a: l10 {
@@ -594,6 +602,7 @@ index 000000000..d32b8b542
 +	 * Pin 120 is UFS_RESET (output-only); extend gpio-range to 121.
 +	 */
 +	gpio-ranges = <&tlmm 0 0 121>;
++
 +
 +	ufs_reset_default: ufs-reset-default {
 +		config {
@@ -776,6 +785,36 @@ index 000000000..d32b8b542
 +			/* Keep off at boot: this is the 800mA flash strobe line. */
 +			linux,default-trigger = "none";
 +		};
++
++	};
++};
++
++/*
++ * Silead fingerprint sensor — AP-side wrapper only.  SPI/QUP belongs to
++ * the sileadta TrustZone app; this node feeds power/reset/IRQ to
++ * drivers/misc/silead_fp.c which exposes /dev/silead_fp with the vendor
++ * ioctl contract.  Stock DT: soc/silead_fp (sil,silead_fp), qup-id 6,
++ * 4.8 MHz, avdd/vddio = pm6125_l9, gpios 100/104/83.
++ */
++/ {
++	silead_fp {
++		compatible = "sil,silead_fp";
++		reg = <0>;
++		qcom,qup-id = <6>;
++		spi-max-frequency = <0x493e00>;
++
++		avdd-supply = <&pm6125_l9a>;
++		vddio-supply = <&pm6125_l9a>;
++		avdd-gpios = <&tlmm 100 GPIO_ACTIVE_HIGH>;
++		rst-gpios = <&tlmm 104 GPIO_ACTIVE_HIGH>;
++		irq-gpios = <&tlmm 83 GPIO_ACTIVE_HIGH>;
++
++		interrupt-parent = <&tlmm>;
++		interrupts = <83 IRQ_TYPE_EDGE_RISING>;
++
++		/* No pinctrl-0: khaje-pinctrl and gpiod fight over the pin
++		 * (pinctrl and gpiod cannot claim the same TLMM pin). */
++		status = "okay";
 +	};
 +};
 +
@@ -795,6 +834,13 @@ index 000000000..d32b8b542
 +&spi0 {
 +	status = "disabled";
 +};
++
++/*
++ * Fingerprint slot: QUPv3 SE5 (spi@4a94000).  Do NOT enable it.
++ * Android drives the sensor from the TEE via qsee_spi(dev_id 5); the SE5
++ * register block is closed to the non-secure world — probing geni-spi on it
++ * hangs the SoC (screen frozen, no USB).  See docs/FINGERPRINT.md.
++ */
 +
 +/ {
 +	spi_gpio_ts: spi {
@@ -883,6 +929,14 @@ index 000000000..d32b8b542
 +&i2c2 {
 +	status = "okay";
 +	clock-frequency = <400000>;
++
++	/*
++	 * SE-DMA wedges this serial engine on multi-hundred-byte transfers
++	 * (SN100U SET_CONFIG frames up to 254 B hard-reset the SoC); pin the
++	 * bus to PIO/FIFO mode.  Stock Android streams the same frames over
++	 * i2c-1 @4a88000 fine.
++	 */
++	qcom,no-dma;
 +
 +	smb1351@55 {
 +		compatible = "summit,smb1351";
@@ -1598,10 +1652,10 @@ index 000000000..722422ee8
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225.dtsi b/arch/arm64/boot/dts/qcom/sm6225.dtsi
 new file mode 100644
-index 000000000..f773a2ef7
+index 000000000..ec54691ec
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225.dtsi
-@@ -0,0 +1,2509 @@
+@@ -0,0 +1,2554 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2021, Martin Botka <martin.botka@somainline.org>
@@ -2377,6 +2431,32 @@ index 000000000..f773a2ef7
 +				input-enable;
 +			};
 +
++			fp_irq_default: fp-irq-default-state {
++				pins = "gpio83";
++				function = "gpio";
++				drive-strength = <2>;
++				bias-pull-up;
++				input-enable;
++			};
++
++			/* Silead AVDD switch (gpio100) — driver raises it on power-on */
++			fp_avdd_default: fp-avdd-default-state {
++				pins = "gpio100";
++				function = "gpio";
++				drive-strength = <2>;
++				bias-disable;
++				output-low;
++			};
++
++			/* Silead reset (gpio104) — idle released (high) */
++			fp_rst_default: fp-rst-default-state {
++				pins = "gpio104";
++				function = "gpio";
++				drive-strength = <2>;
++				bias-disable;
++				output-high;
++			};
++
 +			/* Camera CCI I2C (Android rain: qup? no — dedicated CCI pads) */
 +			cci0_default: cci0-default-state {
 +				pins = "gpio22", "gpio23";
@@ -3070,6 +3150,25 @@ index 000000000..f773a2ef7
 +				clocks = <&gcc GCC_QUPV3_WRAP0_S3_CLK>;
 +				clock-names = "se";
 +				interrupts = <GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>;
++				status = "disabled";
++			};
++
++			/*
++			 * SE5 — the fingerprint slot. The stock TEE drives it over
++			 * qsee_spi (dev_id 5), so the AP never sees an SPI node in
++			 * Android; see docs/FINGERPRINT.md. FIFO mode (no dmas).
++			 * No pinctrl: gpio14-17 are LPASS-island pins, reserved in
++			 * pinctrl-khaje.c (AP TLMM access resets the SoC) — the
++			 * secure side has to have muxed them to QUP5 already.
++			 */
++			spi5: spi@4a94000 {
++				compatible = "qcom,geni-spi";
++				reg = <0x04a94000 0x4000>;
++				clock-names = "se";
++				clocks = <&gcc GCC_QUPV3_WRAP0_S5_CLK>;
++				interrupts = <GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>;
++				#address-cells = <1>;
++				#size-cells = <0>;
 +				status = "disabled";
 +			};
 +		};
@@ -5084,10 +5183,113 @@ index eebbc6de2..d42fcbc04 100644
  
  	ret = qcom_cc_really_probe(&pdev->dev, &gpucc_sm6375_desc, regmap);
 diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
-index 3eaa4c9cc..a9a9aa89a 100644
+index 3eaa4c9cc..d88a78964 100644
 --- a/drivers/firmware/qcom/qcom_scm.c
 +++ b/drivers/firmware/qcom/qcom_scm.c
-@@ -2335,6 +2335,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
+@@ -119,6 +119,15 @@ enum qcom_scm_qseecom_tz_cmd_app {
+ 	QSEECOM_TZ_CMD_APP_LOOKUP		= 3,
+ };
+ 
++/*
++ * APP_MGR commands (owner QSEE_OS, service APP_MGR).  APP_START is the
++ * "load a TA image" call: args are (mdt_len, img_len, image_phys).
++ */
++enum qcom_scm_qseecom_tz_cmd_app_mgr {
++	QSEECOM_TZ_CMD_APP_START		= 1,
++	QSEECOM_TZ_CMD_APP_SHUTDOWN		= 2,
++};
++
+ enum qcom_scm_qseecom_tz_cmd_info {
+ 	QSEECOM_TZ_CMD_INFO_VERSION		= 3,
+ };
+@@ -2295,6 +2304,86 @@ int qcom_scm_qseecom_app_send(u32 app_id, void *req, size_t req_size,
+ }
+ EXPORT_SYMBOL_GPL(qcom_scm_qseecom_app_send);
+ 
++/**
++ * qcom_scm_qseecom_app_load() - Load a QSEE app image into the secure world.
++ * @img:      TA image (TZ memory), laid out at the ELF segment offsets.
++ * @img_len:  Size of the image.
++ *
++ * Issues APP_START with the image's physical address.  On success the app
++ * becomes available to qcom_scm_qseecom_app_get_id().
++ *
++ * Return: Zero on success, nonzero on failure.
++ */
++int qcom_scm_qseecom_app_load(void *img, size_t img_len, u32 *app_id)
++{
++	struct qcom_scm_qseecom_resp res = {};
++	struct qcom_scm_desc desc = {};
++	phys_addr_t img_phys;
++	int status;
++
++	img_phys = qcom_tzmem_to_phys(img);
++
++	desc.owner = QSEECOM_TZ_OWNER_QSEE_OS;
++	desc.svc = QSEECOM_TZ_SVC_APP_MGR;
++	desc.cmd = QSEECOM_TZ_CMD_APP_START;
++	desc.arginfo = QCOM_SCM_ARGS(3, QCOM_SCM_VAL, QCOM_SCM_VAL,
++				     QCOM_SCM_VAL);
++	desc.args[0] = 0;	/* mdt_len: the vendor loader passes 0 */
++	desc.args[1] = img_len;
++	desc.args[2] = img_phys;
++
++	status = qcom_scm_qseecom_call(&desc, &res);
++
++	pr_info("qseecom: APP_START img_len=%zu phys=%pa status=%d result=0x%llx resp_type=0x%llx data=0x%llx\n",
++		img_len, &img_phys, status, res.result, res.resp_type, res.data);
++
++	if (status)
++		return status;
++
++	if (res.result != QSEECOM_RESULT_SUCCESS)
++		return -EIO;
++
++	if (res.resp_type != QSEECOM_SCM_RES_APP_ID)
++		return -EINVAL;
++
++	*app_id = res.data;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(qcom_scm_qseecom_app_load);
++
++/**
++ * qcom_scm_qseecom_app_shutdown() - Unload a QSEE app from the secure world.
++ * @app_id: The ID of the app to shut down.
++ *
++ * Issues APP_SHUTDOWN so a stale or half-configured app instance does not
++ * keep receiving commands meant for a fresh session.
++ *
++ * Return: Zero on success, nonzero on failure.
++ */
++int qcom_scm_qseecom_app_shutdown(u32 app_id)
++{
++	struct qcom_scm_qseecom_resp res = {};
++	struct qcom_scm_desc desc = {};
++	int status;
++
++	desc.owner = QSEECOM_TZ_OWNER_QSEE_OS;
++	desc.svc = QSEECOM_TZ_SVC_APP_MGR;
++	desc.cmd = QSEECOM_TZ_CMD_APP_SHUTDOWN;
++	desc.arginfo = QCOM_SCM_ARGS(1, QCOM_SCM_VAL);
++	desc.args[0] = app_id;
++
++	status = qcom_scm_qseecom_call(&desc, &res);
++
++	if (status)
++		return status;
++
++	if (res.result != QSEECOM_RESULT_SUCCESS)
++		return -EIO;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(qcom_scm_qseecom_app_shutdown);
++
+ /*
+  * We do not yet support re-entrant calls via the qseecom interface. To prevent
+  + any potential issues with this, only allow validated machines for now.
+@@ -2335,6 +2424,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
  	{ .compatible = "qcom,x1e80100-crd" },
  	{ .compatible = "qcom,x1e80100-qcp" },
  	{ .compatible = "qcom,x1p42100-crd" },
@@ -13547,13 +13749,31 @@ index 2123f6388..755d02d50 100644
  	.probe = camss_probe,
  	.remove = camss_remove,
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index 7364931da..f6b0e3a73 100644
+index 7364931da..44a4ff36b 100644
 --- a/drivers/misc/Kconfig
 +++ b/drivers/misc/Kconfig
-@@ -586,4 +586,23 @@ source "drivers/misc/keba/Kconfig"
+@@ -586,4 +586,41 @@ source "drivers/misc/keba/Kconfig"
  source "drivers/misc/amd-sbi/Kconfig"
  source "drivers/misc/rp1/Kconfig"
  source "drivers/misc/issei/Kconfig"
++
++config QSEECOM_FP
++	tristate "Minimal QSEECom client for fingerprint TA experiments"
++	depends on QCOM_QSEECOM && QCOM_TZMEM
++	help
++	  Misc device that loads a TrustZone application image (APP_START)
++	  and exchanges request/response buffers with it.  Used to talk to
++	  the sileadta fingerprint TA on Xiaomi Redmi 10C (sm6225) from
++	  mainline.  The image is laid out by userspace.
++
++config SILEAD_FP
++	tristate "Silead fingerprint sensor AP-side driver (minimal)"
++	help
++	  Minimal driver for the Silead fingerprint sensor on Xiaomi
++	  Redmi 10C (sm6225).  The SPI bus belongs to the sileadta TrustZone
++	  application; this driver only handles power rails, reset and the
++	  finger-detect IRQ, exposing the vendor-compatible ioctl contract
++	  (/dev/silead_fp, magic 's') used by tools/ta-load.c.
 +
 +config AW87XXX_MINI
 +	tristate "Awinic AW87xxx speaker PA (minimal)"
@@ -13575,13 +13795,15 @@ index 7364931da..f6b0e3a73 100644
 +
  endmenu
 diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
-index e8d8d5d88..f266a969f 100644
+index e8d8d5d88..4f6410324 100644
 --- a/drivers/misc/Makefile
 +++ b/drivers/misc/Makefile
-@@ -71,3 +71,5 @@ obj-y				+= keba/
+@@ -71,3 +71,7 @@ obj-y				+= keba/
  obj-y				+= amd-sbi/
  obj-$(CONFIG_MISC_RP1)		+= rp1/
  obj-$(CONFIG_INTEL_SSEI)	+= issei/
++obj-$(CONFIG_QSEECOM_FP)		+= qseecom_fp.o
++obj-$(CONFIG_SILEAD_FP)		+= silead_fp.o
 +obj-$(CONFIG_AW87XXX_MINI)		+= aw87xxx-mini.o
 +obj-$(CONFIG_WL2866D)		+= wl2866d.o
 diff --git a/drivers/misc/aw87xxx-mini.c b/drivers/misc/aw87xxx-mini.c
@@ -14058,6 +14280,356 @@ index e57588c19..f7f43aece 100644
  		return;
  	}
  
+diff --git a/drivers/nfc/nxp-nci/core.c b/drivers/nfc/nxp-nci/core.c
+index 448e5a4e7..bf20e7089 100644
+--- a/drivers/nfc/nxp-nci/core.c
++++ b/drivers/nfc/nxp-nci/core.c
+@@ -123,11 +123,208 @@ static const struct nci_driver_ops nxp_nci_core_ops[] = {
+ 	},
+ };
+ 
++/*
++ * NXP proprietary activation command (PROP_ACT, OID=0x02).
++ * Must be sent after CORE_INIT to enable NXP proprietary extensions
++ * and activate the RF subsystem. Without this, RF discovery yields
++ * no usable data path on NXP NCI 2.0 controllers (SN100U, PN7150).
++ */
++#define NXP_NCI_PROP_ACT_CMD nci_opcode_pack(NCI_GID_PROPRIETARY, 0x02)
++
++/*
++ * SN100U init sequence replayed verbatim from stock Android
++ * (logcat NxpNciX trace, FW 12.1.16 / chip PN557).  Each entry is
++ * { oid, len, payload } for a GID_CORE command via nci_send_cmd().
++ */
++static const u8 nxp_sn100u_seq_00[] = { 0x01, 0xa0, 0x07, 0x01, 0x03 };
++static const u8 nxp_sn100u_seq_01[] = { 0x03, 0xa0, 0x02, 0xa0, 0x03, 0xa0, 0x04 };
++static const u8 nxp_sn100u_seq_02[] = { 0x01, 0xa0, 0x03, 0x01, 0x00 };
++static const u8 nxp_sn100u_seq_03[] = { 0x01, 0xa0, 0x20, 0x08, 0x88, 0x51, 0xe3, 0x82, 0xb8, 0x21, 0xe1, 0x02 };
++static const u8 nxp_sn100u_seq_04[] = { 0x01, 0xa0, 0x26, 0x08, 0x88, 0x01, 0xe2, 0x82, 0xf0, 0x00, 0xa2, 0x01 };
++static const u8 nxp_sn100u_seq_05[] = { 0x01, 0xa0, 0x44, 0x01, 0x00 };
++static const u8 nxp_sn100u_seq_06[] = { 0x01, 0xa0, 0x0e, 0x0b, 0x11, 0x01, 0x01, 0x31, 0x00, 0x00, 0x00, 0x21, 0x00, 0x10, 0x0c };
++static const u8 nxp_sn100u_seq_07[] = { 0x1f, 0xa0, 0x35, 0x01, 0x00, 0xa0, 0x0d, 0x03, 0x00, 0x43, 0xa0, 0xa0, 0x0d, 0x04, 0x00, 0x42, 0xff, 0xff, 0xa0, 0x0d, 0x06, 0x04, 0x44, 0x00, 0x08, 0xf6, 0x00, 0xa0, 0x0d, 0x06, 0x04, 0x45, 0x80, 0x40, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x04, 0x4a, 0x00, 0x00, 0x00, 0x00, 0xa0, 0x0d, 0x03, 0x04, 0x47, 0x00, 0xa0, 0x0d, 0x06, 0x04, 0x35, 0x00, 0x3e, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x04, 0x33, 0x0f, 0x40, 0x04, 0x00, 0xa0, 0x0d, 0x03, 0x04, 0x40, 0x00, 0xa0, 0x0d, 0x06, 0x06, 0x35, 0xf4, 0x05, 0x70, 0x02, 0xa0, 0x0d, 0x06, 0x06, 0x42, 0xf8, 0x40, 0xff, 0xff, 0xa0, 0x0d, 0x06, 0xc2, 0x35, 0x00, 0x3e, 0x00, 0x03, 0xa0, 0x0d, 0x06, 0xc2, 0x34, 0xf7, 0x7f, 0x10, 0x08, 0xa0, 0x0d, 0x06, 0xc2, 0x33, 0x03, 0x40, 0x04, 0x80, 0xa0, 0x0d, 0x06, 0x08, 0x2d, 0x0d, 0x25, 0x2c, 0x01, 0xa0, 0x0d, 0x06, 0x08, 0x44, 0x04, 0x04, 0xc4, 0x00, 0xa0, 0x0d, 0x06, 0x08, 0x30, 0x70, 0x00, 0x18, 0x00, 0xa0, 0x0d, 0x06, 0x08, 0x45, 0x83, 0x60, 0x40, 0x05, 0xa0, 0x0d, 0x06, 0x08, 0x42, 0x00, 0x02, 0xf6, 0xf6, 0xa0, 0x0d, 0x06, 0x08, 0x16, 0xae, 0x00, 0x1f, 0x00, 0xa0, 0x0d, 0x03, 0x08, 0x15, 0x00, 0xa0, 0x0d, 0x06, 0x08, 0x37, 0x08, 0x76, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x09, 0x30, 0x00, 0x00, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x09, 0x37, 0x00, 0x00, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x09, 0x42, 0x01, 0x10, 0xff, 0xff, 0xa0, 0x0d, 0x03, 0x72, 0x03, 0x3d, 0xa0, 0x0d, 0x04, 0x72, 0x42, 0xf8, 0x40, 0xa0, 0x0d, 0x03, 0x72, 0x16, 0x01, 0xa0, 0x0d, 0x03, 0x72, 0x15, 0x01, 0xa0, 0x0d, 0x06, 0x72, 0x4a, 0x53, 0x07, 0x00, 0x1b };
++static const u8 nxp_sn100u_seq_08[] = { 0x22, 0xa0, 0x0d, 0x03, 0x72, 0x0d, 0x24, 0xa0, 0x0d, 0x03, 0x72, 0x14, 0x24, 0xa0, 0x0d, 0x06, 0x3c, 0x2d, 0xdc, 0x20, 0x04, 0x00, 0xa0, 0x0d, 0x06, 0x3c, 0x44, 0x66, 0x0a, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x74, 0x4a, 0x56, 0x07, 0x01, 0x1b, 0xa0, 0x0d, 0x04, 0x74, 0x42, 0x68, 0x40, 0xa0, 0x0d, 0x03, 0x74, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x74, 0x15, 0x00, 0xa0, 0x0d, 0x03, 0x74, 0x0d, 0x11, 0xa0, 0x0d, 0x03, 0x74, 0x14, 0x11, 0xa0, 0x0d, 0x06, 0x3e, 0x2d, 0x05, 0x35, 0x1e, 0x01, 0xa0, 0x0d, 0x06, 0x3e, 0x44, 0x65, 0x09, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x76, 0x4a, 0x56, 0x07, 0x01, 0x1b, 0xa0, 0x0d, 0x04, 0x76, 0x42, 0x68, 0x40, 0xa0, 0x0d, 0x03, 0x76, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x76, 0x15, 0x00, 0xa0, 0x0d, 0x03, 0x76, 0x0d, 0x08, 0xa0, 0x0d, 0x03, 0x76, 0x14, 0x08, 0xa0, 0x0d, 0x06, 0x40, 0x2d, 0x05, 0x45, 0x1e, 0x01, 0xa0, 0x0d, 0x06, 0x40, 0x44, 0x65, 0x09, 0x00, 0x00, 0xa0, 0x0d, 0x04, 0x78, 0x42, 0xf0, 0x40, 0xa0, 0x0d, 0x06, 0x78, 0x4a, 0x11, 0x07, 0x01, 0x1b, 0xa0, 0x0d, 0x03, 0x78, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x78, 0x15, 0x00, 0xa0, 0x0d, 0x03, 0x78, 0x0d, 0x04, 0xa0, 0x0d, 0x03, 0x78, 0x14, 0x04, 0xa0, 0x0d, 0x06, 0x4c, 0x44, 0x65, 0x0a, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x4c, 0x2d, 0x15, 0x34, 0x1f, 0x01, 0xa0, 0x0d, 0x06, 0x82, 0x4a, 0x33, 0x07, 0x00, 0x07, 0xa0, 0x0d, 0x04, 0x82, 0x42, 0x68, 0x40, 0xa0, 0x0d, 0x06, 0x82, 0x0f, 0x6c, 0x01, 0x04, 0x00, 0xa0, 0x0d, 0x03, 0x82, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x82, 0x15, 0x00, 0xa0, 0x0d, 0x06, 0x4e, 0x44, 0x65, 0x09, 0x00, 0x00 };
++static const u8 nxp_sn100u_seq_09[] = { 0x21, 0xa0, 0x0d, 0x06, 0x4e, 0x2d, 0x05, 0x35, 0x1e, 0x01, 0xa0, 0x0d, 0x06, 0x84, 0x4a, 0x13, 0x07, 0x01, 0x07, 0xa0, 0x0d, 0x04, 0x84, 0x42, 0x68, 0x40, 0xa0, 0x0d, 0x03, 0x84, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x84, 0x15, 0x00, 0xa0, 0x0d, 0x06, 0x50, 0x44, 0x65, 0x09, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x50, 0x2d, 0x05, 0x35, 0x1e, 0x01, 0xa0, 0x0d, 0x06, 0x86, 0x4a, 0x12, 0x07, 0x01, 0x07, 0xa0, 0x0d, 0x04, 0x86, 0x42, 0x68, 0x40, 0xa0, 0x0d, 0x03, 0x86, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x86, 0x15, 0x00, 0xa0, 0x0d, 0x06, 0x5e, 0x2d, 0x0d, 0x48, 0x0c, 0x01, 0xa0, 0x0d, 0x06, 0x5e, 0x44, 0x55, 0x08, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x60, 0x2d, 0x0d, 0x5a, 0x0c, 0x01, 0xa0, 0x0d, 0x06, 0x60, 0x44, 0x55, 0x08, 0x00, 0x00, 0xa0, 0x0d, 0x04, 0x94, 0x42, 0x78, 0x40, 0xa0, 0x0d, 0x06, 0x94, 0x4a, 0x43, 0x07, 0x00, 0x07, 0xa0, 0x0d, 0x03, 0x94, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x94, 0x15, 0x00, 0xa0, 0x0d, 0x04, 0x96, 0x42, 0x80, 0x40, 0xa0, 0x0d, 0x06, 0x96, 0x4a, 0x11, 0x07, 0x01, 0x07, 0xa0, 0x0d, 0x03, 0x96, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x96, 0x15, 0x00, 0xa0, 0x0d, 0x06, 0x1c, 0x44, 0x05, 0x04, 0xc4, 0x00, 0xa0, 0x0d, 0x03, 0x24, 0x03, 0x7f, 0xa0, 0x0d, 0x06, 0x70, 0x16, 0x8e, 0x00, 0x1f, 0x00, 0xa0, 0x0d, 0x03, 0x28, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x2c, 0x16, 0x00, 0xa0, 0x0d, 0x06, 0x34, 0x44, 0x04, 0x04, 0xc4, 0x00, 0xa0, 0x0d, 0x06, 0x36, 0x30, 0xe0, 0x00, 0x30, 0x00, 0xa0, 0x0d, 0x03, 0x36, 0x45, 0x70, 0xa0, 0x0d, 0x03, 0x37, 0x45, 0x60, 0xa0, 0x0d, 0x06, 0x38, 0x30, 0x40, 0x00, 0x20, 0x00 };
++static const u8 nxp_sn100u_seq_10[] = { 0x1e, 0xa0, 0x0d, 0x06, 0x38, 0x44, 0x02, 0x04, 0xc4, 0x00, 0xa0, 0x0d, 0x06, 0x3a, 0x30, 0x26, 0x00, 0x08, 0x00, 0xa0, 0x0d, 0x06, 0x3a, 0x44, 0x11, 0x00, 0xc4, 0x00, 0xa0, 0x0d, 0x06, 0x44, 0x30, 0x70, 0x00, 0x18, 0x00, 0xa0, 0x0d, 0x06, 0x44, 0x44, 0x04, 0x04, 0xc4, 0x00, 0xa0, 0x0d, 0x06, 0x46, 0x30, 0xb0, 0x00, 0x45, 0x00, 0xa0, 0x0d, 0x06, 0x48, 0x30, 0xb0, 0x00, 0x45, 0x00, 0xa0, 0x0d, 0x06, 0x4a, 0x30, 0x70, 0x00, 0x18, 0x00, 0xa0, 0x0d, 0x03, 0x56, 0x30, 0x00, 0xa0, 0x0d, 0x06, 0x0c, 0x45, 0xc3, 0x82, 0x71, 0x05, 0xa0, 0x0d, 0x03, 0x10, 0x44, 0x60, 0xa0, 0x0d, 0x06, 0x10, 0x30, 0x70, 0x00, 0x18, 0x00, 0xa0, 0x0d, 0x03, 0x10, 0x48, 0x10, 0xa0, 0x0d, 0x06, 0x10, 0x45, 0x80, 0x40, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x10, 0x2d, 0x0d, 0x25, 0x2c, 0x01, 0xa0, 0x0d, 0x03, 0x10, 0x35, 0x0c, 0xa0, 0x0d, 0x06, 0x11, 0x30, 0x00, 0x00, 0x00, 0x00, 0xa0, 0x0d, 0x03, 0x11, 0x48, 0x00, 0xa0, 0x0d, 0x06, 0x11, 0x85, 0x00, 0x00, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0x22, 0x44, 0x05, 0x04, 0xc4, 0x00, 0xa0, 0x0d, 0x06, 0x62, 0x44, 0x04, 0x04, 0xc4, 0x00, 0xa0, 0x0d, 0x03, 0x12, 0x16, 0x00, 0xa0, 0x0d, 0x06, 0x12, 0x37, 0x00, 0x00, 0x00, 0x00, 0xa0, 0x0d, 0x03, 0x12, 0x35, 0x0c, 0xa0, 0x0d, 0x06, 0xcc, 0x42, 0xf8, 0x40, 0xff, 0xff, 0xa0, 0x0d, 0x06, 0xcc, 0x4a, 0x53, 0x07, 0x00, 0x1b, 0xa0, 0x0d, 0x06, 0xce, 0x42, 0x78, 0x40, 0xff, 0xff, 0xa0, 0x0d, 0x06, 0xce, 0x4a, 0x43, 0x07, 0x00, 0x07, 0xa0, 0x0d, 0x06, 0xd0, 0x42, 0x80, 0x40, 0xff, 0xff, 0xa0, 0x0d, 0x06, 0xd0, 0x4a, 0x11, 0x07, 0x01, 0x07 };
++static const u8 nxp_sn100u_seq_11[] = { 0x0b, 0xa0, 0x0d, 0x03, 0x98, 0x16, 0x01, 0xa0, 0x0d, 0x03, 0x98, 0x15, 0x01, 0xa0, 0x0d, 0x03, 0x9a, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x9a, 0x15, 0x00, 0xa0, 0x0d, 0x03, 0x9c, 0x16, 0x00, 0xa0, 0x0d, 0x03, 0x9c, 0x15, 0x00, 0xa0, 0x0d, 0x04, 0xca, 0x42, 0x68, 0x40, 0xa0, 0x0d, 0x06, 0xca, 0x44, 0x65, 0x0a, 0x00, 0x00, 0xa0, 0x0d, 0x06, 0xca, 0x2d, 0x15, 0x34, 0x1f, 0x01, 0xa0, 0x0b, 0x57, 0x11, 0x11, 0x90, 0x5a, 0x0f, 0x4e, 0x00, 0x47, 0x15, 0xb7, 0xaa, 0x47, 0x9f, 0xa7, 0x99, 0x5c, 0x9f, 0x97, 0x99, 0x67, 0x9f, 0x97, 0x99, 0x69, 0x9f, 0x97, 0x00, 0x73, 0x9f, 0x07, 0x00, 0x75, 0x9f, 0x07, 0x00, 0x80, 0x9f, 0x07, 0x00, 0x84, 0x9f, 0x07, 0x00, 0x8d, 0x9f, 0x07, 0x00, 0x8f, 0x9f, 0x07, 0x00, 0x99, 0x9f, 0x04, 0x00, 0x9b, 0x9f, 0x04, 0x00, 0xa6, 0x9f, 0x04, 0x00, 0xa8, 0x9f, 0x04, 0x00, 0xb2, 0x9f, 0x02, 0x00, 0xbb, 0x9f, 0x00, 0x00, 0xc1, 0x9f, 0x00, 0x00, 0xcc, 0x1f, 0x00, 0x00, 0xd6, 0x1f, 0x00, 0x00, 0xa0, 0xaf, 0x0c, 0x03, 0xc0, 0x80, 0xa0, 0x00, 0x03, 0x80, 0x80, 0xa0, 0x00, 0x77, 0x08 };
++static const u8 nxp_sn100u_seq_12[] = { 0x14, 0xa0, 0x02, 0x01, 0x01, 0xa0, 0x03, 0x01, 0x03, 0xa0, 0xec, 0x01, 0x01, 0xa0, 0xed, 0x01, 0x00, 0xa0, 0x5e, 0x01, 0x01, 0xa0, 0x12, 0x01, 0x02, 0xa0, 0x40, 0x01, 0x00, 0xa0, 0x41, 0x01, 0x05, 0xa0, 0x42, 0x01, 0x0f, 0xa0, 0x43, 0x01, 0x02, 0xa0, 0x46, 0x02, 0x00, 0x27, 0xa0, 0x47, 0x02, 0x00, 0x27, 0xa0, 0xdd, 0x01, 0x2d, 0xa0, 0xd1, 0x01, 0x06, 0xa0, 0xd4, 0x01, 0x00, 0xa0, 0x37, 0x01, 0x35, 0xa0, 0x86, 0x01, 0x77, 0xa0, 0x38, 0x04, 0x06, 0x06, 0x03, 0x00, 0xa0, 0x3a, 0x08, 0xb4, 0x00, 0xb4, 0x00, 0xb4, 0x00, 0xb4, 0x00, 0xa0, 0x29, 0x17, 0x1e, 0x07, 0x00, 0x1d, 0x00, 0x02, 0x00, 0x1d, 0x00, 0x02, 0x00, 0x43, 0xfa, 0xfa, 0x00, 0x43, 0xfa, 0xfa, 0x38, 0x70, 0x00, 0x00, 0x02 };
++static const u8 nxp_sn100u_seq_13[] = { 0x10, 0x28, 0x01, 0x00, 0x21, 0x01, 0x00, 0x30, 0x01, 0x08, 0x31, 0x01, 0x03, 0x32, 0x01, 0x20, 0x38, 0x01, 0x01, 0x33, 0x04, 0x01, 0x02, 0x03, 0x04, 0x54, 0x01, 0x06, 0x50, 0x01, 0x02, 0x5b, 0x01, 0x00, 0x80, 0x01, 0x01, 0x81, 0x01, 0x01, 0x82, 0x01, 0x0e, 0x18, 0x01, 0x01, 0x68, 0x01, 0x01, 0x85, 0x01, 0x01 };
++static const u8 nxp_sn100u_seq_14[] = { 0x01, 0xa0, 0xec };
++static const u8 nxp_sn100u_seq_15[] = { 0x01, 0xa0, 0xd4 };
++static const u8 nxp_sn100u_seq_16[] = { 0x01, 0xa0, 0x14 };
++static const u8 nxp_sn100u_seq_17[] = { 0x01, 0xa0, 0x62, 0x01, 0x00 };
++static const u8 nxp_sn100u_seq_18[] = { 0x01, 0xa0, 0xf3, 0x02, 0x10, 0x27 };
++static const u8 nxp_sn100u_seq_19[] = { 0x01, 0xa0, 0x85 };
++static const u8 nxp_sn100u_seq_20[] = { 0x01, 0xa0, 0xf1, 0x01, 0x00 };
++static const u8 nxp_sn100u_seq_21[] = { 0x00 };
++static const u8 nxp_sn100u_seq_22[] = { 0x00, 0x00 };
++static const u8 nxp_sn100u_seq_23[] = { 0x01, 0x00 };
++static const u8 nxp_sn100u_seq_24[] = { 0x01, 0x29 };
++static const u8 nxp_sn100u_seq_25[] = { 0x01, 0x61 };
++static const u8 nxp_sn100u_seq_26[] = { 0x01, 0x60 };
++static const struct {
++	u8 oid;
++	u8 len;
++	const u8 *data;
++} nxp_sn100u_init_seq[] = {
++	{ 0x02, 5, nxp_sn100u_seq_00 },
++	{ 0x03, 7, nxp_sn100u_seq_01 },
++	{ 0x02, 5, nxp_sn100u_seq_02 },
++	{ 0x02, 12, nxp_sn100u_seq_03 },
++	{ 0x02, 12, nxp_sn100u_seq_04 },
++	{ 0x02, 5, nxp_sn100u_seq_05 },
++	{ 0x02, 15, nxp_sn100u_seq_06 },
++	{ 0x02, 250, nxp_sn100u_seq_07 },
++	{ 0x02, 251, nxp_sn100u_seq_08 },
++	{ 0x02, 251, nxp_sn100u_seq_09 },
++	{ 0x02, 250, nxp_sn100u_seq_10 },
++	{ 0x02, 167, nxp_sn100u_seq_11 },
++	{ 0x02, 115, nxp_sn100u_seq_12 },
++	{ 0x02, 52, nxp_sn100u_seq_13 },
++	{ 0x03, 3, nxp_sn100u_seq_14 },
++	{ 0x03, 3, nxp_sn100u_seq_15 },
++	{ 0x03, 3, nxp_sn100u_seq_16 },
++	{ 0x02, 5, nxp_sn100u_seq_17 },
++	{ 0x02, 6, nxp_sn100u_seq_18 },
++	{ 0x03, 3, nxp_sn100u_seq_19 },
++	{ 0x02, 5, nxp_sn100u_seq_20 },
++	{ 0x00, 1, nxp_sn100u_seq_21 },
++	{ 0x01, 2, nxp_sn100u_seq_22 },
++	{ 0x03, 2, nxp_sn100u_seq_23 },
++	{ 0x03, 2, nxp_sn100u_seq_24 },
++	{ 0x03, 2, nxp_sn100u_seq_25 },
++	{ 0x03, 2, nxp_sn100u_seq_26 },
++};
++
++
++static int nxp_nci_prop_act_rsp(struct nci_dev *ndev, struct sk_buff *skb)
++{
++	u8 status = skb->data[0];
++
++	nci_req_complete(ndev, status);
++	return 0;
++}
++
++static const struct nci_driver_ops nxp_nci_prop_ops[] = {
++	{
++		.opcode = NXP_NCI_PROP_ACT_CMD,
++		.rsp = nxp_nci_prop_act_rsp,
++	},
++};
++
++static int nxp_sn100u_seq_enable = 1;
++module_param_named(seq_enable, nxp_sn100u_seq_enable, int, 0644);
++MODULE_PARM_DESC(seq_enable,
++		 " replay the stock Android SN100U init sequence");
++
++static int nxp_nci_mfc_raw = 1;
++module_param_named(mfc_raw, nxp_nci_mfc_raw, int, 0644);
++MODULE_PARM_DESC(mfc_raw,
++		 " activate MIFARE targets on the SN100U proprietary "
++		 "RF protocol/interface 0x80 (frame I/F) like stock Android");
++
++/*
++ * Stock Android selects MIFARE targets with rf_protocol=0x80 /
++ * rf_interface=0x80 (NXP proprietary MIFARE frame I/F), on which the
++ * controller understands the '40 <sector> <flags> [key]' auth and
++ * '10 <mifare frame>' command wrappers used by NxpMfcReader.  With the
++ * standard T2T/FRAME selection the SN100U accepts data packets but
++ * never produces a DATA_PKT response.
++ */
++static void nxp_nci_rf_select_iface(struct nci_dev *ndev,
++				    struct nci_rf_discover_select_cmd *cmd)
++{
++	if (nxp_nci_mfc_raw &&
++	    cmd->rf_protocol == NCI_RF_PROTOCOL_T2T) {
++		cmd->rf_protocol = 0x80;
++		cmd->rf_interface = 0x80;
++	}
++}
++
++/*
++ * The stock sequence must not be sent from post_setup(): post_setup runs
++ * under req_lock while nci_open_device() still has a pending request, and
++ * every command response (SET_CONFIG_RSP, RESET_RSP, ...) calls
++ * nci_req_complete() which would complete that unrelated request with a
++ * bogus status.  Defer the replay until the device is fully up: with no
++ * request pending the stray responses are harmless.
++ */
++static void nxp_sn100u_seq_work(struct work_struct *work)
++{
++	struct nxp_nci_info *info = container_of(work, struct nxp_nci_info,
++						 seq_work.work);
++	struct nci_dev *ndev = info->ndev;
++	int i, sent = 0;
++
++	if (!ndev)
++		return;
++
++	/*
++	 * Do not blast SET_CONFIG frames into an active RF session:
++	 * they can drop the field/poll state mid-exchange.  The replay
++	 * is only needed once after open; if the controller is busy,
++	 * wait for it to go idle (bounded, then give up for this open).
++	 */
++	if (!test_bit(NCI_UP, &ndev->flags))
++		return;
++	if (atomic_read(&ndev->state) != NCI_IDLE) {
++		if (info->seq_retries++ < 40) {
++			schedule_delayed_work(&info->seq_work,
++					      msecs_to_jiffies(250));
++			return;
++		}
++		info->seq_done = 1;
++		return;
++	}
++	info->seq_retries = 0;
++
++	for (i = 0; i < ARRAY_SIZE(nxp_sn100u_init_seq); i++) {
++		/* Only SET_CONFIG frames: GET_CONFIG has no rsp handler and
++		 * the second RESET/INIT pair would re-run controller init
++		 * asynchronously, both are noise at best. */
++		if (nxp_sn100u_init_seq[i].oid != 0x02)
++			continue;
++		nci_send_cmd(ndev,
++			     nci_opcode_pack(NCI_GID_CORE,
++					    nxp_sn100u_init_seq[i].oid),
++			     nxp_sn100u_init_seq[i].len,
++			     nxp_sn100u_init_seq[i].data);
++		sent++;
++		msleep(50);
++	}
++	dev_info(&ndev->nfc_dev->dev,
++		 "SN100U init sequence replayed (%d frames)\n", sent);
++	info->seq_done = 1;
++}
++
++static int nxp_nci_post_setup(struct nci_dev *ndev)
++{
++	struct nxp_nci_info *info = nci_get_drvdata(ndev);
++	int rc;
++
++	rc = nci_prop_cmd(ndev, 0x02, 0, NULL);
++	if (rc)
++		return rc;
++
++	if (nxp_sn100u_seq_enable && !info->seq_done) {
++		info->seq_retries = 0;
++		schedule_delayed_work(&info->seq_work,
++				      msecs_to_jiffies(300));
++	}
++
++	return 0;
++}
++
+ static const struct nci_ops nxp_nci_ops = {
+ 	.open = nxp_nci_open,
+ 	.close = nxp_nci_close,
+ 	.send = nxp_nci_send,
++	.post_setup = nxp_nci_post_setup,
+ 	.fw_download = nxp_nci_fw_download,
++	.rf_select_iface = nxp_nci_rf_select_iface,
++	.prop_ops = nxp_nci_prop_ops,
++	.n_prop_ops = ARRAY_SIZE(nxp_nci_prop_ops),
+ 	.core_ops = nxp_nci_core_ops,
+ 	.n_core_ops = ARRAY_SIZE(nxp_nci_core_ops),
+ };
+@@ -149,6 +346,7 @@ int nxp_nci_probe(void *phy_id, struct device *pdev,
+ 	info->phy_ops = phy_ops;
+ 	info->max_payload = max_payload;
+ 	INIT_WORK(&info->fw_info.work, nxp_nci_fw_work);
++	INIT_DELAYED_WORK(&info->seq_work, nxp_sn100u_seq_work);
+ 	init_completion(&info->fw_info.cmd_completion);
+ 	mutex_init(&info->info_lock);
+ 
+@@ -185,16 +383,22 @@ void nxp_nci_remove(struct nci_dev *ndev)
+ 	if (info->mode == NXP_NCI_MODE_FW)
+ 		nxp_nci_fw_work_complete(info, -ESHUTDOWN);
+ 	cancel_work_sync(&info->fw_info.work);
++	cancel_delayed_work_sync(&info->seq_work);
+ 
+ 	mutex_lock(&info->info_lock);
+ 
+ 	if (info->phy_ops->set_mode)
+ 		info->phy_ops->set_mode(info->phy_id, NXP_NCI_MODE_COLD);
+ 
++	mutex_unlock(&info->info_lock);
++
++	/*
++	 * nci_unregister_device() -> nci_close_device() calls back into
++	 * nxp_nci_close() which takes info->info_lock again, so the lock
++	 * must not be held across it (it is not recursive).
++	 */
+ 	nci_unregister_device(ndev);
+ 	nci_free_device(ndev);
+-
+-	mutex_unlock(&info->info_lock);
+ }
+ EXPORT_SYMBOL(nxp_nci_remove);
+ 
+diff --git a/drivers/nfc/nxp-nci/i2c.c b/drivers/nfc/nxp-nci/i2c.c
+index 92ce096e9..9cb5e461a 100644
+--- a/drivers/nfc/nxp-nci/i2c.c
++++ b/drivers/nfc/nxp-nci/i2c.c
+@@ -67,6 +67,9 @@ static int nxp_nci_i2c_write(void *phy_id, struct sk_buff *skb)
+ 	if (phy->hard_fault != 0)
+ 		return phy->hard_fault;
+ 
++	dev_dbg(&client->dev, "tx %u bytes: %*ph\n", skb->len,
++		skb->len, skb->data);
++
+ 	r = i2c_master_send(client, skb->data, skb->len);
+ 	if (r < 0) {
+ 		/* Retry, chip was in standby */
+@@ -195,6 +198,7 @@ static irqreturn_t nxp_nci_i2c_irq_thread_fn(int irq, void *phy_id)
+ 
+ 	struct sk_buff *skb = NULL;
+ 	int r = 0;
++	int retry;
+ 
+ 	if (!phy || !phy->ndev)
+ 		goto exit_irq_none;
+@@ -214,16 +218,31 @@ static irqreturn_t nxp_nci_i2c_irq_thread_fn(int irq, void *phy_id)
+ 	if (phy->hard_fault != 0)
+ 		goto exit_irq_handled;
+ 
+-	switch (info->mode) {
+-	case NXP_NCI_MODE_NCI:
+-		r = nxp_nci_i2c_nci_read(phy, &skb);
+-		break;
+-	case NXP_NCI_MODE_FW:
+-		r = nxp_nci_i2c_fw_read(phy, &skb);
+-		break;
+-	case NXP_NCI_MODE_COLD:
+-		r = -EREMOTEIO;
+-		break;
++	/*
++	 * IRQs can fire while the chip is still booting after a VEN cycle
++	 * or while it is in a low-power state: the slave then NAKs the
++	 * first read (-EREMOTEIO) or has no data ready (-ENXIO).  Retry a
++	 * few times before treating it as a real fault — the upstream code
++	 * latched hard_fault on a single -EREMOTEIO, which then blocked
++	 * every later NCI transaction until the next COLD transition.
++	 */
++	for (r = 0, retry = 0; retry < 5; retry++) {
++		switch (info->mode) {
++		case NXP_NCI_MODE_NCI:
++			r = nxp_nci_i2c_nci_read(phy, &skb);
++			break;
++		case NXP_NCI_MODE_FW:
++			r = nxp_nci_i2c_fw_read(phy, &skb);
++			break;
++		case NXP_NCI_MODE_COLD:
++		default:
++			/* Stale IRQ: nothing to read, not a fault. */
++			goto exit_irq_handled;
++		}
++
++		if (r != -EREMOTEIO && r != -ENXIO && r != -EIO)
++			break;
++		usleep_range(1500, 2500);
+ 	}
+ 
+ 	if (r == -EREMOTEIO) {
+@@ -244,6 +263,9 @@ static irqreturn_t nxp_nci_i2c_irq_thread_fn(int irq, void *phy_id)
+ 		goto exit_irq_handled;
+ 	}
+ 
++	dev_dbg(&client->dev, "rx %u bytes: %*ph\n", skb->len,
++		skb->len, skb->data);
++
+ 	switch (info->mode) {
+ 	case NXP_NCI_MODE_NCI:
+ 		nci_recv_frame(phy->ndev, skb);
+@@ -346,8 +368,13 @@ static void nxp_nci_i2c_remove(struct i2c_client *client)
+ {
+ 	struct nxp_nci_i2c_phy *phy = i2c_get_clientdata(client);
+ 
+-	nxp_nci_remove(phy->ndev);
++	/*
++	 * Kill the IRQ first: the threaded handler must not run while
++	 * nxp_nci_remove() tears down the nci_dev, and free_irq() also
++	 * waits for an in-flight handler invocation.
++	 */
+ 	free_irq(client->irq, phy);
++	nxp_nci_remove(phy->ndev);
+ }
+ 
+ static const struct i2c_device_id nxp_nci_i2c_id_table[] = {
+diff --git a/drivers/nfc/nxp-nci/nxp-nci.h b/drivers/nfc/nxp-nci/nxp-nci.h
+index ae3fb2735..2df2273a4 100644
+--- a/drivers/nfc/nxp-nci/nxp-nci.h
++++ b/drivers/nfc/nxp-nci/nxp-nci.h
+@@ -62,6 +62,10 @@ struct nxp_nci_info {
+ 	struct mutex info_lock;
+ 
+ 	struct nxp_nci_fw_info fw_info;
++
++	struct delayed_work seq_work;
++	int seq_retries;
++	int seq_done;
+ };
+ 
+ int nxp_nci_fw_download(struct nci_dev *ndev, const char *firmware_name);
 diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c b/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
 index d4aca22c1..6598527c2 100644
 --- a/drivers/phy/qualcomm/phy-qcom-qmp-ufs.c
@@ -18136,6 +18708,113 @@ index b91a7b460..2cf571166 100644
  
  /* GCC resets */
  #define GCC_QUSB2PHY_PRIM_BCR					0
+diff --git a/include/linux/firmware/qcom/qcom_scm.h b/include/linux/firmware/qcom/qcom_scm.h
+index 5747bd191..60fa6526e 100644
+--- a/include/linux/firmware/qcom/qcom_scm.h
++++ b/include/linux/firmware/qcom/qcom_scm.h
+@@ -172,6 +172,8 @@ int qcom_scm_shm_bridge_delete(u64 handle);
+ int qcom_scm_qseecom_app_get_id(const char *app_name, u32 *app_id);
+ int qcom_scm_qseecom_app_send(u32 app_id, void *req, size_t req_size,
+ 			      void *rsp, size_t rsp_size);
++int qcom_scm_qseecom_app_load(void *img, size_t img_len, u32 *app_id);
++int qcom_scm_qseecom_app_shutdown(u32 app_id);
+ 
+ #else /* CONFIG_QCOM_QSEECOM */
+ 
+@@ -187,6 +189,17 @@ static inline int qcom_scm_qseecom_app_send(u32 app_id,
+ 	return -EINVAL;
+ }
+ 
++static inline int qcom_scm_qseecom_app_load(void *img, size_t img_len,
++					    u32 *app_id)
++{
++	return -EINVAL;
++}
++
++static inline int qcom_scm_qseecom_app_shutdown(u32 app_id)
++{
++	return -EINVAL;
++}
++
+ #endif /* CONFIG_QCOM_QSEECOM */
+ 
+ int qcom_scm_qtee_invoke_smc(phys_addr_t inbuf, size_t inbuf_size,
+diff --git a/include/net/nfc/nci_core.h b/include/net/nfc/nci_core.h
+index 664d5058e..b39fcd38a 100644
+--- a/include/net/nfc/nci_core.h
++++ b/include/net/nfc/nci_core.h
+@@ -71,6 +71,8 @@ struct nci_ops {
+ 	int   (*post_setup)(struct nci_dev *ndev);
+ 	int   (*fw_download)(struct nci_dev *ndev, const char *firmware_name);
+ 	__u32 (*get_rfprotocol)(struct nci_dev *ndev, __u8 rf_protocol);
++	void  (*rf_select_iface)(struct nci_dev *ndev,
++				 struct nci_rf_discover_select_cmd *cmd);
+ 	int   (*discover_se)(struct nci_dev *ndev);
+ 	int   (*disable_se)(struct nci_dev *ndev, u32 se_idx);
+ 	int   (*enable_se)(struct nci_dev *ndev, u32 se_idx);
+diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+index 73e3a9647..0f4bfd1b2 100644
+--- a/net/nfc/nci/core.c
++++ b/net/nfc/nci/core.c
+@@ -187,6 +187,37 @@ static void nci_init_complete_req(struct nci_dev *ndev, const void *opt)
+ 	/* set rf mapping configurations */
+ 	*num = 0;
+ 
++	/*
++	 * Explicitly map T1T, T2T, T3T, T5T to Frame RF interface.
++	 * The NCI spec says unmapped protocols default to Frame RF,
++	 * but NXP NCI 2.0 controllers (e.g. SN100U) require explicit
++	 * mappings for tag data exchange to work.
++	 */
++	if (*num < NCI_MAX_NUM_MAPPING_CONFIGS) {
++		cfg[*num].rf_protocol = NCI_RF_PROTOCOL_T1T;
++		cfg[*num].mode = NCI_DISC_MAP_MODE_POLL;
++		cfg[*num].rf_interface = NCI_RF_INTERFACE_FRAME;
++		(*num)++;
++	}
++	if (*num < NCI_MAX_NUM_MAPPING_CONFIGS) {
++		cfg[*num].rf_protocol = NCI_RF_PROTOCOL_T2T;
++		cfg[*num].mode = NCI_DISC_MAP_MODE_POLL;
++		cfg[*num].rf_interface = NCI_RF_INTERFACE_FRAME;
++		(*num)++;
++	}
++	if (*num < NCI_MAX_NUM_MAPPING_CONFIGS) {
++		cfg[*num].rf_protocol = NCI_RF_PROTOCOL_T3T;
++		cfg[*num].mode = NCI_DISC_MAP_MODE_POLL;
++		cfg[*num].rf_interface = NCI_RF_INTERFACE_FRAME;
++		(*num)++;
++	}
++	if (*num < NCI_MAX_NUM_MAPPING_CONFIGS) {
++		cfg[*num].rf_protocol = NCI_RF_PROTOCOL_T5T;
++		cfg[*num].mode = NCI_DISC_MAP_MODE_POLL;
++		cfg[*num].rf_interface = NCI_RF_INTERFACE_FRAME;
++		(*num)++;
++	}
++
+ 	/* by default mapping is set to NCI_RF_INTERFACE_FRAME */
+ 	for (i = 0; i < ndev->num_supported_rf_interfaces; i++) {
+ 		if (ndev->supported_rf_interfaces[i] ==
+@@ -326,6 +357,9 @@ static void nci_rf_discover_select_req(struct nci_dev *ndev, const void *opt)
+ 		break;
+ 	}
+ 
++	if (ndev->ops->rf_select_iface)
++		ndev->ops->rf_select_iface(ndev, &cmd);
++
+ 	nci_send_cmd(ndev, NCI_OP_RF_DISCOVER_SELECT_CMD,
+ 		     sizeof(struct nci_rf_discover_select_cmd), &cmd);
+ }
+@@ -939,7 +973,9 @@ static int nci_activate_target(struct nfc_dev *nfc_dev,
+ 		return -EINVAL;
+ 	}
+ 
+-	if (atomic_read(&ndev->state) == NCI_W4_HOST_SELECT) {
++	if (atomic_read(&ndev->state) == NCI_W4_HOST_SELECT ||
++	    (atomic_read(&ndev->state) == NCI_POLL_ACTIVE &&
++	     ndev->ops->rf_select_iface)) {
+ 		param.rf_discovery_id = nci_target->logical_idx;
+ 
+ 		if (protocol == NFC_PROTO_JEWEL)
 diff --git a/net/qrtr/ns.c b/net/qrtr/ns.c
 index bcb090ee7..e46977b8b 100644
 --- a/net/qrtr/ns.c
