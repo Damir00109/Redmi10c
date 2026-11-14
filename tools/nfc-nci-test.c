@@ -11,6 +11,7 @@
  * The rfkill soft block has to be cleared first:
  *   echo 0 > /sys/class/rfkill/rfkill0/soft
  */
+#include <dirent.h>
 #include <errno.h>
 #include <linux/nfc.h>
 #include <linux/netlink.h>
@@ -413,7 +414,7 @@ static void dump_event(struct nlmsghdr *nlh)
 int main(int argc, char **argv)
 {
 	const char *mode = argc > 1 ? argv[1] : "up";
-	unsigned int dev_idx = 0;
+	unsigned int dev_idx = ~0U;
 	unsigned int im = NFC_PROTO_JEWEL_MASK | NFC_PROTO_MIFARE_MASK |
 			  NFC_PROTO_ISO14443_MASK | NFC_PROTO_ISO14443_B_MASK |
 			  NFC_PROTO_FELICA_MASK | NFC_PROTO_ISO15693_MASK;
@@ -433,6 +434,28 @@ int main(int argc, char **argv)
 	if (fd < 0) {
 		perror("netlink");
 		return 1;
+	}
+	/* pick the first adapter in /sys/class/nfc — the index is not
+	 * stable across module reloads */
+	{
+		DIR *d = opendir("/sys/class/nfc");
+		struct dirent *de;
+
+		if (d) {
+			while ((de = readdir(d))) {
+				unsigned int n;
+				if (sscanf(de->d_name, "nfc%u", &n) == 1) {
+					dev_idx = n;
+					break;
+				}
+			}
+			closedir(d);
+		}
+		if (dev_idx == ~0U) {
+			printf("no nfc adapter in sysfs\n");
+			return 1;
+		}
+		printf("using nfc%u\n", dev_idx);
 	}
 	fam = genl_family_id(fd);
 	if (fam < 0) {

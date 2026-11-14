@@ -9,6 +9,7 @@
  *
  *   nfc-mfread            try MAD/NFC/default keys, dump block 0
  */
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/nfc.h>
@@ -225,6 +226,48 @@ static int nfc_simple(int fd, int family, unsigned char cmd,
 	return err;
 }
 
+/* Full poll reset: STOP_POLL + DEV_DOWN/UP + START_POLL. Needed after a
+ * failed auth — the card drops off the RF link and the kernel keeps
+ * listing the dead target until polling restarts. */
+static int reset_poll(int fd, int fam, unsigned int dev_idx)
+{
+	struct msg m;
+	struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
+	unsigned int im = NFC_PROTO_JEWEL_MASK | NFC_PROTO_MIFARE_MASK |
+			  NFC_PROTO_FELICA_MASK | NFC_PROTO_ISO14443_MASK |
+			  NFC_PROTO_ISO14443_B_MASK | NFC_PROTO_ISO15693_MASK;
+	unsigned char rf_mode = NFC_RF_INITIATOR;
+	int r;
+
+	nfc_simple(fd, fam, NFC_CMD_STOP_POLL, dev_idx);
+	usleep(100 * 1000);
+	r = nfc_simple(fd, fam, NFC_CMD_DEV_DOWN, dev_idx);
+	if (r)
+		printf("reset dev_down: %d\n", r);
+	r = nfc_simple(fd, fam, NFC_CMD_DEV_UP, dev_idx);
+	if (r) {
+		printf("reset dev_up: %d\n", r);
+		return r;
+	}
+
+	memset(&m, 0, sizeof(m));
+	m.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
+	m.n.nlmsg_type = fam;
+	m.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	m.n.nlmsg_seq = 3;
+	m.g.cmd = NFC_CMD_START_POLL;
+	m.g.version = 1;
+	msg_put(&m, NFC_ATTR_DEVICE_INDEX, &dev_idx, sizeof(dev_idx));
+	msg_put(&m, NFC_ATTR_IM_PROTOCOLS, &im, sizeof(im));
+	msg_put(&m, NFC_ATTR_RF_MODE, &rf_mode, sizeof(rf_mode));
+	if (sendto(fd, &m, m.n.nlmsg_len, 0, (struct sockaddr *)&addr,
+		   sizeof(addr)) < 0) {
+		perror("START_POLL");
+		return -errno;
+	}
+	return 0;
+}
+
 static void unblock_rfkill(void)
 {
 	int i, fd;
@@ -387,16 +430,59 @@ static int get_target(int family, unsigned int dev_idx,
 
 int main(int argc, char **argv)
 {
-	static const unsigned char key_mad[6] =
-		{ 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5 };
-	static const unsigned char key_nfc[6] =
-		{ 0xd3, 0xf7, 0xd3, 0xf7, 0xd3, 0xf7 };
-	static const unsigned char key_def[6] =
-		{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-	unsigned int dev_idx = 0;
+	struct mfkey {
+		const char *name;
+		unsigned char key[6];
+		unsigned char auth; /* 0x60 = KEY_A, 0x61 = KEY_B */
+	};
+	static const struct mfkey keys[] = {
+		{ "MAD-A  a0a1..", {0xa0,0xa1,0xa2,0xa3,0xa4,0xa5}, 0x60 },
+		{ "MAD-B  a0a1..", {0xa0,0xa1,0xa2,0xa3,0xa4,0xa5}, 0x61 },
+		{ "NFC-A  d3f7..", {0xd3,0xf7,0xd3,0xf7,0xd3,0xf7}, 0x60 },
+		{ "NFC-B  d3f7..", {0xd3,0xf7,0xd3,0xf7,0xd3,0xf7}, 0x61 },
+		{ "def-A  ffff..", {0xff,0xff,0xff,0xff,0xff,0xff}, 0x60 },
+		{ "def-B  ffff..", {0xff,0xff,0xff,0xff,0xff,0xff}, 0x61 },
+		{ "zero-A 0000..", {0x00,0x00,0x00,0x00,0x00,0x00}, 0x60 },
+		{ "zero-B 0000..", {0x00,0x00,0x00,0x00,0x00,0x00}, 0x61 },
+		{ "B0B1-A",      {0xb0,0xb1,0xb2,0xb3,0xb4,0xb5}, 0x60 },
+		{ "B0B1-B",      {0xb0,0xb1,0xb2,0xb3,0xb4,0xb5}, 0x61 },
+		{ "AABB-A",      {0xaa,0xbb,0xcc,0xdd,0xee,0xff}, 0x60 },
+		{ "4D3A-A",      {0x4d,0x3a,0x99,0xc3,0x51,0xdd}, 0x60 },
+		{ "1A98-A",      {0x1a,0x98,0x2c,0x7e,0x45,0x9a}, 0x60 },
+		{ "714C-A",      {0x71,0x4c,0x5c,0x88,0x6e,0x97}, 0x60 },
+		{ "587E-A",      {0x58,0x7e,0xe5,0xf9,0x35,0x0f}, 0x60 },
+		{ "A047-A",      {0xa0,0x47,0x8c,0xc3,0x90,0x91}, 0x60 },
+		{ "533C-A",      {0x53,0x3c,0xb6,0xc7,0x23,0xf6}, 0x60 },
+	};
+	#define NKEYS (int)(sizeof(keys) / sizeof(keys[0]))
+	unsigned int dev_idx = ~0U;
 	int fd, fam, s, i, next_key = 0;
 
 	int t2mode = argc > 1 && !strcmp(argv[1], "t2");
+	int t2wmode = argc > 1 && !strcmp(argv[1], "t2w");
+
+	/* dev_idx defaults to the first adapter in /sys/class/nfc/nfcN —
+	 * the index is not stable across module reloads. */
+	{
+		DIR *d = opendir("/sys/class/nfc");
+		struct dirent *de;
+
+		if (d) {
+			while ((de = readdir(d))) {
+				unsigned int n;
+				if (sscanf(de->d_name, "nfc%u", &n) == 1) {
+					dev_idx = n;
+					break;
+				}
+			}
+			closedir(d);
+		}
+		if (dev_idx == ~0U) {
+			printf("no nfc adapter in sysfs\n");
+			return 1;
+		}
+		printf("using nfc%u\n", dev_idx);
+	}
 
 	(void)argc;
 	setvbuf(stdout, NULL, _IONBF, 0);
@@ -530,14 +616,10 @@ int main(int argc, char **argv)
 		printf("\n");
 
 		{
-			const unsigned char *keys[3] =
-				{ key_mad, key_nfc, key_def };
-			const char *names[3] =
-				{ "MAD a0..a5", "NFC d3f7..", "default ff.." };
 			unsigned char tx[16], rx[64];
 			int k, done = 0;
 
-			if (t2mode) {
+			if (t2mode || t2wmode) {
 				struct sockaddr_nfc sa = {
 					.sa_family = AF_NFC,
 					.dev_idx = dev_idx,
@@ -557,13 +639,71 @@ int main(int argc, char **argv)
 				}
 				printf("connected, protos=0x%x\n", protos);
 				/* Type 2 / Ultralight-NTAG: dump pages via
-				 * READ (0x30 + 16-bit byte address) */
-				unsigned char tx[3], rx[64];
-				for (int pg = 0; pg < 0x30; pg += 4) {
+				 * READ (0x30 + 1-byte page address) */
+				unsigned char tx[8], rx[64];
+				int pg;
+
+				if (t2wmode) {
+					/* write test on a scratch page:
+					 * read -> write pattern -> read back
+					 * -> restore original */
+					const int wp = 0x10;
+					unsigned char orig[4] = {0};
+
 					tx[0] = 0x30;
-					tx[1] = pg >> 8;
-					tx[2] = pg & 0xff;
-					int r = xchg(s, tx, 3, rx,
+					tx[1] = wp;
+					int r = xchg(s, tx, 2, rx,
+						     sizeof(rx), 3000);
+					if (r >= 17) {
+						/* rx[0] is rf status,
+						 * data starts at rx[1] */
+						memcpy(orig, rx + 1, 4);
+						printf("page %02x orig:", wp);
+						for (int b = 0; b < 4; b++)
+							printf(" %02x", orig[b]);
+						printf("\n");
+					}
+					unsigned char pat[4] =
+						{0xde, 0xad, 0xbe, 0xef};
+					tx[0] = 0xa2; /* WRITE */
+					tx[1] = wp;
+					memcpy(tx + 2, pat, 4);
+					r = xchg(s, tx, 6, rx, sizeof(rx), 3000);
+					printf("write: %s\n",
+					       r >= 0 ? "sent" : "failed");
+					if (r >= 0) {
+						usleep(20000);
+						tx[0] = 0x30;
+						tx[1] = wp;
+						r = xchg(s, tx, 2, rx,
+							 sizeof(rx), 3000);
+						if (r >= 5 &&
+						    !memcmp(rx + 1, pat, 4))
+							printf("VERIFY OK: "
+							       "deadbeef read back\n");
+						else
+							printf("VERIFY FAIL r=%d "
+							       "data=%02x%02x%02x%02x\n",
+							       r,
+							       r > 4 ? rx[1] : 0,
+							       r > 5 ? rx[2] : 0,
+							       r > 6 ? rx[3] : 0,
+							       r > 7 ? rx[4] : 0);
+						/* restore */
+						tx[0] = 0xa2;
+						tx[1] = wp;
+						memcpy(tx + 2, orig, 4);
+						xchg(s, tx, 6, rx,
+						     sizeof(rx), 3000);
+						printf("restored\n");
+					}
+					close(s);
+					return 0;
+				}
+				for (pg = 0; pg < 0x30; pg += 4) {
+					tx[0] = 0x30;
+					tx[1] = pg & 0xff;
+					int r = xchg(s, tx, 2, rx,
 						     sizeof(rx), 3000);
 					if (r <= 0) {
 						printf("read @%02x: %s\n", pg,
@@ -581,10 +721,10 @@ int main(int argc, char **argv)
 				return 0;
 			}
 
-			for (k = next_key; k < 3 && !done; k++) {
+			for (k = next_key; k < NKEYS && !done; k++) {
 				int txlen, r;
 
-				printf("key %s:\n", names[k]);
+				printf("key %s:\n", keys[k].name);
 				s = socket(AF_NFC, SOCK_SEQPACKET,
 					   NFC_SOCKPROTO_RAW);
 				if (s < 0) {
@@ -604,15 +744,18 @@ int main(int argc, char **argv)
 						printf("connect: errno=%d (%s)\n",
 						       errno, strerror(errno));
 						close(s);
-						break; /* stale target: re-poll */
+						/* stale/dead target: full
+						 * poll reset, then re-poll */
+						reset_poll(fd, fam, dev_idx);
+						break; /* re-poll */
 					}
 				}
 				printf("connected, protos=0x%x\n", protos);
 
 				txlen = 0;
-				tx[txlen++] = 0x60; /* AUTH_KEY_A */
+				tx[txlen++] = keys[k].auth;
 				tx[txlen++] = 0x00; /* block 0 */
-				memcpy(tx + txlen, keys[k], 6);
+				memcpy(tx + txlen, keys[k].key, 6);
 				txlen += 6;
 				/* MIFARE Classic auth uses the 4-byte NUID,
 				 * even for cards with a 7-byte UID */
@@ -621,10 +764,12 @@ int main(int argc, char **argv)
 				txlen += nuid_len;
 				r = xchg(s, tx, txlen, rx, sizeof(rx), 6000);
 				if (r < 0) {
-					/* auth failed: link dead, next key
-					 * needs a fresh activation */
+					/* auth failed: card dropped off
+					 * the link — restart polling for
+					 * a fresh activation */
 					printf("    auth failed\n");
 					close(s);
+					reset_poll(fd, fam, dev_idx);
 					next_key = k + 1;
 					break;
 				}
@@ -640,12 +785,14 @@ int main(int argc, char **argv)
 					done = 1;
 				}
 				close(s);
-				if (!done)
+				if (!done) {
+					reset_poll(fd, fam, dev_idx);
 					next_key = k + 1;
+				}
 			}
 			if (done)
 				return 0;
-			if (next_key >= 3) {
+			if (next_key >= NKEYS) {
 				printf("all keys failed\n");
 				return 1;
 			}
