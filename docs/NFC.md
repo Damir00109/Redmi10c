@@ -111,3 +111,38 @@ MIFARE-команды в NXP proprietary формат:
 4. CLKREQ GPIO71 — если отклики будут нестабильны.
 5. После рабочего чтения — убрать debug-принты, решить судьбу
    seq-replay (минимальный набор конфига?), обновить neard.
+
+## РАБОЧЕЕ ЧТЕНИЕ MIFARE (2026-11-15) — DONE
+
+Полный дамп Troika/MIFARE Classic 1K (UID `1dba061b010003`) прочитан
+под mainline Linux. Все 16 секторов, все 64 блока.
+Дамп: `docs/nfc/mifare-dump-linux.txt`, тулза: `tools/nfc-mfrw.c`.
+
+Финальная рабочая последовательность:
+
+1. `nxp-nci` реплеит Android SN100U init (16 конфиг-кадров, без `0x21`
+   RF-mgmt — они ломали MAP) + `pre_discover` (2× prop-only discover
+   `21 03 05 02 80 01 81 01`, deactivate `21 06`, poll-config `21 01 60`,
+   set-config `20 02 17 ...`, `20 02 07`) + `post_discover`
+   (`20 09 01 00`, `20 02 04 01 02 01 01`).
+2. Discover — штатный 7-tech `21 03 0f` (prop-techs 0x80/0x81 уже
+   добавлены в nci core при MIFARE в маске).
+3. Карта auto-activate `61 05 ... 01 01 02` → userspace connect →
+   kernel `nci_activate_target`: `21 06 01 01` (deactivate-sleep) →
+   `21 04 03 01 80 80` (select, **select надо слать дважды** — первый
+   отвечает `60 07 01 a1`, второй → `61 05 ... 01 80 80`).
+   Клиент ретраит connect() — второй connect шлёт select повторно.
+4. Userspace: AF_NFC `SOCK_SEQPACKET` (НЕ SOCK_RAW — у него
+   `sock_no_connect`!), `sockaddr_nfc.nfc_protocol = NFC_PROTO_MIFARE(2)`.
+   netlink: подписка на genl multicast "events" обязательна
+   (`nl_groups=0xffffffff`), TARGETS_FOUND несёт только DEVICE_INDEX —
+   детали цели через `NFC_CMD_GET_TARGET` dump.
+5. Протокол SN100 prop-обёртки (payload без NCI-заголовка):
+   - auth sector S keyA: `40 <sector> 10 <key6>` → ответ `00 40`
+   - auth keyB: `40 <sector> 11 <key6>` (предположительно)
+   - read block B: `10 30 <block>` → ответ `00 10 <16 байт данных>`
+   - NACK → SN100 шлёт ~150-220 байт TLV-ошибки и рвёт линк.
+
+Все 16 секторов Troika открываются ключом A `a0a1a2a3a4a5`.
+Содержимое: блоки 0-2 — manufacturer/data, сектор 1 (блоки 4-5) —
+данные билета (`50c70d1a...`, `f7bc81d2...`), остальное нули.
