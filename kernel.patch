@@ -18878,7 +18878,7 @@ index 73e3a9647..7930601c7 100644
  
  		if (protocol == NFC_PROTO_JEWEL)
 diff --git a/net/nfc/nci/ntf.c b/net/nfc/nci/ntf.c
-index f5c9a8ab7..4ce967243 100644
+index f5c9a8ab7..5b04648f7 100644
 --- a/net/nfc/nci/ntf.c
 +++ b/net/nfc/nci/ntf.c
 @@ -380,6 +380,23 @@ static int nci_add_new_protocol(struct nci_dev *ndev,
@@ -18949,6 +18949,28 @@ index f5c9a8ab7..4ce967243 100644
  			pr_err("unsupported activation_rf_tech_and_mode 0x%x\n",
  			       ntf.activation_rf_tech_and_mode);
  			err = NCI_STATUS_RF_PROTOCOL_ERROR;
+@@ -1054,7 +1093,7 @@ void nci_ntf_packet(struct nci_dev *ndev, struct sk_buff *skb)
+ 		break;
+ 
+ 	default:
+-		pr_err("unknown ntf opcode 0x%x\n", ntf_opcode);
++		pr_debug("unknown ntf opcode 0x%x\n", ntf_opcode);
+ 		break;
+ 	}
+ 
+diff --git a/net/nfc/nci/rsp.c b/net/nfc/nci/rsp.c
+index b0ab4f5ac..34c0c820e 100644
+--- a/net/nfc/nci/rsp.c
++++ b/net/nfc/nci/rsp.c
+@@ -449,7 +449,7 @@ void nci_rsp_packet(struct nci_dev *ndev, struct sk_buff *skb)
+ 		break;
+ 
+ 	default:
+-		pr_err("unknown rsp opcode 0x%x\n", rsp_opcode);
++		pr_debug("unknown rsp opcode 0x%x\n", rsp_opcode);
+ 		break;
+ 	}
+ 
 diff --git a/net/qrtr/ns.c b/net/qrtr/ns.c
 index bcb090ee7..e46977b8b 100644
 --- a/net/qrtr/ns.c
