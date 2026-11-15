@@ -1,6 +1,7 @@
 // Minimal NFC client for SN100U MIFARE experiments.
 // genl "nfc": DEV_UP + START_POLL, wait TARGETS_FOUND, then AF_NFC raw socket
 // to the target; interactive hex TX/RX lines on stdin.
+// argv[1] = seconds to wait for a card (default 30, 0 = forever).
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +9,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/genetlink.h>
@@ -233,9 +236,16 @@ static int genl_dump_targets(uint32_t *tidx, uint32_t *proto, uint8_t *uid, int 
 	}
 }
 
-static int wait_target(uint32_t *tidx, uint32_t *proto, uint8_t *uid, int *uidlen)
+static int wait_target(uint32_t *tidx, uint32_t *proto, uint8_t *uid, int *uidlen,
+		       int timeout_sec)
 {
+	time_t deadline = timeout_sec > 0 ? time(NULL) + timeout_sec : 0;
 	for (;;) {
+		if (deadline && time(NULL) > deadline) {
+			fprintf(stderr, "no target within %ds, shutting down\n",
+				timeout_sec);
+			return -ETIMEDOUT;
+		}
 		char buf[16384];
 		int len;
 		if (pend_len) {
@@ -273,6 +283,27 @@ static int wait_target(uint32_t *tidx, uint32_t *proto, uint8_t *uid, int *uidle
 			return genl_dump_targets(tidx, proto, uid, uidlen);
 		}
 	}
+}
+
+static void nfc_shutdown(void)
+{
+	struct nlmsghdr *n;
+	struct sockaddr_nl sa = { .nl_family = AF_NETLINK };
+
+	n = genlmsg(NFC_CMD_STOP_POLL, NLM_F_ACK);
+	uint32_t idx = 0;
+	addattr(n, NFC_ATTR_DEVICE_INDEX, &idx, 4);
+	nl_talk(n);
+
+	n = genlmsg(NFC_CMD_DEV_DOWN, NLM_F_ACK);
+	addattr(n, NFC_ATTR_DEVICE_INDEX, &idx, 4);
+	nl_talk(n);
+}
+
+static void on_term(int sig)
+{
+	nfc_shutdown();
+	_exit(0);
 }
 
 static int hex2bin(const char *s, uint8_t *out, int max)
@@ -315,9 +346,17 @@ int main(int argc, char **argv)
 	addattr(n, NFC_ATTR_IM_PROTOCOLS, &im, 4);
 	addattr(n, NFC_ATTR_TM_PROTOCOLS, &tm, 4);
 	printf("START_POLL: %d\n", nl_talk(n));
+	atexit(nfc_shutdown);
+	{
+		struct sigaction sa2 = { .sa_handler = on_term };
+		sigemptyset(&sa2.sa_mask);
+		sigaction(SIGTERM, &sa2, NULL);
+		sigaction(SIGINT, &sa2, NULL);
+	}
 
 	uint32_t tidx = 0, proto = 0; uint8_t uid[16]; int uidlen = 0;
-	if (wait_target(&tidx, &proto, uid, &uidlen)) return 1;
+	int wait_sec = argc > 1 ? atoi(argv[1]) : 30;
+	if (wait_target(&tidx, &proto, uid, &uidlen, wait_sec)) return 1;
 
 	int s = -1;
 	struct sockaddr_nfc sn = { .sa_family = AF_NFC, .dev_idx = 0,
