@@ -14281,21 +14281,13 @@ index e57588c19..f7f43aece 100644
  	}
  
 diff --git a/drivers/nfc/nxp-nci/core.c b/drivers/nfc/nxp-nci/core.c
-index 448e5a4e7..784b2dd8f 100644
+index 448e5a4e7..452e7dda4 100644
 --- a/drivers/nfc/nxp-nci/core.c
 +++ b/drivers/nfc/nxp-nci/core.c
-@@ -123,11 +123,245 @@ static const struct nci_driver_ops nxp_nci_core_ops[] = {
+@@ -123,11 +123,187 @@ static const struct nci_driver_ops nxp_nci_core_ops[] = {
  	},
  };
  
-+/*
-+ * NXP proprietary activation command (PROP_ACT, OID=0x02).
-+ * Must be sent after CORE_INIT to enable NXP proprietary extensions
-+ * and activate the RF subsystem. Without this, RF discovery yields
-+ * no usable data path on NXP NCI 2.0 controllers (SN100U, PN7150).
-+ */
-+#define NXP_NCI_PROP_ACT_CMD nci_opcode_pack(NCI_GID_PROPRIETARY, 0x02)
-+
 +/*
 + * NCI config frames captured verbatim from stock Android
 + * (NFCSNOOP_LOG dump) during NFC-on on the SN100U: GID-2 NFCEE
@@ -14410,29 +14402,6 @@ index 448e5a4e7..784b2dd8f 100644
 +			     ARRAY_SIZE(nxp_sn100u_post_disc_lens));
 +}
 +
-+/*
-+ * Stock Android polls MIFARE on the SN100U with the proprietary
-+ * poll techs only: "21 03 05 02 80 01 81 01".  The card is then
-+ * discovered with rf_protocol 0x80 and the follow-up
-+ * RF_DISCOVER_SELECT (rf_protocol 0x80 / rf_interface FRAME)
-+ * succeeds; with the generic tech list the card is found through
-+ * NFC-A passive poll instead and the proprietary select fails
-+ * with NCI_STATUS_DISCOVERY_TARGET_ACTIVATION_FAILED (0xa1).
-+ */
-+static int nxp_nci_discover_configs(struct nci_dev *ndev,
-+				    __u32 im_protocols, __u32 tm_protocols,
-+				    struct nci_rf_disc_cmd *cmd)
-+{
-+	/*
-+	 * Stock Android arms the SN100U proprietary poll techs with two
-+	 * RF_DISCOVER (0x80/0x81 only) frames sent from pre_discover,
-+	 * then issues the regular 7-tech RF_DISCOVER itself.  The core
-+	 * default list already matches that final frame, so no override
-+	 * is needed here.
-+	 */
-+	return 0;
-+}
-+
 +static int nxp_sn100u_seq_enable = 1;
 +module_param_named(seq_enable, nxp_sn100u_seq_enable, int, 0644);
 +MODULE_PARM_DESC(seq_enable,
@@ -14460,35 +14429,17 @@ index 448e5a4e7..784b2dd8f 100644
 +	return 0;
 +}
 +
-+static int nxp_nci_prop_act_rsp(struct nci_dev *ndev, struct sk_buff *skb)
-+{
-+	u8 status = skb->data[0];
-+
-+	nci_req_complete(ndev, status);
-+	return 0;
-+}
-+
-+static const struct nci_driver_ops nxp_nci_prop_ops[] = {
-+	{
-+		.opcode = NXP_NCI_PROP_ACT_CMD,
-+		.rsp = nxp_nci_prop_act_rsp,
-+	},
-+};
-+
 +/*
-+ * Stock Android selects MIFARE targets with rf_protocol=0x80 /
-+ * rf_interface=0x80 (NXP proprietary MIFARE frame I/F), on which the
++ * MIFARE on the SN100U lives on the NXP proprietary RF interface:
++ * stock Android selects MIFARE targets with rf_protocol=0x80 /
++ * rf_interface=0x80 (wire frame "21 04 03 01 80 80"), on which the
 + * controller understands the '40 <sector> <flags> [key]' auth and
-+ * '10 <mifare frame>' command wrappers used by NxpMfcReader.  With the
++ * '10 <mifare frame>' wrappers used by NxpMfcReader.  With the
 + * standard T2T/FRAME selection the SN100U accepts data packets but
 + * never produces a DATA_PKT response.
 + *
-+ * NXP proprietary poll protocols used for MIFARE on the SN100U:
-+ * stock Android discovers MIFARE targets on tech_and_mode 0x80/0x81
-+ * and activates them with rf_protocol 0x80 on the proprietary
-+ * interface (rf_interface 0x80), where the '40'/'10' frame wrappers
-+ * work.  Report them as MIFARE so the generic NCI core accepts the
-+ * targets.
++ * The proprietary poll techs 0x80/0x81 are reported as MIFARE so the
++ * generic NCI core accepts the targets.
 + */
 +static __u32 nxp_nci_get_rfprotocol(struct nci_dev *ndev,
 +				    __u8 rf_protocol)
@@ -14501,12 +14452,6 @@ index 448e5a4e7..784b2dd8f 100644
 +static void nxp_nci_rf_select_iface(struct nci_dev *ndev,
 +				    struct nci_rf_discover_select_cmd *cmd)
 +{
-+	/*
-+	 * Stock Android selects MIFARE with rf_protocol=0x80 but keeps
-+	 * rf_interface=0x01 (FRAME): the wire frame is
-+	 * "21 04 03 01 80 01".  Setting rf_interface=0x80 makes the
-+	 * SN100U reject the activation with status 0xa1.
-+	 */
 +	if (nxp_nci_mfc_raw &&
 +	    cmd->rf_protocol == NCI_RF_PROTOCOL_T2T) {
 +		cmd->rf_protocol = 0x80;
@@ -14524,13 +14469,10 @@ index 448e5a4e7..784b2dd8f 100644
 +	.rf_select_iface = nxp_nci_rf_select_iface,
 +	.pre_discover = nxp_nci_pre_discover,
 +	.post_discover = nxp_nci_post_discover,
-+	.discover_configs = nxp_nci_discover_configs,
-+	.prop_ops = nxp_nci_prop_ops,
-+	.n_prop_ops = ARRAY_SIZE(nxp_nci_prop_ops),
  	.core_ops = nxp_nci_core_ops,
  	.n_core_ops = ARRAY_SIZE(nxp_nci_core_ops),
  };
-@@ -191,10 +425,15 @@ void nxp_nci_remove(struct nci_dev *ndev)
+@@ -191,10 +367,15 @@ void nxp_nci_remove(struct nci_dev *ndev)
  	if (info->phy_ops->set_mode)
  		info->phy_ops->set_mode(info->phy_id, NXP_NCI_MODE_COLD);
  
@@ -18747,10 +18689,10 @@ index 5747bd191..60fa6526e 100644
  
  int qcom_scm_qtee_invoke_smc(phys_addr_t inbuf, size_t inbuf_size,
 diff --git a/include/net/nfc/nci_core.h b/include/net/nfc/nci_core.h
-index 664d5058e..b7b807960 100644
+index 664d5058e..2e99407dd 100644
 --- a/include/net/nfc/nci_core.h
 +++ b/include/net/nfc/nci_core.h
-@@ -71,6 +71,18 @@ struct nci_ops {
+@@ -71,6 +71,10 @@ struct nci_ops {
  	int   (*post_setup)(struct nci_dev *ndev);
  	int   (*fw_download)(struct nci_dev *ndev, const char *firmware_name);
  	__u32 (*get_rfprotocol)(struct nci_dev *ndev, __u8 rf_protocol);
@@ -18758,19 +18700,11 @@ index 664d5058e..b7b807960 100644
 +				 struct nci_rf_discover_select_cmd *cmd);
 +	void  (*pre_discover)(struct nci_dev *ndev, __u32 im_protocols);
 +	void  (*post_discover)(struct nci_dev *ndev);
-+	/*
-+	 * Optional driver-provided RF_DISCOVER config list.  Fill in
-+	 * cmd->disc_configs and return the number of configs used, or
-+	 * return 0 to let the core build the default list.
-+	 */
-+	int   (*discover_configs)(struct nci_dev *ndev, __u32 im_protocols,
-+				  __u32 tm_protocols,
-+				  struct nci_rf_disc_cmd *cmd);
  	int   (*discover_se)(struct nci_dev *ndev);
  	int   (*disable_se)(struct nci_dev *ndev, u32 se_idx);
  	int   (*enable_se)(struct nci_dev *ndev, u32 se_idx);
 diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
-index 73e3a9647..5cb710be7 100644
+index 73e3a9647..7930601c7 100644
 --- a/net/nfc/nci/core.c
 +++ b/net/nfc/nci/core.c
 @@ -163,7 +163,7 @@ static void nci_reset_req(struct nci_dev *ndev, const void *opt)
@@ -18848,7 +18782,7 @@ index 73e3a9647..5cb710be7 100644
  	nci_send_cmd(ndev, NCI_OP_RF_DISCOVER_MAP_CMD,
  		     (1 + ((*num) * sizeof(struct disc_map_config))), &cmd);
  }
-@@ -244,8 +296,17 @@ static void nci_rf_discover_req(struct nci_dev *ndev, const void *opt)
+@@ -244,6 +296,9 @@ static void nci_rf_discover_req(struct nci_dev *ndev, const void *opt)
  	const struct nci_rf_discover_param *param = opt;
  	struct nci_rf_disc_cmd cmd;
  
@@ -18857,16 +18791,8 @@ index 73e3a9647..5cb710be7 100644
 +
  	cmd.num_disc_configs = 0;
  
-+	if (ndev->ops->discover_configs &&
-+	    ndev->ops->discover_configs(ndev, param->im_protocols,
-+					param->tm_protocols, &cmd) > 0) {
-+		/* driver supplied the whole discovery config list */
-+	} else {
-+
  	if ((cmd.num_disc_configs < NCI_MAX_NUM_RF_CONFIGS) &&
- 	    (param->im_protocols & NFC_PROTO_JEWEL_MASK ||
- 	     param->im_protocols & NFC_PROTO_MIFARE_MASK ||
-@@ -274,6 +335,33 @@ static void nci_rf_discover_req(struct nci_dev *ndev, const void *opt)
+@@ -274,6 +329,33 @@ static void nci_rf_discover_req(struct nci_dev *ndev, const void *opt)
  		cmd.num_disc_configs++;
  	}
  
@@ -18900,12 +18826,7 @@ index 73e3a9647..5cb710be7 100644
  	if ((cmd.num_disc_configs < NCI_MAX_NUM_RF_CONFIGS) &&
  	    (param->im_protocols & NFC_PROTO_ISO15693_MASK)) {
  		cmd.disc_configs[cmd.num_disc_configs].rf_tech_and_mode =
-@@ -294,9 +382,14 @@ static void nci_rf_discover_req(struct nci_dev *ndev, const void *opt)
- 		cmd.num_disc_configs++;
- 	}
- 
-+	}
-+
+@@ -297,6 +379,9 @@ static void nci_rf_discover_req(struct nci_dev *ndev, const void *opt)
  	nci_send_cmd(ndev, NCI_OP_RF_DISCOVER_CMD,
  		     (1 + (cmd.num_disc_configs * sizeof(struct disc_config))),
  		     &cmd);
@@ -18915,7 +18836,7 @@ index 73e3a9647..5cb710be7 100644
  }
  
  struct nci_rf_discover_select_param {
-@@ -326,6 +419,9 @@ static void nci_rf_discover_select_req(struct nci_dev *ndev, const void *opt)
+@@ -326,6 +411,9 @@ static void nci_rf_discover_select_req(struct nci_dev *ndev, const void *opt)
  		break;
  	}
  
@@ -18925,7 +18846,7 @@ index 73e3a9647..5cb710be7 100644
  	nci_send_cmd(ndev, NCI_OP_RF_DISCOVER_SELECT_CMD,
  		     sizeof(struct nci_rf_discover_select_cmd), &cmd);
  }
-@@ -939,7 +1035,29 @@ static int nci_activate_target(struct nfc_dev *nfc_dev,
+@@ -939,7 +1027,29 @@ static int nci_activate_target(struct nfc_dev *nfc_dev,
  		return -EINVAL;
  	}
  
@@ -19028,20 +18949,6 @@ index f5c9a8ab7..4ce967243 100644
  			pr_err("unsupported activation_rf_tech_and_mode 0x%x\n",
  			       ntf.activation_rf_tech_and_mode);
  			err = NCI_STATUS_RF_PROTOCOL_ERROR;
-diff --git a/net/nfc/nci/rsp.c b/net/nfc/nci/rsp.c
-index b0ab4f5ac..c181678a4 100644
---- a/net/nfc/nci/rsp.c
-+++ b/net/nfc/nci/rsp.c
-@@ -242,6 +242,9 @@ static void nci_rf_disc_rsp_packet(struct nci_dev *ndev,
- 			list_add(&conn_info->list, &ndev->conn_info_list);
- 			ndev->rf_conn_info = conn_info;
- 		}
-+
-+		if (ndev->ops->post_discover)
-+			ndev->ops->post_discover(ndev);
- 	}
- 
- exit:
 diff --git a/net/qrtr/ns.c b/net/qrtr/ns.c
 index bcb090ee7..e46977b8b 100644
 --- a/net/qrtr/ns.c
