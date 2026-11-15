@@ -34,6 +34,7 @@
 | GPU | Adreno 610: DRM/SMMU/GMU/ZAP, devfreq, Zonda PLL |
 | **GPIO / pinctrl** | Основной TLMM: **115 из 121** линий открыты в `gpiochip0`; в резерве только 14–17 (LPI/LPASS-остров, навсегда) и 66/67 (припаркованный CSI-mux). Полный свип всех пинов: чтение/запись CTL+IO, `INTR_CFG`, quiesce-последовательность — крашей нет. Карта: `docs/GPIO-PIN-MAP.md` |
 | Мелочи | вибратор (FF_RUMBLE), фонарик `white:torch` + вспышка, RTC (1970 by design + chrony), подсветка |
+| **NFC (SN100U)** | **Работает (2026-11-15)**: детект + активация на proprietary-интерфейсе + auth/read MIFARE Classic 1K — полный дамп 16 секторов через `tools/nfc-mfdump` (стандартный genl/AF_NFC UAPI). Детали: `docs/NFC.md` |
 
 ### В разработке (частично)
 
