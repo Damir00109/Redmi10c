@@ -169,10 +169,10 @@ index 000000000..b709124c7
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
 new file mode 100644
-index 000000000..9d728505f
+index 000000000..638fc4467
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm6225-xiaomi-fog.dts
-@@ -0,0 +1,1400 @@
+@@ -0,0 +1,1411 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2026 Damir00109 <internet00109@gmail.com>
@@ -1128,21 +1128,23 @@ index 000000000..9d728505f
 +
 +/* Exclusive with &wifi — same MMIO @ 0xc800000 */
 +
-+/* Audio is disabled on the stable branch — see docs/STABLE-BRANCH.md */
++/* Mic capture bring-up: enable LPASS audio for WCD937x TX path only.
++ * Playback/speaker links are intentionally absent for now.
++ * See docs/STABLE-BRANCH.md and docs/audio/. */
 +&lpass_rx_macro {
-+	status = "disabled";
++	status = "okay";
 +};
 +
 +&lpass_tx_macro {
-+	status = "disabled";
++	status = "okay";
 +};
 +
 +&lpass_va_macro {
-+	status = "disabled";
++	status = "okay";
 +};
 +
 +&swr0 {
-+	status = "disabled";
++	status = "okay";
 +
 +	/* WCD937x RX half on the rx SoundWire master (speaker/hp path) */
 +	wcd937x_rx: codec@0,4 {
@@ -1155,15 +1157,22 @@ index 000000000..9d728505f
 +};
 +
 +&swr1 {
-+	status = "disabled";
++	status = "okay";
 +
 +	/* WCD937x TX half on the VA SoundWire master (mic capture) */
 +	wcd937x_tx: codec@0,3 {
 +		compatible = "sdw20217010a00";
 +		reg = <0 3>;
 +
-+		qcom,tx-port-mapping = <1 1 2 3>;
-+		qcom,tx-channel-mapping = /bits/ 8 <1 2 1 1 2 3 3 4 1 2 3 4>;
++		/*
++		 * Vendor qcom,tx_swr_ch_map + VA-master qcom,swr-port-mapping:
++		 * codec port1 (ADC1)   -> master port 1, lane 0
++		 * codec port2 (ADC2/3) -> master port 2, lanes 0/1
++		 * codec ports 3/4 (DMIC/MBHC) -> master port 3, lanes 0-3
++		 * (codec ports 3 and 4 share master port 3, like vendor)
++		 */
++		qcom,tx-port-mapping = <1 2 3 3>;
++		qcom,tx-channel-mapping = /bits/ 8 <1 1 2 1 2 3 1 2 3 4 4>;
 +	};
 +};
 +
@@ -1175,7 +1184,7 @@ index 000000000..9d728505f
 +/ {
 +	wcd937x: audio-codec-0 {
 +		compatible = "qcom,wcd937x-codec";
-+		status = "disabled";
++		status = "okay";
 +		qcom,split-codec;
 +
 +		reset-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
@@ -1203,13 +1212,15 @@ index 000000000..9d728505f
 +
 +sound: sound {
 +	compatible = "fairphone,fp5-sndcard";
-+	status = "disabled";
++	status = "okay";
 +	model = "Xiaomi-Redmi10C";
 +
-+	/* Vendor speaker path: codec RX2/AUX -> aw87xxx PA -> speaker */
-+	audio-routing = "IN1_HPHL", "HPHL_OUT",
-+			"IN2_HPHR", "HPHR_OUT",
-+			"IN3_AUX", "AUX_OUT";
++	/* Mic capture path: AMIC1 on MIC BIAS1 -> codec ADC1 -> TX macro.
++	 * sm6115 tx_macro (ver_10) exposes SoundWire mics as TX SWR_INPUT0-11
++	 * (vendor names them TX SWR_MIC0-11; AMIC1/ADC1 = slot 0).
++	 * Additional mics (AMIC2-4/DMIC) can be enabled later. */
++	audio-routing = "AMIC1", "MIC BIAS1",
++			"TX SWR_INPUT0", "ADC1_OUTPUT";
 +
 +	mm1-dai-link {
 +		link-name = "MultiMedia1";
@@ -1219,16 +1230,16 @@ index 000000000..9d728505f
 +		};
 +	};
 +
-+	wcd-playback-dai-link {
-+		link-name = "WCD Playback";
++	wcd-capture-dai-link {
++		link-name = "WCD Capture";
 +
 +		codec {
-+			/* RX_CODEC_DMA_RX_1 feeds the RX macro AIF2 (vendor: AIF2_PB) */
-+			sound-dai = <&wcd937x 0>, <&swr0 0>, <&lpass_rx_macro 1>;
++			/* TX_CODEC_DMA_TX_3 -> TX macro AIF1_PB -> SWR -> WCD937x TX */
++			sound-dai = <&wcd937x 1>, <&swr1 0>, <&lpass_tx_macro 0>;
 +		};
 +
 +		cpu {
-+			sound-dai = <&q6afedai RX_CODEC_DMA_RX_1>;
++			sound-dai = <&q6afedai TX_CODEC_DMA_TX_3>;
 +		};
 +
 +		platform {
@@ -19030,3 +19041,34 @@ index bcb090ee7..e46977b8b 100644
  	/* As the qrtr ns socket owner and creator is the same module, we have
  	 * to decrease the qrtr module reference count to guarantee that it
  	 * remains zero after the ns socket is created, otherwise, executing
+diff --git a/sound/soc/codecs/lpass-va-macro.c b/sound/soc/codecs/lpass-va-macro.c
+index dbc5795b9..2ee4211ee 100644
+--- a/sound/soc/codecs/lpass-va-macro.c
++++ b/sound/soc/codecs/lpass-va-macro.c
+@@ -1508,6 +1508,12 @@ static int va_macro_set_lpass_codec_version(struct va_macro *va)
+ 		case 0:
+ 			version = LPASS_CODEC_VERSION_2_0;
+ 			break;
++		case 1:
++		case 2:
++		case 3:
++		case 4:
++			version = LPASS_CODEC_VERSION_2_1;
++			break;
+ 		case 5:
+ 			version = LPASS_CODEC_VERSION_2_5;
+ 			break;
+diff --git a/sound/soc/codecs/wcd937x.c b/sound/soc/codecs/wcd937x.c
+index 0dd05604f..188532937 100644
+--- a/sound/soc/codecs/wcd937x.c
++++ b/sound/soc/codecs/wcd937x.c
+@@ -2976,6 +2976,9 @@ static void wcd937x_remove(struct platform_device *pdev)
+ static const struct of_device_id wcd937x_of_match[] = {
+ 	{ .compatible = "qcom,wcd9370-codec" },
+ 	{ .compatible = "qcom,wcd9375-codec" },
++	/* khaje/bengal vendor DT uses the generic wcd937x name; the
++	 * actual variant is identified at runtime via the efuse chipid */
++	{ .compatible = "qcom,wcd937x-codec" },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, wcd937x_of_match);

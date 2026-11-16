@@ -200,3 +200,50 @@ ACM: input глючит на железе (RX байты теряются) — �
 - `docs/audio/android-live.dts` — выгруженный Android DT
 - `docs/audio/mixer_paths.xml` — вендорные mixer-пути
 - `docs/audio/capture/` — сюда скидывать дампы
+
+## Linux-side mic capture — РАБОТАЕТ (2026-11-16)
+
+### Итог
+WCD937x TX (AMIC1) пишет реальный PCM: `arecord hw:CARD=XiaomiRedmi10C,DEV=0
+-f S16_LE -r 48000 -c 1` → WAV с живым сигналом (RMS ~70-600 по тишине/звуку,
+пики до ±8000). 16 кГц тоже работает. Скрипт: `tools/mic-capture.sh`.
+
+### Ключевая находка: мux-контролы не ставятся DAPM'ом
+Stream открывался, триггерился, но данных не было (EIO/44 байта) —
+три клювера мукса в дефолте. Перед записью обязательно:
+
+    amixer -c XiaomiRedmi10C cset name='TX SMIC MUX0' SWR_MIC0
+    amixer -c XiaomiRedmi10C cset name='TX DEC0 MUX' SWR_MIC
+    amixer -c XiaomiRedmi10C cset name='TX_AIF1_CAP Mixer DEC0' 1
+    amixer -c XiaomiRedmi10C cset name='ADC1 Switch' 1
+    amixer -c XiaomiRedmi10C cset name='ADC1_MIXER Switch' 1
+    amixer -c XiaomiRedmi10C cset name='ADC1 Volume' 20
+
+`MultiMedia1 Mixer TX_CODEC_DMA_TX_3` DAPM включает сам.
+Значения живут в регистрах до ребута — после перезагрузки ставить заново
+(см. tools/mic-capture.sh).
+
+### DTS-правки (sm6225-xiaomi-fog.dts)
+- `qcom,tx-port-mapping = <1 2 3 3>` — расшифровано из вендорного
+  `qcom,tx_swr_ch_map` + VA-master `qcom,swr-port-mapping` (android-live.dts):
+  codec port1(ADC1)->master1, port2(ADC2/3)->master2, port3/4(DMIC/MBHC)->master3.
+- `qcom,tx-channel-mapping` — 11 значений (было 12 → OOB-запись за границу
+  wcd937x_sdw_tx_ch_info[11]): <1 1 2 1 2 3 1 2 3 4 4>
+  (порядок = ADC1,ADC2,ADC3,DMIC0,DMIC1,MBHC,DMIC2,DMIC3,DMIC4,DMIC5,DMIC6;
+  DMIC2/DMIC3 делят лейны с DMIC0/DMIC1 — как в вендоре, активен один набор).
+- audio-routing: `"AMIC1","MIC BIAS1"`, `"TX SWR_INPUT0","ADC1_OUTPUT"`
+  (sm6115 tx_macro v9_2: входы называются TX SWR_INPUT0-11;
+  SWR_INPUTn == вендорный SWR_MICn).
+
+### Тракт
+AMIC1 → MIC BIAS1(2.7V) → ADC1 → codec TX port1 → SWR VA-master (swr1,
+a740000) lane → tx_macro SMIC MUX0(SWR_MIC0) → DEC0 MUX(SWR_MIC) →
+TX_AIF1_CAP Mixer DEC0 → TX_AIF1 CAP → AFE TX_CODEC_DMA_TX_3 (0xB037) →
+ASM MM_UL1 → MultiMedia1 → userspace.
+
+### Дальше (не сделано)
+- Остальные микрофоны (AMIC2-4, DMIC0-6, VA DMIC) — индексы SWR_MIC
+  из вендорного audio-routing: ADC2->MIC4, ADC3->MIC5, DMIC1->MIC8,
+  DMIC2->MIC9, DMIC3->MIC8, DMIC4->MIC9, DMIC5->MIC10, DMIC6->MIC11.
+- Громкость/калибровка (ACDB в IDP_Speaker_cal.acdb/IDP_Handset_cal.acdb).
+- Персистентность kcontrols: UCM/alsa-state или дефолты в драйвере.
