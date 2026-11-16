@@ -247,3 +247,12 @@ ASM MM_UL1 → MultiMedia1 → userspace.
   DMIC2->MIC9, DMIC3->MIC8, DMIC4->MIC9, DMIC5->MIC10, DMIC6->MIC11.
 - Громкость/калибровка (ACDB в IDP_Speaker_cal.acdb/IDP_Handset_cal.acdb).
 - Персистентность kcontrols: UCM/alsa-state или дефолты в драйвере.
+
+### Автозапуск (установлено на устройстве, cust partition)
+- `/usr/local/bin/mic-enable.sh` — выставляет 6 kcontrols (идемпотентно)
+- `/etc/systemd/system/mic-enable.service` — oneshot при загрузке
+  (enabled, After=sound.target)
+- `/usr/lib/systemd/system-sleep/mic-enable` — повторный apply после resume
+- `/usr/local/bin/mic-record [rate] [sec] [out]` — запись в одну команду
+- Бэкап проверенного образа: `out/boot-linux-mic-ok-2026-11-16.img`
+  (sha256 39f68023…, = rootfs/out/boot-linux.img на момент записи)
